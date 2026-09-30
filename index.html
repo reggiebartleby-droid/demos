@@ -1,0 +1,876 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Fishnet Battle Previews</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  /* Layout: a short night-sky header, then three game panels (wrapping, one column on phones), each a playable battle. Single dark theme on purpose: it's a night island. */
+  :root {
+    --night: #0e0c24;
+    --deck: #17153a;
+    --line: #2d2a5e;
+    --moon: #ece9ff;
+    --muted: #a8a4d6;
+    --torch: #ffb347;
+    --lagoon: #5eead4;
+    --coral: #ff7b7b;
+    --font-display: "Pixelify Sans", "Courier New", monospace;
+    --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  html { background: var(--night); }
+  body {
+    background: var(--night);
+    color: var(--moon);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-inline: 16px;
+    padding-block: 24px 40px;
+  }
+  .wrap { max-width: 1240px; margin-inline: auto; display: flex; flex-direction: column; gap: 28px; }
+  header { display: flex; flex-direction: column; gap: 10px; max-width: 68ch; }
+  .eyebrow { font-family: var(--font-display); color: var(--torch); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.85rem; margin: 0; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.05; margin: 0; text-wrap: balance; }
+  header p { margin: 0; color: var(--muted); }
+  .how { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 0; padding: 0; list-style: none; color: var(--moon); font-size: 0.95rem; }
+  .how li { display: flex; gap: 8px; align-items: baseline; }
+  .how b { font-family: var(--font-display); color: var(--torch); }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; align-items: start; }
+  .panel { background: var(--deck); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .panel.new { border-color: var(--torch); }
+  .tag { font-family: var(--font-display); font-size: 0.75rem; color: var(--night); background: var(--torch); padding: 2px 8px; border-radius: 4px; align-self: flex-start; letter-spacing: 0.05em; text-transform: uppercase; }
+  .panel h2 { font-family: var(--font-display); font-size: 1.6rem; margin: 0; line-height: 1.1; }
+  .pitch { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .stage { width: 100%; display: flex; justify-content: center; }
+  canvas.board { display: block; max-width: 100%; touch-action: manipulation; border-radius: 6px; cursor: pointer; }
+  .status { margin: 0; min-height: 3em; font-size: 0.95rem; color: var(--moon); }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg span { font-size: 0.8rem; color: var(--muted); padding: 8px 10px; align-self: center; }
+  button { font: inherit; font-size: 0.9rem; color: var(--moon); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  .seg button { border: 0; border-left: 1px solid var(--line); border-radius: 0; }
+  .seg button[aria-pressed="true"] { background: var(--torch); color: var(--night); font-weight: 700; }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible { outline: 2px solid var(--lagoon); outline-offset: 2px; }
+  .card { display: flex; gap: 14px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; }
+  .card canvas { width: 60px; height: 80px; flex: none; image-rendering: pixelated; }
+  .card .info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+  .card .name { font-family: var(--font-display); font-size: 1.15rem; line-height: 1.1; }
+  .card .role { color: var(--muted); font-size: 0.85rem; }
+  .hp { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .hp i { display: block; height: 100%; background: var(--lagoon); width: 100%; transition: width 0.3s; }
+  .hp.foe i { background: var(--coral); }
+  .stats { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .note { font-size: 0.75rem; color: var(--muted); font-style: italic; }
+  footer { color: var(--muted); font-size: 0.95rem; max-width: 68ch; }
+  footer b { color: var(--torch); font-family: var(--font-display); font-weight: 500; }
+  @media (prefers-reduced-motion: reduce) { .hp i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Project Fishnet · battle sample</p>
+    <h1>Which view should our battles use?</h1>
+    <p>This is the same fight drawn three ways. Play a round of each (they work on a phone), then tell Reggie which one feels best. The art is placeholder: battle cards will get detailed portraits later.</p>
+    <ul class="how">
+      <li><b>1</b> Tap one of your crew</li>
+      <li><b>2</b> Tap a lit space to move</li>
+      <li><b>3</b> Tap a ghost marked red to attack</li>
+    </ul>
+    <p>Palms, rocks and torches block movement. Ghosts float, so water never stops them. Try both grid settings too.</p>
+  </header>
+
+  <main class="panels">
+    <section class="panel new" data-view="hex">
+      <span class="tag">New</span>
+      <h2>Hex map</h2>
+      <p class="pitch">Hexes laid over a painted island map, tilted halfway between top-down and isometric, like Warhammer 40,000: Tacticus. Your crew can't enter the lagoon or the rocks.</p>
+      <div class="stage"><canvas class="board" aria-label="Hex battle map"></canvas></div>
+      <p class="status" aria-live="polite"></p>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Grid lines"><span>Grid</span><button type="button" id="hex-grid-always" data-grid="always" aria-pressed="true">Always</button><button type="button" id="hex-grid-moving" data-grid="moving" aria-pressed="false">Only when moving</button></div>
+        <button type="button" id="hex-end" data-act="end">End turn</button>
+        <button type="button" id="hex-restart" data-act="restart">Restart</button>
+      </div>
+      <div class="card"><canvas width="60" height="80" aria-hidden="true"></canvas><div class="info"><span class="name"></span><span class="role"></span><div class="hp"><i></i></div><span class="stats"></span><span class="note">Battle card portrait goes here later</span></div></div>
+    </section>
+
+    <section class="panel" data-view="top">
+      <h2>Top-down squares</h2>
+      <p class="pitch">Square tiles seen from a slight angle, like EarthBound. Big characters and easy tapping on a phone. Water slows your crew.</p>
+      <div class="stage"><canvas class="board" aria-label="Top-down battle board"></canvas></div>
+      <p class="status" aria-live="polite"></p>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Grid lines"><span>Grid</span><button type="button" id="top-grid-always" data-grid="always" aria-pressed="true">Always</button><button type="button" id="top-grid-moving" data-grid="moving" aria-pressed="false">Only when moving</button></div>
+        <button type="button" id="top-end" data-act="end">End turn</button>
+        <button type="button" id="top-restart" data-act="restart">Restart</button>
+      </div>
+      <div class="card"><canvas width="60" height="80" aria-hidden="true"></canvas><div class="info"><span class="name"></span><span class="role"></span><div class="hp"><i></i></div><span class="stats"></span><span class="note">Battle card portrait goes here later</span></div></div>
+    </section>
+
+    <section class="panel" data-view="iso">
+      <h2>Isometric squares</h2>
+      <p class="pitch">Diamond tiles with more depth, like Final Fantasy Tactics. Looks richer, but everything is smaller on a phone. Water slows your crew.</p>
+      <div class="stage"><canvas class="board" aria-label="Isometric battle board"></canvas></div>
+      <p class="status" aria-live="polite"></p>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Grid lines"><span>Grid</span><button type="button" id="iso-grid-always" data-grid="always" aria-pressed="true">Always</button><button type="button" id="iso-grid-moving" data-grid="moving" aria-pressed="false">Only when moving</button></div>
+        <button type="button" id="iso-end" data-act="end">End turn</button>
+        <button type="button" id="iso-restart" data-act="restart">Restart</button>
+      </div>
+      <div class="card"><canvas width="60" height="80" aria-hidden="true"></canvas><div class="info"><span class="name"></span><span class="role"></span><div class="hp"><i></i></div><span class="stats"></span><span class="note">Battle card portrait goes here later</span></div></div>
+    </section>
+  </main>
+
+  <footer>Vote in Discord: <b>Hex map</b>, <b>Top-down squares</b> or <b>Isometric squares</b>, plus whether you liked the grid shown <b>always</b> or <b>only when moving</b>.</footer>
+</div>
+
+<script>
+(() => {
+  const REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const MAPS = {
+    square: [
+      '..P.....',
+      '....ww..',
+      '....ww..',
+      '...R....',
+      '........',
+      '....P...',
+      '...T....',
+      '.......T'
+    ],
+    hex: [
+      '........',
+      '..R.....',
+      '....ww..',
+      '...www..',
+      '....w...',
+      '.P......',
+      '......R.',
+      '..T.....'
+    ]
+  };
+  const N = 8;
+  const key = (c, r) => c + ',' + r;
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const sleep = ms => new Promise(res => setTimeout(res, REDUCE ? Math.min(ms, 60) : ms));
+  function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // ---------- pixel sprites (12 x 16) ----------
+  const HUMAN = [
+    '....kkkk....',
+    '...kHHHHk...',
+    '..kHHHHHHk..',
+    '..kSSSSSSk..',
+    '..kSESSESk..',
+    '..kSSSSSSk..',
+    '...kSSSSk...',
+    '..kCCCCCCk..',
+    '.kCCCDDCCCk.',
+    '.kSCCDDCCSk.',
+    '.kSCCCCCCSk.',
+    '..kCCCCCCk..',
+    '..kDDkkDDk..',
+    '..kDDk.kDDk.',
+    '..kBBk.kBBk.',
+    '..kkkk.kkkk.'
+  ];
+  const GHOST = [
+    '....kkkk....',
+    '...kGGGGk...',
+    '..kGGGGGGk..',
+    '.kGGGGGGGGk.',
+    '.kGEEGGEEGk.',
+    '.kGEEGGEEGk.',
+    '.kGGGGGGGGk.',
+    '.kGGGkkGGGk.',
+    '.kGGGGGGGGk.',
+    'kGGGGGGGGGGk',
+    'kGGGGGGGGGGk',
+    'kGGGGGGGGGGk',
+    '.kGGkGGkGGk.',
+    '..kk.kk.kk..',
+    '............',
+    '............'
+  ];
+  const PAL = {
+    hero:  { rows: HUMAN, k: '#0d0b1a', H: '#d23a44', S: '#e3ad7f', E: '#1a1020', C: '#f1e6c8', D: '#3a2a4a', B: '#4a2e1e' },
+    mage:  { rows: HUMAN, k: '#0d0b1a', H: '#2f6fb0', S: '#d9a47a', E: '#1a1020', C: '#3b86c8', D: '#1f4a80', B: '#1f2a44' },
+    doc:   { rows: HUMAN, k: '#0d0b1a', H: '#262233', S: '#8a5a3a', E: '#f4f0d0', C: '#5b8a3a', D: '#2f4a22', B: '#262233' },
+    tamer: { rows: HUMAN, k: '#0d0b1a', H: '#e8b04a', S: '#c98f66', E: '#1a1020', C: '#d0643a', D: '#7a3420', B: '#5a3a22' },
+    ghost: { rows: GHOST, k: '#2b4a66', G: '#bfefff', E: '#0d0b1a' },
+    boss:  { rows: GHOST, k: '#3d2e6e', G: '#d9c8ff', E: '#8b0f2e' }
+  };
+  const SPR = {};
+  for (const [name, p] of Object.entries(PAL)) {
+    const cv = document.createElement('canvas');
+    cv.width = 12; cv.height = 16;
+    const x = cv.getContext('2d');
+    p.rows.forEach((row, y) => {
+      const line = row.padEnd(12, '.');
+      for (let i = 0; i < 12; i++) {
+        const ch = line[i];
+        if (ch === '.') continue;
+        x.fillStyle = p[ch] || '#ff00ff';
+        x.fillRect(i, y, 1, 1);
+      }
+    });
+    SPR[name] = cv;
+  }
+
+  function makeUnits() {
+    const list = [
+      { name: 'You', role: 'Swashbuckler', spr: 'hero', team: 'crew', c: 0, r: 1, move: 4, max: 40 },
+      { name: 'Marisol', role: 'Tide Mage (companion)', spr: 'mage', team: 'crew', c: 1, r: 2, move: 3, max: 32 },
+      { name: 'Doc Bones', role: 'Voodoo Doctor (companion)', spr: 'doc', team: 'crew', c: 0, r: 4, move: 3, max: 34 },
+      { name: 'Pinch', role: 'Crab Tamer (companion)', spr: 'tamer', team: 'crew', c: 1, r: 6, move: 4, max: 36 },
+      { name: 'Ghost Deckhand', role: 'Ghost pirate', spr: 'ghost', team: 'ghost', c: 6, r: 0, move: 3, max: 28 },
+      { name: 'Ghost Deckhand', role: 'Ghost pirate', spr: 'ghost', team: 'ghost', c: 7, r: 1, move: 3, max: 28 },
+      { name: 'Ghost Bosun', role: 'Ghost pirate boss', spr: 'boss', team: 'ghost', c: 6, r: 3, move: 3, max: 42 },
+      { name: 'Ghost Deckhand', role: 'Ghost pirate', spr: 'ghost', team: 'ghost', c: 6, r: 5, move: 3, max: 28 }
+    ];
+    return list.map((u, i) => Object.assign(u, {
+      id: i, hp: u.max, vc: u.c, vr: u.r, vt: 0, path: [], onArrive: null,
+      done: false, dead: false, deathT: 0, hitT: 0, bob: Math.random() * 6
+    }));
+  }
+
+  class Demo {
+    constructor(section) {
+      this.sec = section;
+      this.view = section.dataset.view;
+      this.hex = this.view === 'hex';
+      this.map = this.hex ? MAPS.hex : MAPS.square;
+      this.canvas = section.querySelector('canvas.board');
+      this.ctx = this.canvas.getContext('2d');
+      this.statusEl = section.querySelector('.status');
+      this.gridMode = 'always';
+      this.token = 0;
+      const card = section.querySelector('.card');
+      this.card = {
+        cv: card.querySelector('canvas'),
+        name: card.querySelector('.name'),
+        role: card.querySelector('.role'),
+        hpWrap: card.querySelector('.hp'),
+        hp: card.querySelector('.hp i'),
+        stats: card.querySelector('.stats')
+      };
+      section.querySelectorAll('[data-grid]').forEach(b => b.addEventListener('click', () => {
+        this.gridMode = b.dataset.grid;
+        section.querySelectorAll('[data-grid]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      }));
+      section.querySelector('[data-act="end"]').addEventListener('click', () => this.endTurn());
+      section.querySelector('[data-act="restart"]').addEventListener('click', () => this.reset());
+      this.canvas.addEventListener('pointerdown', e => this.onTap(e));
+      this.reset();
+      this.resize();
+      if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(section.querySelector('.stage'));
+      else window.addEventListener('resize', () => this.resize());
+    }
+
+    reset() {
+      this.token++;
+      this.units = makeUnits();
+      this.turn = 'player';
+      this.busy = false;
+      this.round = 1;
+      this.floats = [];
+      this.clearSel();
+      this.focus = this.units[0];
+      this.setStatus('Your turn. Tap one of your crew.');
+      this.updateCard();
+    }
+
+    resize() {
+      const stage = this.sec.querySelector('.stage');
+      const w = Math.max(260, Math.min(stage.clientWidth || 320, 560));
+      let h;
+      if (this.view === 'top') {
+        this.T = w / N;
+        this.head = this.T * 0.5;
+        this.edge = this.T * 0.18;
+        h = this.head + this.T * N + this.edge;
+      } else if (this.view === 'iso') {
+        this.W = w / N;
+        this.head = this.W * 1.15;
+        this.edge = this.W * 0.2;
+        this.ox = w / 2;
+        this.oy = this.head;
+        h = this.head + this.W * 4 + this.edge + 2;
+      } else {
+        this.hw = w / 9.1;                 // hex width (pointy-top)
+        this.R = this.hw / Math.sqrt(3);   // hex radius
+        this.k = 0.72;                     // tilt: 1 = straight down, 0.5 = isometric
+        this.ox = (w - this.hw * 8.5) / 2;
+        this.oy = this.hw * 1.0;
+        h = this.oy + (2 * this.R + 1.5 * this.R * (N - 1)) * this.k + this.hw * 0.45;
+      }
+      this.cw = w; this.ch = h;
+      const dpr = window.devicePixelRatio || 1;
+      this.canvas.style.width = w + 'px';
+      this.canvas.style.height = h + 'px';
+      this.canvas.width = Math.round(w * dpr);
+      this.canvas.height = Math.round(h * dpr);
+      this.dpr = dpr;
+      if (this.hex) this.paintMap();
+    }
+
+    // ---------- geometry ----------
+    center(c, r) {
+      if (this.view === 'top') return { x: c * this.T + this.T / 2, y: this.head + r * this.T + this.T / 2 };
+      if (this.view === 'iso') return { x: this.ox + (c - r) * this.W / 2, y: this.oy + (c + r) * this.W / 4 + this.W / 4 };
+      return { x: this.ox + this.hw * (c + 0.5 * (r & 1)) + this.hw / 2, y: this.oy + (this.R + 1.5 * this.R * r) * this.k };
+    }
+    pick(x, y) {
+      let c, r;
+      if (this.view === 'top') {
+        c = Math.floor(x / this.T);
+        r = Math.floor((y - this.head) / this.T);
+      } else if (this.view === 'iso') {
+        const u = (x - this.ox) / (this.W / 2);
+        const v = (y - this.oy) / (this.W / 4);
+        c = Math.floor((u + v) / 2);
+        r = Math.floor((v - u) / 2);
+      } else {
+        let best = null, bd = Infinity;
+        for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+          const p = this.center(cc, rr);
+          const d = Math.hypot(x - p.x, (y - p.y) / this.k);
+          if (d < bd) { bd = d; best = { c: cc, r: rr }; }
+        }
+        return bd <= this.R * 1.05 ? best : null;
+      }
+      if (c < 0 || r < 0 || c >= N || r >= N) return null;
+      return { c, r };
+    }
+    tilePath(ctx, c, r, inset = 0) {
+      ctx.beginPath();
+      if (this.view === 'top') {
+        ctx.rect(c * this.T + inset, this.head + r * this.T + inset, this.T - inset * 2, this.T - inset * 2);
+      } else if (this.view === 'iso') {
+        const W = this.W - inset * 2.4;
+        const p = this.center(c, r);
+        ctx.moveTo(p.x, p.y - W / 4);
+        ctx.lineTo(p.x + W / 2, p.y);
+        ctx.lineTo(p.x, p.y + W / 4);
+        ctx.lineTo(p.x - W / 2, p.y);
+        ctx.closePath();
+      } else {
+        const p = this.center(c, r), R = this.R - inset;
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI / 180) * (-90 + 60 * i);
+          const x = p.x + R * Math.cos(a), y = p.y + R * Math.sin(a) * this.k;
+          if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+      }
+    }
+    neighbors(c, r) {
+      const dirs = !this.hex ? [[1, 0], [-1, 0], [0, 1], [0, -1]]
+        : (r & 1) ? [[1, 0], [1, -1], [0, -1], [-1, 0], [0, 1], [1, 1]]
+                  : [[1, 0], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]];
+      return dirs.map(([dc, dr]) => ({ c: c + dc, r: r + dr })).filter(p => p.c >= 0 && p.r >= 0 && p.c < N && p.r < N);
+    }
+    dist(a, b) {
+      if (!this.hex) return Math.abs(a.c - b.c) + Math.abs(a.r - b.r);
+      const cube = p => { const x = p.c - (p.r - (p.r & 1)) / 2; return { x, z: p.r, y: -x - p.r }; };
+      const A = cube(a), B = cube(b);
+      return Math.max(Math.abs(A.x - B.x), Math.abs(A.y - B.y), Math.abs(A.z - B.z));
+    }
+    spriteW() { return this.view === 'top' ? this.T * 0.72 : this.view === 'iso' ? this.W * 0.44 : this.hw * 0.66; }
+    unitH() { return this.spriteW() * 16 / 12; }
+    baseY(p) { return this.view === 'top' ? p.y + this.T * 0.36 : this.view === 'iso' ? p.y + this.W * 0.1 : p.y + this.R * this.k * 0.05; }
+    objSize() { return this.view === 'top' ? this.T : this.view === 'iso' ? this.W * 0.62 : this.hw * 0.78; }
+    unitPos(u) {
+      const a = this.center(u.vc, u.vr);
+      if (!u.path.length) return a;
+      const b = this.center(u.path[0].c, u.path[0].r);
+      return { x: a.x + (b.x - a.x) * u.vt, y: a.y + (b.y - a.y) * u.vt };
+    }
+
+    // ---------- rules ----------
+    at(c, r) { return this.units.find(u => !u.dead && u.c === c && u.r === r); }
+    stepCost(ch, u) {
+      if (ch === 'P' || ch === 'R' || ch === 'T') return Infinity;
+      if (ch === 'w') return u.team === 'ghost' ? 1 : (this.hex ? Infinity : 2);
+      return 1;
+    }
+    reach(u) {
+      const dist = new Map();
+      dist.set(key(u.c, u.r), { cost: 0, prev: null });
+      const open = [{ c: u.c, r: u.r, cost: 0 }];
+      while (open.length) {
+        open.sort((a, b) => a.cost - b.cost);
+        const cur = open.shift();
+        for (const n of this.neighbors(cur.c, cur.r)) {
+          const step = this.stepCost(this.map[n.r][n.c], u);
+          if (step === Infinity) continue;
+          const occ = this.at(n.c, n.r);
+          if (occ && occ !== u) continue;
+          const nc = cur.cost + step;
+          if (nc > u.move) continue;
+          const k = key(n.c, n.r);
+          const prev = dist.get(k);
+          if (!prev || nc < prev.cost) {
+            dist.set(k, { cost: nc, prev: key(cur.c, cur.r) });
+            open.push({ c: n.c, r: n.r, cost: nc });
+          }
+        }
+      }
+      return dist;
+    }
+    pathTo(rm, t) {
+      const out = [];
+      let k = key(t.c, t.r);
+      while (k) {
+        const [c, r] = k.split(',').map(Number);
+        out.unshift({ c, r });
+        k = rm.get(k).prev;
+      }
+      out.shift();
+      return out;
+    }
+    moveUnit(u, path) {
+      return new Promise(res => {
+        if (!path.length) { res(); return; }
+        const last = path[path.length - 1];
+        u.c = last.c; u.r = last.r;
+        if (REDUCE) { u.vc = u.c; u.vr = u.r; res(); return; }
+        u.path = path.slice(); u.vt = 0;
+        u.onArrive = res;
+      });
+    }
+    adjacentFoes(u) {
+      return this.units.filter(o => !o.dead && o.team !== u.team && this.dist(o, u) === 1);
+    }
+    attack(a, t) {
+      const dmg = a.team === 'crew' ? rnd(10, 16) : rnd(6, 11);
+      t.hp = Math.max(0, t.hp - dmg);
+      t.hitT = 0.35;
+      const p = this.unitPos(t);
+      const top = this.baseY(p) - this.unitH();
+      this.floats.push({ x: p.x, y: top, text: '-' + dmg, t: 1, color: a.team === 'crew' ? '#ffb347' : '#ff7b7b' });
+      if (t.hp <= 0) {
+        t.dead = true; t.deathT = 1;
+        this.floats.push({ x: p.x, y: top - this.unitH() * 0.4, text: t.team === 'ghost' ? 'poof!' : 'KO', t: 1.3, color: '#bfefff' });
+      }
+      if (this.focus === t || this.focus === a) this.updateCard();
+    }
+
+    // ---------- turn flow ----------
+    setStatus(s) { this.statusEl.textContent = s; }
+    clearSel() { this.sel = null; this.phase = null; this.reachMap = null; this.targets = []; }
+    select(u) {
+      this.sel = u; this.phase = 'move'; this.focus = u;
+      this.reachMap = this.reach(u);
+      this.setStatus(u.name + ': tap a lit space to move, or tap them again to stay put.');
+      this.updateCard();
+    }
+    onTap(e) {
+      if (this.turn !== 'player' || this.busy) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const t = this.pick(e.clientX - rect.left, e.clientY - rect.top);
+      const u = t ? this.at(t.c, t.r) : null;
+
+      if (this.phase === 'attack') {
+        const s = this.sel;
+        if (u && this.targets.includes(u)) {
+          this.attack(s, u);
+          s.done = true; this.clearSel(); this.afterAction();
+          return;
+        }
+        s.done = true; this.clearSel();
+        if (u && u.team === 'crew' && !u.done) { this.select(u); return; }
+        this.afterAction();
+        return;
+      }
+      if (this.phase === 'move') {
+        const s = this.sel;
+        if (t && this.reachMap.has(key(t.c, t.r)) && (!u || u === s)) { this.moveThenAttack(s, t); return; }
+        if (u && u.team === 'crew' && !u.done && u !== s) { this.select(u); return; }
+        this.clearSel();
+        if (u) { this.focus = u; this.updateCard(); }
+        this.setStatus('Your turn. Tap one of your crew.');
+        return;
+      }
+      if (u) {
+        this.focus = u; this.updateCard();
+        if (u.team === 'crew' && !u.done) this.select(u);
+        else if (u.team === 'crew') this.setStatus(u.name + ' already acted this round.');
+        else this.setStatus(u.name + ': ' + u.hp + ' of ' + u.max + ' HP.');
+      }
+    }
+    async moveThenAttack(s, t) {
+      this.busy = true;
+      const path = this.pathTo(this.reachMap, t);
+      this.reachMap = null;
+      const tok = this.token;
+      await this.moveUnit(s, path);
+      if (tok !== this.token) return;
+      this.busy = false;
+      this.targets = this.adjacentFoes(s);
+      if (this.targets.length) {
+        this.phase = 'attack';
+        this.setStatus('Tap a ghost marked in red to attack, or tap anywhere else to skip.');
+      } else {
+        s.done = true; this.clearSel(); this.afterAction();
+      }
+    }
+    afterAction() {
+      if (this.checkEnd()) return;
+      const left = this.units.filter(u => u.team === 'crew' && !u.dead && !u.done);
+      if (!left.length) this.enemyTurn();
+      else this.setStatus('Your turn. ' + left.length + ' crew left to act.');
+    }
+    endTurn() {
+      if (this.turn !== 'player' || this.busy) return;
+      this.clearSel();
+      this.units.forEach(u => { if (u.team === 'crew') u.done = true; });
+      this.enemyTurn();
+    }
+    checkEnd() {
+      if (!this.units.some(u => u.team === 'ghost' && !u.dead)) {
+        this.turn = 'over'; this.setStatus('Victory! The ghost crew is gone. Tap Restart to play again.'); return true;
+      }
+      if (!this.units.some(u => u.team === 'crew' && !u.dead)) {
+        this.turn = 'over'; this.setStatus('Your crew was defeated. Tap Restart to try again.'); return true;
+      }
+      return false;
+    }
+    async enemyTurn() {
+      this.turn = 'enemy'; this.busy = true;
+      const tok = this.token;
+      this.setStatus('The ghosts are moving…');
+      for (const g of this.units.filter(u => u.team === 'ghost' && !u.dead)) {
+        await sleep(300);
+        if (tok !== this.token) return;
+        if (g.dead) continue;
+        const crew = this.units.filter(u => u.team === 'crew' && !u.dead);
+        if (!crew.length) break;
+        const rm = this.reach(g);
+        let best = { c: g.c, r: g.r }, bd = Infinity, bc = Infinity;
+        for (const [k, v] of rm) {
+          const [c, r] = k.split(',').map(Number);
+          const occ = this.at(c, r);
+          if (occ && occ !== g) continue;
+          const d = Math.min(...crew.map(u => this.dist(u, { c, r })));
+          if (d < bd || (d === bd && v.cost < bc)) { bd = d; bc = v.cost; best = { c, r }; }
+        }
+        await this.moveUnit(g, this.pathTo(rm, best));
+        if (tok !== this.token) return;
+        const foes = this.adjacentFoes(g);
+        if (foes.length) {
+          await sleep(150);
+          if (tok !== this.token) return;
+          foes.sort((a, b) => a.hp - b.hp);
+          this.attack(g, foes[0]);
+          await sleep(350);
+          if (tok !== this.token) return;
+        }
+      }
+      this.busy = false;
+      if (this.checkEnd()) return;
+      this.round++;
+      this.units.forEach(u => { u.done = false; });
+      this.turn = 'player';
+      this.setStatus('Round ' + this.round + '. Your turn. Tap one of your crew.');
+    }
+
+    updateCard() {
+      const u = this.focus; if (!u) return;
+      const cv = this.card.cv, dpr = window.devicePixelRatio || 1;
+      cv.width = 60 * dpr; cv.height = 80 * dpr;
+      const x = cv.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      x.imageSmoothingEnabled = false;
+      x.clearRect(0, 0, 60, 80);
+      x.globalAlpha = u.dead ? 0.35 : 1;
+      x.drawImage(SPR[u.spr], 0, 0, 60, 80);
+      this.card.name.textContent = u.name;
+      this.card.role.textContent = u.role;
+      this.card.hpWrap.classList.toggle('foe', u.team === 'ghost');
+      this.card.hp.style.width = (100 * u.hp / u.max) + '%';
+      this.card.stats.textContent = 'HP ' + u.hp + '/' + u.max + ' · Move ' + u.move + (u.team === 'ghost' ? ' · Floats over water' : '');
+    }
+
+    // ---------- painted map (hex view) ----------
+    paintMap() {
+      const w = this.cw, h = this.ch, dpr = this.dpr;
+      const bg = document.createElement('canvas');
+      bg.width = Math.round(w * dpr); bg.height = Math.round(h * dpr);
+      const x = bg.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const rand = rng(7);
+      // night sand
+      x.fillStyle = '#2a2d4a'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 24; i++) {
+        x.fillStyle = rand() < 0.5 ? 'rgba(38,70,64,0.55)' : 'rgba(50,54,86,0.6)';
+        x.beginPath(); x.ellipse(rand() * w, rand() * h, this.hw * (0.6 + rand() * 1.4), this.hw * (0.3 + rand() * 0.6), rand() * 3, 0, Math.PI * 2); x.fill();
+      }
+      for (let i = 0; i < 260; i++) {
+        x.fillStyle = rand() < 0.5 ? 'rgba(236,233,255,0.07)' : 'rgba(0,0,0,0.12)';
+        x.fillRect(rand() * w, rand() * h, 2, 2);
+      }
+      // lagoon: shore, water, deep water, drawn as merged blobs over water hexes
+      const water = [];
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (this.map[r][c] === 'w') water.push(this.center(c, r));
+      const blob = (rad, color) => {
+        x.fillStyle = color;
+        for (const p of water) { x.beginPath(); x.ellipse(p.x, p.y, rad, rad * this.k, 0, 0, Math.PI * 2); x.fill(); }
+      };
+      blob(this.R * 1.45, '#3a4468');
+      blob(this.R * 1.2, '#1c5a84');
+      blob(this.R * 0.95, '#15486e');
+      blob(this.R * 0.55, '#103a5c');
+      // rocks
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        if (this.map[r][c] !== 'R') continue;
+        const p = this.center(c, r), S = this.objSize();
+        const rocks = [[-0.25, 0.05, 0.34], [0.2, 0.0, 0.3], [0.0, -0.18, 0.26], [0.3, 0.2, 0.16], [-0.35, 0.22, 0.14]];
+        for (const [dx, dy, s] of rocks) {
+          x.fillStyle = '#434866';
+          x.beginPath(); x.ellipse(p.x + dx * S, p.y + dy * S * this.k, s * S, s * S * 0.72, 0, 0, Math.PI * 2); x.fill();
+          x.fillStyle = '#626a92';
+          x.beginPath(); x.ellipse(p.x + dx * S - s * S * 0.25, p.y + dy * S * this.k - s * S * 0.25, s * S * 0.45, s * S * 0.28, -0.3, 0, Math.PI * 2); x.fill();
+        }
+      }
+      // shells and pebbles
+      for (let i = 0; i < 30; i++) {
+        x.fillStyle = rand() < 0.5 ? 'rgba(241,230,200,0.35)' : 'rgba(98,106,146,0.6)';
+        x.beginPath(); x.ellipse(rand() * w, rand() * h, 2 + rand() * 2, 1.5 + rand(), 0, 0, Math.PI * 2); x.fill();
+      }
+      this.bg = bg;
+      this.waterCenters = water;
+    }
+
+    // ---------- animation ----------
+    update(dt) {
+      for (const u of this.units) {
+        if (u.path.length) {
+          u.vt += dt * 5.5;
+          while (u.vt >= 1 && u.path.length) {
+            const nxt = u.path.shift();
+            u.vc = nxt.c; u.vr = nxt.r; u.vt -= 1;
+          }
+          if (!u.path.length) {
+            u.vt = 0;
+            if (u.onArrive) { const f = u.onArrive; u.onArrive = null; f(); }
+          }
+        }
+        if (u.hitT > 0) u.hitT -= dt;
+        if (u.dead && u.deathT > 0) u.deathT -= dt * 1.4;
+      }
+      for (const f of this.floats) { f.t -= dt; f.y -= dt * 22; }
+      this.floats = this.floats.filter(f => f.t > 0);
+    }
+
+    blocked(c, r) { const ch = this.map[r][c]; return ch === 'P' || ch === 'R' || ch === 'T' || (this.hex && ch === 'w'); }
+
+    draw(time) {
+      const ctx = this.ctx;
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#0a0920';
+      ctx.fillRect(0, 0, this.cw, this.ch);
+      const S = this.objSize();
+
+      if (this.hex) {
+        ctx.drawImage(this.bg, 0, 0, this.cw, this.ch);
+        if (!REDUCE) {
+          ctx.fillStyle = 'rgba(191,239,255,0.18)';
+          for (const p of this.waterCenters) {
+            const off = Math.sin(time * 0.002 + p.x * 0.05) * this.R * 0.4;
+            ctx.fillRect(p.x - this.R * 0.35 + off, p.y - 1, this.R * 0.5, 2);
+          }
+        }
+      } else {
+        const top = this.view === 'top';
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+          const ch = this.map[r][c];
+          const water = ch === 'w';
+          let fill = (c + r) % 2 ? '#26314a' : '#222c44';
+          if (water) {
+            const sh = Math.sin(time * 0.002 + c * 0.9 + r * 0.6);
+            fill = sh > 0.6 ? '#1b5a86' : '#15486e';
+          }
+          if (!top) {
+            const p = this.center(c, r), W = this.W, d = this.edge;
+            if (c === N - 1) {
+              ctx.beginPath(); ctx.moveTo(p.x + W / 2, p.y); ctx.lineTo(p.x, p.y + W / 4); ctx.lineTo(p.x, p.y + W / 4 + d); ctx.lineTo(p.x + W / 2, p.y + d); ctx.closePath();
+              ctx.fillStyle = '#141a2c'; ctx.fill();
+            }
+            if (r === N - 1) {
+              ctx.beginPath(); ctx.moveTo(p.x - W / 2, p.y); ctx.lineTo(p.x, p.y + W / 4); ctx.lineTo(p.x, p.y + W / 4 + d); ctx.lineTo(p.x - W / 2, p.y + d); ctx.closePath();
+              ctx.fillStyle = '#1b2238'; ctx.fill();
+            }
+          }
+          this.tilePath(ctx, c, r); ctx.fillStyle = fill; ctx.fill();
+          if (water && top) {
+            const x0 = c * this.T, y0 = this.head + r * this.T, off = (time * 0.02 + r * 7) % this.T;
+            ctx.fillStyle = 'rgba(191,239,255,0.25)';
+            ctx.fillRect(x0 + off * 0.6, y0 + this.T * 0.3, this.T * 0.25, 2);
+            ctx.fillRect(x0 + ((off + this.T * 0.5) % this.T) * 0.6, y0 + this.T * 0.68, this.T * 0.2, 2);
+          }
+        }
+        if (top) { ctx.fillStyle = '#141a2c'; ctx.fillRect(0, this.head + this.T * N, this.T * N, this.edge); }
+      }
+
+      // grid lines (hex: only on spaces you can stand on)
+      if (this.gridMode === 'always' || this.sel) {
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+          if (this.hex && this.blocked(c, r)) continue;
+          this.tilePath(ctx, c, r, this.hex ? 1.5 : 0);
+          if (this.hex) { ctx.fillStyle = 'rgba(236,233,255,0.04)'; ctx.fill(); ctx.strokeStyle = 'rgba(236,233,255,0.22)'; }
+          else ctx.strokeStyle = 'rgba(236,233,255,0.13)';
+          ctx.lineWidth = 1; ctx.stroke();
+        }
+      }
+
+      // highlights
+      if (this.reachMap) {
+        for (const k of this.reachMap.keys()) {
+          const [c, r] = k.split(',').map(Number);
+          this.tilePath(ctx, c, r, 2.5);
+          ctx.fillStyle = 'rgba(94,234,212,0.24)'; ctx.fill();
+          ctx.strokeStyle = 'rgba(94,234,212,0.75)'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+      }
+      for (const t of this.targets) {
+        this.tilePath(ctx, t.c, t.r, 2.5);
+        const pulse = 0.3 + 0.15 * Math.sin(time * 0.008);
+        ctx.fillStyle = 'rgba(255,123,123,' + pulse + ')'; ctx.fill();
+        ctx.strokeStyle = '#ff7b7b'; ctx.lineWidth = 2; ctx.stroke();
+      }
+
+      // drawables, back to front by screen height
+      const items = [];
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const ch = this.map[r][c];
+        if (ch === 'P' || ch === 'T' || (!this.hex && ch === 'R')) {
+          const p = this.center(c, r);
+          items.push({ kind: ch, p, depth: p.y });
+        }
+      }
+      for (const u of this.units) {
+        if (u.dead && u.deathT <= 0) continue;
+        const p = this.unitPos(u);
+        items.push({ kind: 'U', u, p, depth: p.y + 0.5 });
+      }
+      items.sort((a, b) => a.depth - b.depth);
+      const torches = [];
+      for (const it of items) {
+        if (it.kind === 'U') { this.drawUnit(ctx, it.u, it.p, time); continue; }
+        const by = this.baseY(it.p);
+        if (it.kind === 'P') this.drawPalm(ctx, it.p.x, by, S);
+        else if (it.kind === 'R') this.drawRock(ctx, it.p.x, by, S);
+        else { this.drawTorch(ctx, it.p.x, by, S, time); torches.push({ x: it.p.x, y: by - S * 0.8 }); }
+      }
+
+      // moonlight vignette, then torch glow
+      const g = ctx.createRadialGradient(this.cw / 2, this.ch / 2, this.cw * 0.25, this.cw / 2, this.ch / 2, this.cw * 0.75);
+      g.addColorStop(0, 'rgba(10,9,32,0)'); g.addColorStop(1, 'rgba(10,9,32,0.55)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, this.cw, this.ch);
+      ctx.globalCompositeOperation = 'lighter';
+      for (const t of torches) {
+        const flick = REDUCE ? 1 : 0.9 + 0.1 * Math.sin(time * 0.013 + t.x);
+        const rad = S * 2.2 * flick;
+        const tg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, rad);
+        tg.addColorStop(0, 'rgba(255,179,71,0.35)'); tg.addColorStop(1, 'rgba(255,179,71,0)');
+        ctx.fillStyle = tg; ctx.fillRect(t.x - rad, t.y - rad, rad * 2, rad * 2);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // floating numbers
+      for (const f of this.floats) {
+        ctx.globalAlpha = Math.min(1, f.t * 2);
+        ctx.font = '700 ' + Math.max(13, Math.round(S * 0.32)) + 'px "Pixelify Sans", monospace';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 3; ctx.strokeStyle = '#0a0920'; ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    drawUnit(ctx, u, p, time) {
+      const by = this.baseY(p);
+      const sw = this.spriteW(), sh = this.unitH();
+      let ox = 0, oy = 0;
+      if (u.team === 'ghost' && !REDUCE) oy = Math.sin(time * 0.004 + u.bob) * sw * 0.06 - sw * 0.08;
+      if (u.hitT > 0) ox = Math.sin(u.hitT * 60) * sw * 0.08;
+      const alive = !u.dead;
+      if (this.hex && alive) {
+        // miniature-style base in team color
+        const rx = sw * 0.52, ry = rx * this.k * 0.55;
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.beginPath(); ctx.ellipse(p.x, by + 2, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = u.team === 'crew' ? 'rgba(94,234,212,0.28)' : 'rgba(255,123,123,0.28)';
+        ctx.strokeStyle = u.team === 'crew' ? '#5eead4' : '#ff7b7b';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(p.x, by, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath(); ctx.ellipse(p.x, by, sw * 0.38, sw * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      if (this.sel === u) {
+        ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(p.x, by, sw * 0.68, sw * (this.hex ? 0.68 * this.k * 0.55 + 0.05 : 0.22), 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      let alpha = 1;
+      if (u.team === 'ghost') alpha = 0.88;
+      if (u.team === 'crew' && u.done && this.turn === 'player') alpha = 0.55;
+      if (u.dead) alpha = Math.max(0, u.deathT) * 0.8;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(SPR[u.spr], p.x - sw / 2 + ox, by - sh + oy, sw, sh);
+      ctx.globalAlpha = 1;
+      if (alive) {
+        const bw = sw * 0.9, bh = Math.max(3, sw * 0.09), bx = p.x - bw / 2, byy = by - sh + oy - bh - 3;
+        ctx.fillStyle = '#0a0920'; ctx.fillRect(bx - 1, byy - 1, bw + 2, bh + 2);
+        ctx.fillStyle = u.team === 'crew' ? '#5eead4' : '#ff7b7b';
+        ctx.fillRect(bx, byy, bw * u.hp / u.max, bh);
+      }
+    }
+    drawPalm(ctx, x, y, S) {
+      ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = Math.max(3, S * 0.12); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - S * 0.05, y - S * 0.6, x + S * 0.12, y - S * 1.1); ctx.stroke();
+      const tx = x + S * 0.12, ty = y - S * 1.1;
+      ctx.fillStyle = '#2f7a4f';
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i - 2) * 0.75;
+        ctx.beginPath();
+        ctx.ellipse(tx + Math.cos(a) * S * 0.3, ty + Math.sin(a) * S * 0.18 + S * 0.08, S * 0.36, S * 0.1, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#8a5a2e';
+      ctx.beginPath(); ctx.arc(tx - S * 0.06, ty + S * 0.1, S * 0.06, 0, Math.PI * 2); ctx.arc(tx + S * 0.07, ty + S * 0.12, S * 0.06, 0, Math.PI * 2); ctx.fill();
+    }
+    drawRock(ctx, x, y, S) {
+      ctx.fillStyle = '#4c5270';
+      ctx.beginPath(); ctx.ellipse(x, y - S * 0.14, S * 0.4, S * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6a7196';
+      ctx.beginPath(); ctx.ellipse(x - S * 0.1, y - S * 0.22, S * 0.18, S * 0.1, -0.3, 0, Math.PI * 2); ctx.fill();
+    }
+    drawTorch(ctx, x, y, S, time) {
+      ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = Math.max(2, S * 0.08); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - S * 0.75); ctx.stroke();
+      const f = REDUCE ? 1 : 0.85 + 0.2 * Math.sin(time * 0.02 + x);
+      ctx.fillStyle = '#ffb347';
+      ctx.beginPath(); ctx.ellipse(x, y - S * 0.86, S * 0.11 * f, S * 0.18 * f, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff1a8';
+      ctx.beginPath(); ctx.ellipse(x, y - S * 0.83, S * 0.05, S * 0.09 * f, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  const demos = Array.from(document.querySelectorAll('.panel')).map(s => new Demo(s));
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    for (const d of demos) { d.update(dt); d.draw(now); }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
