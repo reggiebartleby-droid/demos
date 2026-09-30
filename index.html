@@ -14,11 +14,13 @@
     --torch: #ffb347;
     --lagoon: #5eead4;
     --coral: #ff7b7b;
+    --echo: #c4a3ff;
     --font-display: "Pixelify Sans", "Courier New", monospace;
     --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
     color-scheme: dark;
   }
   html { background: var(--night); }
+  [hidden] { display: none !important; }
   body {
     background: var(--night);
     color: var(--moon);
@@ -63,6 +65,25 @@
   .hp.foe i { background: var(--coral); }
   .stats { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
   .note { font-size: 0.75rem; color: var(--muted); font-style: italic; }
+  .echo { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .echo-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .echo-label { font-family: var(--font-display); color: var(--echo); font-size: 1rem; }
+  .meter { flex: 1; min-width: 90px; height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0%; background: var(--echo); transition: width 0.3s; }
+  .meter.full i { box-shadow: 0 0 10px var(--echo); }
+  .echo button.call:not(:disabled) { background: var(--echo); color: var(--night); font-weight: 700; border-color: var(--echo); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .echo-picker { display: flex; flex-direction: column; gap: 8px; }
+  .echo-tabs { display: flex; gap: 8px; }
+  .echo-tabs button[aria-pressed="true"] { border-color: var(--echo); color: var(--echo); }
+  .echo-list { display: flex; flex-direction: column; gap: 8px; }
+  .echo-card { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; }
+  .echo-card b { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; }
+  .echo-card span { color: var(--muted); font-size: 0.82rem; }
+  .echo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .echo-actions .who { width: 100%; font-size: 0.9rem; color: var(--echo); }
+  .echo-actions button.sig { border-color: var(--echo); }
+  .echo-report { margin: 0; font-size: 0.9rem; color: var(--echo); }
   footer { color: var(--muted); font-size: 0.95rem; max-width: 68ch; }
   footer b { color: var(--torch); font-family: var(--font-display); font-weight: 500; }
   @media (prefers-reduced-motion: reduce) { .hp i { transition: none; } }
@@ -71,8 +92,8 @@
 <div class="wrap">
   <header>
     <p class="eyebrow">Project Fishnet · battle sample</p>
-    <h1>Which view should our battles use?</h1>
-    <p>This is the same fight drawn three ways. Play a round of each (they work on a phone), then tell Reggie which one feels best. The art is placeholder: battle cards will get detailed portraits later.</p>
+    <h1>The hex map won. Now try Echoes.</h1>
+    <p>The hex map now has two new things to test: <strong>Friend Echoes</strong> and <strong>torchlight</strong>. Fight to fill the Echo meter, then call in a guildmate (or a wandering hero) for two actions. Spend both at once, or save one for next turn. The older square samples are still below for reference. The art is placeholder: battle cards will get detailed portraits later.</p>
     <ul class="how">
       <li><b>1</b> Tap one of your crew</li>
       <li><b>2</b> Tap a lit space to move</li>
@@ -83,11 +104,34 @@
 
   <main class="panels">
     <section class="panel new" data-view="hex">
-      <span class="tag">New</span>
+      <span class="tag">Chosen · now with Echoes</span>
       <h2>Hex map</h2>
-      <p class="pitch">Hexes laid over a painted island map, tilted halfway between top-down and isometric, like Warhammer 40,000: Tacticus. Your crew can't enter the lagoon or the rocks.</p>
+      <p class="pitch">Hexes over a painted island map, tilted halfway between top-down and isometric, lit by torches and festival lanterns. Your crew can't enter the lagoon or the rocks.</p>
       <div class="stage"><canvas class="board" aria-label="Hex battle map"></canvas></div>
       <p class="status" aria-live="polite"></p>
+      <div class="echo">
+        <div class="echo-row">
+          <span class="echo-label">Echo</span>
+          <div class="meter" role="progressbar" aria-label="Echo charge" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"><i></i></div>
+          <button type="button" class="call" id="hex-echo-call" disabled>Call an Echo</button>
+        </div>
+        <div class="echo-picker" hidden>
+          <div class="echo-tabs">
+            <button type="button" id="hex-echo-tab-guild" data-tab="guild" aria-pressed="true">Guild</button>
+            <button type="button" id="hex-echo-tab-wander" data-tab="wander" aria-pressed="false">Wandering heroes</button>
+            <button type="button" id="hex-echo-cancel" data-tab="cancel">Cancel</button>
+          </div>
+          <div class="echo-list"></div>
+        </div>
+        <div class="echo-actions" hidden>
+          <span class="who"></span>
+          <button type="button" id="hex-echo-move" data-ea="move">Move</button>
+          <button type="button" id="hex-echo-sig0" class="sig" data-ea="0"></button>
+          <button type="button" id="hex-echo-sig1" class="sig" data-ea="1"></button>
+          <button type="button" id="hex-echo-done" data-ea="done">Save for later</button>
+        </div>
+        <p class="echo-report" hidden></p>
+      </div>
       <div class="controls">
         <div class="seg" role="group" aria-label="Grid lines"><span>Grid</span><button type="button" id="hex-grid-always" data-grid="always" aria-pressed="true">Always</button><button type="button" id="hex-grid-moving" data-grid="moving" aria-pressed="false">Only when moving</button></div>
         <button type="button" id="hex-end" data-act="end">End turn</button>
@@ -123,7 +167,7 @@
     </section>
   </main>
 
-  <footer>Vote in Discord: <b>Hex map</b>, <b>Top-down squares</b> or <b>Isometric squares</b>, plus whether you liked the grid shown <b>always</b> or <b>only when moving</b>.</footer>
+  <footer>Tell Reggie in Discord: did the <b>Echo</b> feel worth charging up, did you spend both actions <b>at once</b> or <b>split</b> them, and does the <b>torchlight</b> set the right mood?</footer>
 </div>
 
 <script>
@@ -141,11 +185,11 @@
       '.......T'
     ],
     hex: [
-      '........',
+      '...T....',
       '..R.....',
       '....ww..',
       '...www..',
-      '....w...',
+      '....w..T',
       '.P......',
       '......R.',
       '..T.....'
@@ -199,6 +243,11 @@
     mage:  { rows: HUMAN, k: '#0d0b1a', H: '#2f6fb0', S: '#d9a47a', E: '#1a1020', C: '#3b86c8', D: '#1f4a80', B: '#1f2a44' },
     doc:   { rows: HUMAN, k: '#0d0b1a', H: '#262233', S: '#8a5a3a', E: '#f4f0d0', C: '#5b8a3a', D: '#2f4a22', B: '#262233' },
     tamer: { rows: HUMAN, k: '#0d0b1a', H: '#e8b04a', S: '#c98f66', E: '#1a1020', C: '#d0643a', D: '#7a3420', B: '#5a3a22' },
+    hexs:  { rows: HUMAN, k: '#0d0b1a', H: '#5a2d82', S: '#e0a878', E: '#1a1020', C: '#7b3fb0', D: '#3b1f5a', B: '#2a1a3a' },
+    astro: { rows: HUMAN, k: '#0d0b1a', H: '#1b2a5a', S: '#c98f66', E: '#1a1020', C: '#243b7a', D: '#d4a83a', B: '#1b2a5a' },
+    rat:   { rows: HUMAN, k: '#0d0b1a', H: '#6b4a2b', S: '#e3ad7f', E: '#1a1020', C: '#8a6a3a', D: '#4a3420', B: '#3a2a1a' },
+    marlo: { rows: HUMAN, k: '#0d0b1a', H: '#e8e2d0', S: '#b8845e', E: '#1a1020', C: '#2a7a8a', D: '#1b4a55', B: '#3a2a1a' },
+    wick:  { rows: HUMAN, k: '#0d0b1a', H: '#3a1a2a', S: '#7a4a32', E: '#f4f0d0', C: '#7a2a4a', D: '#2a0f1a', B: '#2a0f1a' },
     ghost: { rows: GHOST, k: '#2b4a66', G: '#bfefff', E: '#0d0b1a' },
     boss:  { rows: GHOST, k: '#3d2e6e', G: '#d9c8ff', E: '#8b0f2e' }
   };
@@ -218,6 +267,29 @@
     });
     SPR[name] = cv;
   }
+
+  const CHARGE_MAX = 8;
+  const ECHOES = {
+    guild: [
+      { owner: 'Thot', role: 'Hexslinger', spr: 'hexs', moves: [
+        { name: 'Hex Bolt', desc: 'Hit one ghost up to 3 hexes away', type: 'target', range: 3, dmg: [14, 18] },
+        { name: 'Spreading Curse', desc: 'Hit a ghost within 3 hexes and every ghost next to it', type: 'splash', range: 3, dmg: [8, 11] } ] },
+      { owner: 'Sassy', role: 'Astrologist', spr: 'astro', moves: [
+        { name: 'Moonbeam', desc: 'Heal your crew within 2 hexes', type: 'heal', radius: 2, amt: 10 },
+        { name: 'Starfall', desc: 'Hit one ghost up to 4 hexes away', type: 'target', range: 4, dmg: [12, 16] } ] },
+      { owner: 'Hambone', role: 'Relic Rat', spr: 'rat', moves: [
+        { name: 'Smoke Bomb', desc: 'Ghosts within 2 hexes lose their next turn', type: 'stun', radius: 2 },
+        { name: 'Pickpocket', desc: 'Hit a ghost next to the echo', type: 'target', range: 1, dmg: [13, 16] } ] }
+    ],
+    wander: [
+      { owner: 'Old Salt Marlo', wandering: true, role: 'Tide Mage', spr: 'marlo', moves: [
+        { name: 'Tidal Slam', desc: 'Hit every ghost within 2 hexes', type: 'burst', radius: 2, dmg: [9, 12] },
+        { name: 'Sea Spray', desc: 'Heal crew next to the echo', type: 'heal', radius: 1, amt: 12 } ] },
+      { owner: 'Madame Wick', wandering: true, role: 'Voodoo Doctor', spr: 'wick', moves: [
+        { name: 'Pin Curse', desc: 'Hit one ghost up to 4 hexes away', type: 'target', range: 4, dmg: [11, 14] },
+        { name: 'Candle Ward', desc: 'Heal your crew within 2 hexes', type: 'heal', radius: 2, amt: 8 } ] }
+    ]
+  };
 
   function makeUnits() {
     const list = [
@@ -263,6 +335,24 @@
       section.querySelector('[data-act="end"]').addEventListener('click', () => this.endTurn());
       section.querySelector('[data-act="restart"]').addEventListener('click', () => this.reset());
       this.canvas.addEventListener('pointerdown', e => this.onTap(e));
+      this.embers = [];
+      this.torchPts = [];
+      const eb = section.querySelector('.echo');
+      if (eb) {
+        this.ui = {
+          meter: eb.querySelector('.meter'), fill: eb.querySelector('.meter i'), call: eb.querySelector('.call'),
+          picker: eb.querySelector('.echo-picker'), list: eb.querySelector('.echo-list'), tabs: eb.querySelectorAll('.echo-tabs [data-tab]'),
+          actions: eb.querySelector('.echo-actions'), who: eb.querySelector('.echo-actions .who'),
+          abtn: eb.querySelectorAll('.echo-actions [data-ea]'), report: eb.querySelector('.echo-report')
+        };
+        this.ui.call.addEventListener('click', () => this.openPicker());
+        this.ui.tabs.forEach(b => b.addEventListener('click', () => {
+          if (b.dataset.tab === 'cancel') { this.ui.picker.hidden = true; this.updateEchoUI(); return; }
+          this.ui.tabs.forEach(x => { if (x.dataset.tab !== 'cancel') x.setAttribute('aria-pressed', String(x === b)); });
+          this.fillPicker(b.dataset.tab);
+        }));
+        this.ui.abtn.forEach(b => b.addEventListener('click', () => this.echoAction(b.dataset.ea)));
+      }
       this.reset();
       this.resize();
       if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(section.querySelector('.stage'));
@@ -276,6 +366,13 @@
       this.busy = false;
       this.round = 1;
       this.floats = [];
+      this.charge = 0;
+      this.echoUsed = false;
+      this.echo = null;
+      this.pendingEcho = null;
+      this.pendingMove = null;
+      this.placeSet = null;
+      if (this.ui) { this.ui.picker.hidden = true; this.ui.actions.hidden = true; this.ui.report.hidden = true; }
       this.clearSel();
       this.focus = this.units[0];
       this.setStatus('Your turn. Tap one of your crew.');
@@ -442,10 +539,17 @@
       });
     }
     adjacentFoes(u) {
-      return this.units.filter(o => !o.dead && o.team !== u.team && this.dist(o, u) === 1);
+      return this.units.filter(o => !o.dead && o.team !== u.team && !o.isEcho && this.dist(o, u) === 1);
     }
-    attack(a, t) {
-      const dmg = a.team === 'crew' ? rnd(10, 16) : rnd(6, 11);
+    addCharge(n) {
+      if (!this.ui || this.echoUsed) return;
+      this.charge = Math.min(CHARGE_MAX, this.charge + n);
+      this.updateEchoUI();
+    }
+    attack(a, t, dmgOverride) {
+      const dmg = dmgOverride != null ? dmgOverride : (a.team === 'crew' ? rnd(10, 16) : rnd(6, 11));
+      if (a.team === 'crew' && !a.isEcho) this.addCharge(2);
+      if (t.team === 'crew') this.addCharge(1);
       t.hp = Math.max(0, t.hp - dmg);
       t.hitT = 0.35;
       const p = this.unitPos(t);
@@ -459,9 +563,153 @@
     }
 
     // ---------- turn flow ----------
-    setStatus(s) { this.statusEl.textContent = s; }
-    clearSel() { this.sel = null; this.phase = null; this.reachMap = null; this.targets = []; }
+    setStatus(s) { this.statusEl.textContent = s; this.updateEchoUI(); }
+    clearSel() {
+      this.sel = null; this.phase = null; this.reachMap = null; this.targets = [];
+      this.placeSet = null; this.pendingMove = null;
+      if (this.ui) this.ui.actions.hidden = true;
+    }
+
+    // ---------- Friend Echoes ----------
+    updateEchoUI() {
+      if (!this.ui) return;
+      const pct = this.echoUsed ? 100 : 100 * this.charge / CHARGE_MAX;
+      this.ui.fill.style.width = pct + '%';
+      this.ui.meter.setAttribute('aria-valuenow', String(this.echoUsed ? CHARGE_MAX : this.charge));
+      const full = !this.echoUsed && this.charge >= CHARGE_MAX;
+      this.ui.meter.classList.toggle('full', full);
+      this.ui.call.disabled = !(full && this.turn === 'player' && !this.busy && !this.phase);
+      this.ui.call.textContent = this.echoUsed ? 'Echo used this battle' : full ? 'Call an Echo' : 'Charging… ' + this.charge + '/' + CHARGE_MAX;
+    }
+    openPicker() {
+      if (this.ui.call.disabled) return;
+      this.clearSel();
+      this.ui.picker.hidden = false;
+      this.ui.tabs.forEach(x => { if (x.dataset.tab !== 'cancel') x.setAttribute('aria-pressed', String(x.dataset.tab === 'guild')); });
+      this.fillPicker('guild');
+      this.setStatus('Pick who to call. Guild echoes come from your friends; wandering heroes are always available.');
+    }
+    fillPicker(tab) {
+      const list = this.ui.list;
+      list.textContent = '';
+      for (const def of ECHOES[tab]) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'echo-card';
+        const t = document.createElement('b'); t.textContent = (def.wandering ? def.owner : def.owner + "'s echo") + ' · ' + def.role;
+        b.appendChild(t);
+        for (const m of def.moves) { const s = document.createElement('span'); s.textContent = m.name + ': ' + m.desc; b.appendChild(s); }
+        b.addEventListener('click', () => this.chooseEcho(def));
+        list.appendChild(b);
+      }
+    }
+    chooseEcho(def) {
+      this.ui.picker.hidden = true;
+      const anchors = this.units.filter(u => u.team === 'crew' && !u.dead && !u.isEcho);
+      const set = new Set();
+      for (const a of anchors) for (const n of this.neighbors(a.c, a.r)) {
+        if (!this.blocked(n.c, n.r) && !this.at(n.c, n.r)) set.add(key(n.c, n.r));
+      }
+      if (!set.size) { this.setStatus('No open space next to your crew. Move someone and try again.'); return; }
+      this.pendingEcho = def; this.placeSet = set; this.phase = 'placeEcho';
+      this.setStatus('Tap a glowing space next to your crew to place ' + (def.wandering ? def.owner : def.owner + "'s echo") + '.');
+    }
+    spawnEcho(t) {
+      const def = this.pendingEcho;
+      const e = {
+        name: def.wandering ? def.owner : def.owner + "'s echo", role: def.role + ' · Echo, scaled to this battle', spr: def.spr,
+        team: 'crew', isEcho: true, def, c: t.c, r: t.r, move: 3, max: 30, hp: 30,
+        id: 100, vc: t.c, vr: t.r, vt: 0, path: [], onArrive: null, done: false, dead: false, deathT: 0, hitT: 0, bob: 0,
+        actions: 2, expireRound: this.round + 1, spawnT: 1
+      };
+      this.units.push(e);
+      this.echo = e; this.echoUsed = true; this.charge = 0; this.pendingEcho = null;
+      const p = this.center(t.c, t.r);
+      this.floats.push({ x: p.x, y: this.baseY(p) - this.unitH() - 6, text: 'Echo!', t: 1.3, color: '#c4a3ff' });
+      this.clearSel();
+      this.focus = e; this.updateCard();
+      this.selectEcho(e);
+    }
+    selectEcho(e) {
+      this.clearSel();
+      this.sel = e; this.phase = 'echoMenu'; this.focus = e; this.updateCard();
+      const moves = e.def.moves;
+      this.ui.who.textContent = e.name + ': ' + e.actions + (e.actions === 1 ? ' action' : ' actions') + ' left';
+      this.ui.abtn.forEach(b => {
+        const ea = b.dataset.ea;
+        if (ea === '0' || ea === '1') b.textContent = moves[+ea].name;
+        if (ea === 'done') b.textContent = e.actions === 2 ? 'Save for later' : 'Save for next turn';
+      });
+      this.ui.actions.hidden = false;
+      this.setStatus('Choose what the echo does. Each button uses 1 of its 2 actions. You can also save actions for next turn.');
+    }
+    echoAction(ea) {
+      const e = this.echo;
+      if (!e || e.dead || this.turn !== 'player' || this.busy) return;
+      if (ea === 'done') { this.clearSel(); this.setStatus('Echo waiting with ' + e.actions + (e.actions === 1 ? ' action' : ' actions') + '. Tap it anytime this turn or next.'); return; }
+      if (ea === 'move') {
+        this.ui.actions.hidden = true;
+        this.phase = 'echoMove'; this.reachMap = this.reach(e);
+        this.setStatus('Tap a lit space to move the echo (uses 1 action).');
+        return;
+      }
+      const m = e.def.moves[+ea];
+      const ghosts = this.units.filter(u => u.team === 'ghost' && !u.dead);
+      if (m.type === 'target' || m.type === 'splash') {
+        const inRange = ghosts.filter(g => this.dist(g, e) <= m.range);
+        if (!inRange.length) { this.setStatus('No ghost within ' + m.range + (m.range === 1 ? ' hex' : ' hexes') + ' for ' + m.name + '. Try moving the echo first.'); return; }
+        this.ui.actions.hidden = true;
+        this.phase = 'echoTarget'; this.pendingMove = m; this.targets = inRange;
+        this.setStatus('Tap a ghost marked in red for ' + m.name + '.');
+        return;
+      }
+      const p = this.unitPos(e);
+      if (m.type === 'heal') {
+        const crew = this.units.filter(u => u.team === 'crew' && !u.dead && !u.isEcho && this.dist(u, e) <= m.radius);
+        if (!crew.length) { this.setStatus('No crew within range to heal. Move the echo closer first.'); return; }
+        for (const u of crew) {
+          const before = u.hp; u.hp = Math.min(u.max, u.hp + m.amt);
+          const q = this.unitPos(u);
+          this.floats.push({ x: q.x, y: this.baseY(q) - this.unitH(), text: '+' + (u.hp - before), t: 1, color: '#5eead4' });
+        }
+      } else if (m.type === 'burst') {
+        const hit = ghosts.filter(g => this.dist(g, e) <= m.radius);
+        if (!hit.length) { this.setStatus('No ghost within ' + m.radius + ' hexes. Move the echo closer first.'); return; }
+        for (const g of hit) this.attack(e, g, rnd(m.dmg[0], m.dmg[1]));
+      } else if (m.type === 'stun') {
+        const hit = ghosts.filter(g => this.dist(g, e) <= m.radius);
+        if (!hit.length) { this.setStatus('No ghost within ' + m.radius + ' hexes. Move the echo closer first.'); return; }
+        for (const g of hit) {
+          g.stunned = true;
+          const q = this.unitPos(g);
+          this.floats.push({ x: q.x, y: this.baseY(q) - this.unitH(), text: 'dazed', t: 1.1, color: '#c4a3ff' });
+        }
+      }
+      this.floats.push({ x: p.x, y: this.baseY(p) - this.unitH() - 14, text: m.name, t: 1.2, color: '#c4a3ff' });
+      this.useEchoAction();
+    }
+    useEchoAction() {
+      const e = this.echo;
+      e.actions--;
+      this.clearSel();
+      if (this.checkEnd()) return;
+      if (e.actions <= 0) this.retireEcho();
+      else this.selectEcho(e);
+    }
+    retireEcho() {
+      const e = this.echo; if (!e || e.dead) return;
+      e.dead = true; e.deathT = 1;
+      const d = e.def;
+      this.ui.report.hidden = false;
+      this.ui.report.textContent = d.wandering
+        ? d.owner + ' tips their hat and wanders off into the night.'
+        : d.owner + "'s echo fades. " + d.owner + ' gets a thank-you the next time they log in: "Your echo helped a guildmate fight the ghost crew."';
+      this.clearSel();
+      const left = this.units.filter(u => u.team === 'crew' && !u.dead && !u.done && !u.isEcho);
+      this.setStatus(left.length ? 'Your turn. ' + left.length + ' crew left to act.' : 'Your turn. Tap End turn when ready.');
+    }
+
     select(u) {
+      if (u.isEcho) { this.selectEcho(u); return; }
       this.sel = u; this.phase = 'move'; this.focus = u;
       this.reachMap = this.reach(u);
       this.setStatus(u.name + ': tap a lit space to move, or tap them again to stay put.');
@@ -472,6 +720,38 @@
       const rect = this.canvas.getBoundingClientRect();
       const t = this.pick(e.clientX - rect.left, e.clientY - rect.top);
       const u = t ? this.at(t.c, t.r) : null;
+
+      if (this.phase === 'placeEcho') {
+        if (t && this.placeSet.has(key(t.c, t.r))) this.spawnEcho(t);
+        return;
+      }
+      if (this.phase === 'echoMenu') {
+        if (u && u !== this.echo) { this.clearSel(); this.onTap(e); return; }
+        return;
+      }
+      if (this.phase === 'echoMove') {
+        const echo = this.echo;
+        if (t && this.reachMap.has(key(t.c, t.r)) && (!u || u === echo) && !(t.c === echo.c && t.r === echo.r)) {
+          const path = this.pathTo(this.reachMap, t);
+          this.reachMap = null; this.busy = true;
+          const tok = this.token;
+          this.moveUnit(echo, path).then(() => { if (tok !== this.token) return; this.busy = false; this.useEchoAction(); });
+        } else { this.selectEcho(echo); }
+        return;
+      }
+      if (this.phase === 'echoTarget') {
+        const m = this.pendingMove, echo = this.echo;
+        if (u && this.targets.includes(u)) {
+          if (m.type === 'splash') {
+            const hit = [u, ...this.units.filter(g => g.team === 'ghost' && !g.dead && g !== u && this.dist(g, u) === 1)];
+            for (const g of hit) if (!g.dead) this.attack(echo, g, rnd(m.dmg[0], m.dmg[1]));
+          } else this.attack(echo, u, rnd(m.dmg[0], m.dmg[1]));
+          const p = this.unitPos(echo);
+          this.floats.push({ x: p.x, y: this.baseY(p) - this.unitH() - 14, text: m.name, t: 1.2, color: '#c4a3ff' });
+          this.useEchoAction();
+        } else this.selectEcho(echo);
+        return;
+      }
 
       if (this.phase === 'attack') {
         const s = this.sel;
@@ -509,6 +789,7 @@
       await this.moveUnit(s, path);
       if (tok !== this.token) return;
       this.busy = false;
+      this.addCharge(1);
       this.targets = this.adjacentFoes(s);
       if (this.targets.length) {
         this.phase = 'attack';
@@ -519,7 +800,11 @@
     }
     afterAction() {
       if (this.checkEnd()) return;
-      const left = this.units.filter(u => u.team === 'crew' && !u.dead && !u.done);
+      const left = this.units.filter(u => u.team === 'crew' && !u.dead && !u.done && !u.isEcho);
+      if (!left.length && this.echo && !this.echo.dead && this.echo.actions > 0) {
+        this.setStatus('Your crew is done. The echo still has ' + this.echo.actions + (this.echo.actions === 1 ? ' action' : ' actions') + ': tap it, or tap End turn to save it for next turn.');
+        return;
+      }
       if (!left.length) this.enemyTurn();
       else this.setStatus('Your turn. ' + left.length + ' crew left to act.');
     }
@@ -533,7 +818,7 @@
       if (!this.units.some(u => u.team === 'ghost' && !u.dead)) {
         this.turn = 'over'; this.setStatus('Victory! The ghost crew is gone. Tap Restart to play again.'); return true;
       }
-      if (!this.units.some(u => u.team === 'crew' && !u.dead)) {
+      if (!this.units.some(u => u.team === 'crew' && !u.dead && !u.isEcho)) {
         this.turn = 'over'; this.setStatus('Your crew was defeated. Tap Restart to try again.'); return true;
       }
       return false;
@@ -546,8 +831,14 @@
         await sleep(300);
         if (tok !== this.token) return;
         if (g.dead) continue;
-        const crew = this.units.filter(u => u.team === 'crew' && !u.dead);
+        const crew = this.units.filter(u => u.team === 'crew' && !u.dead && !u.isEcho);
         if (!crew.length) break;
+        if (g.stunned) {
+          g.stunned = false;
+          const q = this.unitPos(g);
+          this.floats.push({ x: q.x, y: this.baseY(q) - this.unitH(), text: 'coughing…', t: 1.1, color: '#c4a3ff' });
+          continue;
+        }
         const rm = this.reach(g);
         let best = { c: g.c, r: g.r }, bd = Infinity, bc = Infinity;
         for (const [k, v] of rm) {
@@ -575,6 +866,8 @@
       this.units.forEach(u => { u.done = false; });
       this.turn = 'player';
       this.setStatus('Round ' + this.round + '. Your turn. Tap one of your crew.');
+      if (this.echo && !this.echo.dead && this.round > this.echo.expireRound) this.retireEcho();
+      else if (this.echo && !this.echo.dead) this.setStatus('Round ' + this.round + '. Your turn. The echo has ' + this.echo.actions + (this.echo.actions === 1 ? ' action' : ' actions') + ' left, and fades after this turn.');
     }
 
     updateCard() {
@@ -663,6 +956,14 @@
       }
       for (const f of this.floats) { f.t -= dt; f.y -= dt * 22; }
       this.floats = this.floats.filter(f => f.t > 0);
+      if (this.hex && !REDUCE) {
+        for (const t of this.torchPts) {
+          if (Math.random() < dt * 7) this.embers.push({ x: t.x + (Math.random() - 0.5) * 6, y: t.y, vx: (Math.random() - 0.5) * 10, vy: -18 - Math.random() * 22, life: 1 });
+        }
+        for (const m of this.embers) { m.x += m.vx * dt; m.y += m.vy * dt; m.vx += Math.sin(m.y * 0.1) * dt * 8; m.life -= dt * 0.8; }
+        this.embers = this.embers.filter(m => m.life > 0);
+      }
+      if (this.echo && this.echo.spawnT > 0) this.echo.spawnT -= dt * 1.5;
     }
 
     blocked(c, r) { const ch = this.map[r][c]; return ch === 'P' || ch === 'R' || ch === 'T' || (this.hex && ch === 'w'); }
@@ -674,6 +975,7 @@
       ctx.fillStyle = '#0a0920';
       ctx.fillRect(0, 0, this.cw, this.ch);
       const S = this.objSize();
+      if (this.hex) { this.drawHex(ctx, time, S); return; }
 
       if (this.hex) {
         ctx.drawImage(this.bg, 0, 0, this.cw, this.ch);
@@ -792,6 +1094,159 @@
       ctx.globalAlpha = 1;
     }
 
+    drawHex(ctx, time, S) {
+      const hw = this.hw;
+      ctx.drawImage(this.bg, 0, 0, this.cw, this.ch);
+      if (!REDUCE) {
+        ctx.fillStyle = 'rgba(191,239,255,0.18)';
+        for (const p of this.waterCenters) {
+          const off = Math.sin(time * 0.002 + p.x * 0.05) * this.R * 0.4;
+          ctx.fillRect(p.x - this.R * 0.35 + off, p.y - 1, this.R * 0.5, 2);
+        }
+      }
+      // torch positions
+      this.torchPts = [];
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (this.map[r][c] === 'T') {
+        const p = this.center(c, r); this.torchPts.push({ x: p.x, y: this.baseY(p) - S * 0.86, gx: p.x, gy: p.y });
+      }
+      // night falls over the ground
+      ctx.fillStyle = 'rgba(6,5,24,0.5)';
+      ctx.fillRect(0, 0, this.cw, this.ch);
+      ctx.globalCompositeOperation = 'lighter';
+      const moon = ctx.createRadialGradient(this.cw * 0.85, -hw, 0, this.cw * 0.85, -hw, this.cw * 0.9);
+      moon.addColorStop(0, 'rgba(140,160,255,0.16)'); moon.addColorStop(1, 'rgba(140,160,255,0)');
+      ctx.fillStyle = moon; ctx.fillRect(0, 0, this.cw, this.ch);
+      for (const t of this.torchPts) {
+        const flick = REDUCE ? 1 : 0.92 + 0.08 * Math.sin(time * 0.017 + t.x) + 0.04 * Math.sin(time * 0.041 + t.y);
+        const rad = hw * 2.8 * flick;
+        const g = ctx.createRadialGradient(t.gx, t.gy, 0, t.gx, t.gy, rad);
+        g.addColorStop(0, 'rgba(255,170,80,0.42)'); g.addColorStop(0.5, 'rgba(255,140,60,0.14)'); g.addColorStop(1, 'rgba(255,140,60,0)');
+        ctx.fillStyle = g;
+        ctx.save(); ctx.translate(t.gx, t.gy); ctx.scale(1, this.k); ctx.translate(-t.gx, -t.gy);
+        ctx.fillRect(t.gx - rad, t.gy - rad, rad * 2, rad * 2);
+        ctx.restore();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // grid lines on standable hexes
+      if (this.gridMode === 'always' || this.sel || this.phase) {
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+          if (this.blocked(c, r)) continue;
+          this.tilePath(ctx, c, r, 1.5);
+          ctx.fillStyle = 'rgba(236,233,255,0.035)'; ctx.fill();
+          ctx.strokeStyle = 'rgba(236,233,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+      }
+      // highlights
+      if (this.reachMap) {
+        const echoMove = this.phase === 'echoMove';
+        for (const k of this.reachMap.keys()) {
+          const [c, r] = k.split(',').map(Number);
+          this.tilePath(ctx, c, r, 2.5);
+          ctx.fillStyle = echoMove ? 'rgba(196,163,255,0.22)' : 'rgba(94,234,212,0.24)'; ctx.fill();
+          ctx.strokeStyle = echoMove ? 'rgba(196,163,255,0.8)' : 'rgba(94,234,212,0.75)'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+      }
+      if (this.placeSet) {
+        const pulse = 0.25 + 0.15 * Math.sin(time * 0.008);
+        for (const k of this.placeSet) {
+          const [c, r] = k.split(',').map(Number);
+          this.tilePath(ctx, c, r, 2.5);
+          ctx.fillStyle = 'rgba(196,163,255,' + pulse + ')'; ctx.fill();
+          ctx.strokeStyle = '#c4a3ff'; ctx.lineWidth = 2; ctx.stroke();
+        }
+      }
+      for (const t of this.targets) {
+        this.tilePath(ctx, t.c, t.r, 2.5);
+        const pulse = 0.3 + 0.15 * Math.sin(time * 0.008);
+        ctx.fillStyle = 'rgba(255,123,123,' + pulse + ')'; ctx.fill();
+        ctx.strokeStyle = '#ff7b7b'; ctx.lineWidth = 2; ctx.stroke();
+      }
+
+      // festival lantern string across the top
+      const y0 = hw * 0.28, sag = hw * 0.32;
+      const bez = t => ({ x: t * this.cw, y: y0 + 4 * sag * t * (1 - t) + t * hw * 0.08 });
+      ctx.strokeStyle = 'rgba(20,16,40,0.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 24; i++) { const q = bez(i / 24); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); }
+      ctx.stroke();
+      const lanternCols = ['#ffb347', '#ff6bb5', '#5eead4', '#ffb347', '#c4a3ff', '#ffb347', '#ff6bb5', '#5eead4'];
+      const lanterns = [];
+      for (let i = 0; i < 8; i++) {
+        const q = bez(0.07 + i * 0.123);
+        const col = lanternCols[i];
+        const lw = hw * 0.13, lh = hw * 0.19;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.ellipse(q.x, q.y + lh * 0.6, lw * 0.5, lh * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        lanterns.push({ x: q.x, y: q.y + lh * 0.6, col });
+      }
+
+      // props and units, back to front
+      const items = [];
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const ch = this.map[r][c];
+        if (ch === 'P' || ch === 'T') { const p = this.center(c, r); items.push({ kind: ch, p, depth: p.y }); }
+      }
+      for (const u of this.units) {
+        if (u.dead && u.deathT <= 0) continue;
+        const p = this.unitPos(u);
+        items.push({ kind: 'U', u, p, depth: p.y + 0.5 });
+      }
+      items.sort((a, b) => a.depth - b.depth);
+      for (const it of items) {
+        if (it.kind === 'U') { this.drawUnit(ctx, it.u, it.p, time); continue; }
+        const by = this.baseY(it.p);
+        if (it.kind === 'P') this.drawPalm(ctx, it.p.x, by, S);
+        else this.drawTorch(ctx, it.p.x, by, S, time);
+      }
+
+      // warm rim light on anyone standing near a torch, plus lantern and flame glow
+      ctx.globalCompositeOperation = 'lighter';
+      for (const u of this.units) {
+        if (u.dead) continue;
+        const p = this.unitPos(u);
+        let best = Infinity;
+        for (const t of this.torchPts) best = Math.min(best, Math.hypot(p.x - t.gx, (p.y - t.gy) / this.k));
+        const reach = hw * 2.4;
+        if (best < reach) {
+          const a = 0.22 * (1 - best / reach);
+          const cy = this.baseY(p) - this.unitH() * 0.5;
+          const g = ctx.createRadialGradient(p.x, cy, 0, p.x, cy, this.unitH() * 0.7);
+          g.addColorStop(0, 'rgba(255,160,70,' + a + ')'); g.addColorStop(1, 'rgba(255,160,70,0)');
+          ctx.fillStyle = g; ctx.fillRect(p.x - this.unitH(), cy - this.unitH(), this.unitH() * 2, this.unitH() * 2);
+        }
+      }
+      for (const L of lanterns) {
+        const g = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, hw * 0.6);
+        g.addColorStop(0, L.col + '55'); g.addColorStop(1, L.col + '00');
+        ctx.fillStyle = g; ctx.fillRect(L.x - hw * 0.6, L.y - hw * 0.6, hw * 1.2, hw * 1.2);
+      }
+      for (const t of this.torchPts) {
+        const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, hw * 0.7);
+        g.addColorStop(0, 'rgba(255,200,110,0.5)'); g.addColorStop(1, 'rgba(255,200,110,0)');
+        ctx.fillStyle = g; ctx.fillRect(t.x - hw * 0.7, t.y - hw * 0.7, hw * 1.4, hw * 1.4);
+      }
+      for (const m of this.embers) {
+        ctx.fillStyle = 'rgba(255,' + Math.round(150 + 80 * m.life) + ',80,' + (m.life * 0.9) + ')';
+        ctx.fillRect(m.x, m.y, 2, 2);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      // soft vignette
+      const v = ctx.createRadialGradient(this.cw / 2, this.ch / 2, this.cw * 0.3, this.cw / 2, this.ch / 2, this.cw * 0.78);
+      v.addColorStop(0, 'rgba(6,5,24,0)'); v.addColorStop(1, 'rgba(6,5,24,0.45)');
+      ctx.fillStyle = v; ctx.fillRect(0, 0, this.cw, this.ch);
+
+      for (const f of this.floats) {
+        ctx.globalAlpha = Math.min(1, f.t * 2);
+        ctx.font = '700 ' + Math.max(13, Math.round(S * 0.32)) + 'px "Pixelify Sans", monospace';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 3; ctx.strokeStyle = '#0a0920'; ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.globalAlpha = 1;
+    }
+
     drawUnit(ctx, u, p, time) {
       const by = this.baseY(p);
       const sw = this.spriteW(), sh = this.unitH();
@@ -804,8 +1259,8 @@
         const rx = sw * 0.52, ry = rx * this.k * 0.55;
         ctx.fillStyle = 'rgba(0,0,0,0.45)';
         ctx.beginPath(); ctx.ellipse(p.x, by + 2, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = u.team === 'crew' ? 'rgba(94,234,212,0.28)' : 'rgba(255,123,123,0.28)';
-        ctx.strokeStyle = u.team === 'crew' ? '#5eead4' : '#ff7b7b';
+        ctx.fillStyle = u.isEcho ? 'rgba(196,163,255,0.3)' : u.team === 'crew' ? 'rgba(94,234,212,0.28)' : 'rgba(255,123,123,0.28)';
+        ctx.strokeStyle = u.isEcho ? '#c4a3ff' : u.team === 'crew' ? '#5eead4' : '#ff7b7b';
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.ellipse(p.x, by, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       } else {
@@ -819,14 +1274,30 @@
       let alpha = 1;
       if (u.team === 'ghost') alpha = 0.88;
       if (u.team === 'crew' && u.done && this.turn === 'player') alpha = 0.55;
+      if (u.isEcho) {
+        alpha = 0.82 * (1 - Math.max(0, u.spawnT || 0));
+        if (!REDUCE) oy = Math.sin(time * 0.003) * sw * 0.04 - sw * 0.05;
+        const glow = ctx.createRadialGradient(p.x, by - sh * 0.5, 0, p.x, by - sh * 0.5, sh * 0.8);
+        glow.addColorStop(0, 'rgba(196,163,255,0.35)'); glow.addColorStop(1, 'rgba(196,163,255,0)');
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = glow; ctx.fillRect(p.x - sh, by - sh * 1.3, sh * 2, sh * 1.6);
+        ctx.globalCompositeOperation = 'source-over';
+      }
       if (u.dead) alpha = Math.max(0, u.deathT) * 0.8;
       ctx.globalAlpha = alpha;
       ctx.drawImage(SPR[u.spr], p.x - sw / 2 + ox, by - sh + oy, sw, sh);
       ctx.globalAlpha = 1;
+      if (u.isEcho && !u.dead && !REDUCE) {
+        ctx.fillStyle = '#e9dcff';
+        for (let i = 0; i < 3; i++) {
+          const a = time * 0.002 + i * 2.1;
+          ctx.fillRect(p.x + Math.cos(a) * sw * 0.6, by - sh * 0.5 + Math.sin(a * 1.3) * sh * 0.4, 2, 2);
+        }
+      }
       if (alive) {
         const bw = sw * 0.9, bh = Math.max(3, sw * 0.09), bx = p.x - bw / 2, byy = by - sh + oy - bh - 3;
         ctx.fillStyle = '#0a0920'; ctx.fillRect(bx - 1, byy - 1, bw + 2, bh + 2);
-        ctx.fillStyle = u.team === 'crew' ? '#5eead4' : '#ff7b7b';
+        ctx.fillStyle = u.isEcho ? '#c4a3ff' : u.team === 'crew' ? '#5eead4' : '#ff7b7b';
         ctx.fillRect(bx, byy, bw * u.hp / u.max, bh);
       }
     }
