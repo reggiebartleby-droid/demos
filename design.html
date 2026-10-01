@@ -166,6 +166,27 @@
   .legend i { width: 16px; height: 16px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); display: inline-block; }
   .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
   @media (prefers-reduced-motion: reduce) { .play .hp i, .play .meter i { transition: none; } }
+
+  /* secrets */
+  .secrets { position: relative; border: 1px solid var(--line); border-radius: 12px; padding: 22px; background: radial-gradient(120% 140% at 85% 0%, #2a1d52 0%, var(--deck) 55%); display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .secrets h3 { font-size: 1.4rem; color: var(--echo); }
+  .secret-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .secret { background: rgba(14,12,36,0.6); border: 1px dashed var(--echo); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .secret p { font-size: 0.95rem; font-style: italic; }
+  .redact { display: flex; flex-wrap: wrap; gap: 6px; }
+  .redact i { height: 10px; border-radius: 3px; background: linear-gradient(90deg, #3a3470, #5a4f9a, #3a3470); background-size: 200% 100%; animation: flicker 3.5s linear infinite; }
+  @keyframes flicker { to { background-position: -200% 0; } }
+  /* trials */
+  .trials { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .trial { background: var(--deck); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .trial .sil { height: 90px; border-radius: 8px; display: grid; place-items: center; font-family: var(--font-display); font-size: 2.6rem; color: var(--torch); background: radial-gradient(circle at 50% 70%, rgba(255,179,71,0.18), transparent 70%), #120f2c; text-shadow: 0 0 18px rgba(255,179,71,0.6); }
+  .trial h3 { color: var(--torch); }
+  .trial p { font-size: 0.92rem; color: var(--muted); }
+  .titles-band { border: 1px solid var(--torch); border-radius: 12px; padding: 20px; background: linear-gradient(135deg, #2a2036, var(--deck)); display: flex; flex-direction: column; gap: 12px; }
+  .titles-band h3 { color: var(--torch); font-size: 1.35rem; }
+  .titles-band ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem; }
+  .plaque { align-self: flex-start; font-family: var(--font-display); padding: 6px 14px; border-radius: 6px; border: 1px solid var(--torch); color: var(--torch); background: rgba(255,179,71,0.08); letter-spacing: 0.06em; }
+  @media (prefers-reduced-motion: reduce) { .redact i { animation: none; } }
 </style>
 
 <header class="hero">
@@ -200,6 +221,16 @@
       <article class="lantern" style="--c: var(--copper)"><div class="lamp"></div><h3>The Copper Lantern</h3><span class="who">Engineers and tinkerers</span><p>Want to bottle the island's power and put it to work.</p></article>
       <article class="lantern" style="--c: var(--rose)"><div class="lamp"></div><h3>The Rose Lantern</h3><span class="who">The wealthy, who run the nightlife</span><p>Own the resorts and the best parties, and want to own everything else.</p></article>
       <article class="lantern hollow" style="--c: var(--hollow)"><div class="lamp"></div><h3>The Hollow Lantern</h3><span class="who">A secret cult</span><p>A lantern that gives no light. Its members hide inside the other four. Nobody knows what they want.</p></article>
+    </div>
+    <div class="secrets">
+      <span class="eyebrow">Secrets to be revealed</span>
+      <h3>The island is hiding something. Several somethings.</h3>
+      <p class="lead">The story is built around mysteries you'll uncover together. We're not saying more yet, but here's what the locals whisper:</p>
+      <div class="secret-list">
+        <div class="secret"><div class="redact"><i style="width:60%"></i><i style="width:30%"></i></div><p>"Not everyone is who they seem. Someone you trust may not be someone at all."</p></div>
+        <div class="secret"><div class="redact"><i style="width:40%"></i><i style="width:45%"></i></div><p>"At night the sand is warm, and if you lie very still, the island breathes."</p></div>
+        <div class="secret"><div class="redact"><i style="width:70%"></i><i style="width:20%"></i></div><p>"The Hollow Lantern isn't waiting for something to arrive. It's waiting for something to wake."</p></div>
+      </div>
     </div>
   </section>
 
@@ -240,7 +271,20 @@
       <span class="chip">Flame · bursts of damage</span>
       <span class="chip">Tide · movement and control</span>
       <span class="chip">Storm · chain lightning</span>
+      <span class="chip">Iron · pull, push and shape metal</span>
       <span class="chip">Star · rare and mysterious</span>
+    </div>
+
+    <div class="titles-band">
+      <span class="plaque">Titles</span>
+      <h3>Earn a name the whole island knows</h3>
+      <p>Do something legendary, ridiculous or both, and the island gives you a title to match. Wear one at a time and everyone sees it next to your name.</p>
+      <ul>
+        <li><b>Earned, never bought.</b> Every title comes from something you did.</li>
+        <li><b>Real power.</b> Each title grants a big boost that can change how you play.</li>
+        <li><b>With a quirk.</b> Every boost comes with a small, funny catch, so choosing one is a real decision.</li>
+        <li><b>Some are secret.</b> Not every title is listed. Some you'll only discover by doing something strange.</li>
+      </ul>
     </div>
 
     <h3>Early concept art</h3>
@@ -318,9 +362,23 @@
     </div>
   </section>
 
+  <section class="chapter" aria-labelledby="h-trials">
+    <div class="chapter-head">
+      <span class="eyebrow">04 · The Trials</span>
+      <h2 id="h-trials">Every region has a guardian. None of them are normal.</h2>
+      <p class="lead">Each part of the island is watched over by a legendary guardian beast at a famous landmark, like the labors of Hercules. Beat a region's Trial to unlock the next part of the island. The guardians are strange fusions of creatures, they make for the biggest fights in the game, and they guard some of the best loot.</p>
+    </div>
+    <div class="trials">
+      <article class="trial"><div class="sil" aria-hidden="true">?</div><h3>The Reef Guardian</h3><p>Something with too many heads lives where the coral glows.</p></article>
+      <article class="trial"><div class="sil" aria-hidden="true">?</div><h3>The Cove Guardian</h3><p>It roars like a lion. It walks sideways.</p></article>
+      <article class="trial"><div class="sil" aria-hidden="true">?</div><h3>The Observatory Guardian</h3><p>Feathers, wings and far too many eyes, all watching the sky.</p></article>
+      <article class="trial"><div class="sil" aria-hidden="true">?</div><h3>And more…</h3><p>Every region has one. Some are guarding more than treasure.</p></article>
+    </div>
+  </section>
+
   <section class="chapter" aria-labelledby="h-loot">
     <div class="chapter-head">
-      <span class="eyebrow">04 · Loot</span>
+      <span class="eyebrow">05 · Loot</span>
       <h2 id="h-loot">Every good drop should feel like a party</h2>
       <p class="lead">Five rarity tiers, each with its own color, glow and pop when it drops. Think Borderlands 2 and Destiny. Tier names are still up for grabs.</p>
     </div>
@@ -334,14 +392,15 @@
     <div class="grid">
       <article class="card"><span class="role">Upgrading</span><h3>Feed it</h3><p>Power up gear you love by feeding it gear you don't. No collecting piles of materials first.</p></article>
       <article class="card"><span class="role">Fair drops</span><h3>Same rarity for everyone</h3><p>In guild fights everyone gets their own loot, at the same rarity.</p></article>
-      <article class="card"><span class="role">Best loot</span><h3>Go big</h3><p>Main bosses, raids and rare quests drop the best gear. Your class and aura steer what drops.</p></article>
+      <article class="card"><span class="role">Best loot</span><h3>Go big</h3><p>Main bosses, raids, rare quests and the Trials drop the best gear. Your class and aura steer what drops.</p></article>
+      <article class="card"><span class="role">Inventory</span><h3>No bag chores</h3><p>A big bag that keeps growing. Junk and duplicates feed your favorite gear automatically, and auto-salvage handles the rest. No selling, no sorting.</p></article>
     </div>
     <p class="joke"><b>Some weapons are jokes, and you won't know until you swing them.</b> That gleaming fire wand? It's a hair dryer. The fearsome slingshot fires harmless gumballs.</p>
   </section>
 
   <section class="chapter" aria-labelledby="h-together">
     <div class="chapter-head">
-      <span class="eyebrow">05 · Playing together</span>
+      <span class="eyebrow">06 · Playing together</span>
       <h2 id="h-together">Together, even when you're not online at the same time</h2>
     </div>
     <div class="grid">
@@ -354,7 +413,7 @@
 
   <section class="chapter" aria-labelledby="h-rules">
     <div class="chapter-head">
-      <span class="eyebrow">06 · House rules</span>
+      <span class="eyebrow">07 · House rules</span>
       <h2 id="h-rules">Things this game will never do</h2>
     </div>
     <div class="rules">
@@ -362,6 +421,7 @@
       <div class="rule"><span class="x">✕</span><p>Grinding piles of materials before you can upgrade.</p></div>
       <div class="rule"><span class="x">✕</span><p>Rock-paper-scissors counters.</p></div>
       <div class="rule"><span class="x">✕</span><p>Crafting, survival or roguelike loops.</p></div>
+      <div class="rule"><span class="x">✕</span><p>Selling and sorting piles of items.</p></div>
       <div class="rule"><span class="x">✕</span><p>Forcing you into a guild. Solo players always have wandering heroes.</p></div>
     </div>
   </section>
