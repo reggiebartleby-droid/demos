@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Fishnet Free Movement</title>
+<title>Battle Movement Options</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -84,14 +84,15 @@
 <div class="wrap">
   <header>
     <p class="eyebrow">Project Fishnet · battle movement</p>
-    <h1>Free movement, three ways</h1>
-    <p>The hex grid is still the front-runner. This page plays the same small fight three gridless ways so you can feel the difference: <strong>same island, same hero, same three ghosts, same Friend Echo.</strong> Switch modes any time; each switch starts a fresh fight.</p>
+    <h1>Battle movement options</h1>
+    <p>The same small fight, played four ways so you can feel the difference: <strong>same island, same hero, same three ghosts, same Friend Echo.</strong> Switch modes any time; each switch starts a fresh fight.</p>
   </header>
 
   <div class="tabs" role="tablist" aria-label="Movement mode">
     <button type="button" role="tab" id="tab-stage" data-mode="stage" aria-selected="true"><b>Stage</b><small>like Chrono Trigger</small></button>
     <button type="button" role="tab" id="tab-lineup" data-mode="lineup" aria-selected="false"><b>Lineup</b><small>like Octopath Traveler</small></button>
     <button type="button" role="tab" id="tab-free" data-mode="free" aria-selected="false"><b>Free step</b><small>like Baldur's Gate 3</small></button>
+    <button type="button" role="tab" id="tab-hex" data-mode="hex" aria-selected="false"><b>Hex grid</b><small>like Warhammer 40K: Tacticus</small></button>
   </div>
 
   <section class="battle" aria-label="Battle">
@@ -128,11 +129,10 @@
   <footer>
     <h2>Things to know</h2>
     <ul>
-      <li><strong>Neither Chrono Trigger nor Octopath lets you move.</strong> In Chrono Trigger the fight happens wherever you were standing, and the game moves everyone around; where they land decides who an area attack hits. Octopath has no positions at all. The only one of the three with real player movement is the Baldur's Gate 3 style, Free step.</li>
-      <li><strong>What the hex grid gives you for free:</strong> ranges you can count ("3 hexes"), taps that snap to a spot (easy on a phone), simple pathfinding around rocks and water, and simple enemy AI. Free step has to rebuild all of that with circles, collision checks and a real pathfinder. This mockup cheats and only walks in straight lines.</li>
+      <li><strong>Neither Chrono Trigger nor Octopath lets you move.</strong> In Chrono Trigger the fight happens wherever you were standing, and the game moves everyone around; where they land decides who an area attack hits. Octopath has no positions at all. The two options here where you move your hero yourself are Free step and Hex grid.</li>
+      <li><strong>What a grid does for you:</strong> ranges you can count ("3 hexes"), taps that snap to a spot (easy on a phone), simple pathfinding around rocks and water, and simple enemy AI. Free step has to rebuild all of that with circles, collision checks and a real pathfinder. This mockup cheats and only walks in straight lines.</li>
       <li><strong>A middle path:</strong> movement that looks free but secretly snaps to a hidden hex grid. Players see no lines; the code still counts hexes. Stage mode could also run on hidden hexes, so area attacks stay predictable.</li>
-      <li><strong>On a phone</strong>, tap a ghost once to preview, tap it again to confirm. In Free step, tap the ground once to see the path, tap the same spot again to walk. That double tap is the price of free aiming on touch screens.</li>
-      <li>Compare with the hex version: <a href="https://claude.ai/artifact/RcWoaaYsKKrUV8dStf2Snh" target="_blank" rel="noopener">Fishnet Battle Previews</a>.</li>
+      <li><strong>On a phone</strong>, tap a ghost once to preview, tap it again to confirm. In Free step and Hex grid, tap the ground once to see the path, tap the same spot again to walk. Hexes are big targets, so taps rarely miss; free aiming is the fiddlier of the two.</li>
     </ul>
   </footer>
 </div>
@@ -342,17 +342,28 @@
   // ---------- sprites ----------
   const HERO_ST = { cls: 'ranger', outfit: '#3d4fa8', hair: '#2a2140', skin: SKIN.tan };
   const ECHO_ST = { cls: 'astro', outfit: '#7b3fa0', hair: '#e6e9f5', skin: SKIN.moon };
-  const GH = [{ name: 'Pale Wisp', c: '#c9f2ff' }, { name: 'The Uninvited', c: '#d9ccff' }, { name: 'Silence Stalker', c: '#c4ffd9' }];
+  const GH = [{ name: 'Pale Wisp', col: '#c9f2ff' }, { name: 'The Uninvited', col: '#d9ccff' }, { name: 'Silence Stalker', col: '#c4ffd9' }];
   const SPR = {
     hero: renderSprite(buildHero(HERO_ST), 84),
     echo: renderSprite(buildHero(ECHO_ST), 84),
-    ghosts: GH.map(g => renderSprite(buildGhost(g.c), 78, { torch: false })),
+    ghosts: GH.map(g => renderSprite(buildGhost(g.col), 78, { torch: false })),
     palm: renderSprite(buildPalm(), 120),
     rock: renderSprite(buildRock(), 56),
     torch: renderSprite(buildTorch(), 84, { torch: false }),
     flames: [0, 1, 2].map(k => renderSprite(buildFlame(k), 84, { noOutline: true, torch: false }))
   };
   const ground = buildGround();
+
+  // the hex variant of the island: same painted map with grid lines on top (blocked hexes get none)
+  function buildHexGround() {
+    const cv = mk(W, H), g = cv.getContext('2d'); g.drawImage(ground, 0, 0);
+    const ol = mk(W, H), oc = ol.getContext('2d', { willReadFrequently: true });
+    oc.scale(1 / PX, 1 / PX); oc.lineWidth = PX * 1.2; oc.strokeStyle = '#1a1440';
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!BLOCK[hkey(c, r)]) { const [x, y] = hexC(c, r); hexShape(oc, x, y, HR - 0.6); oc.stroke(); }
+    crispAlpha(ol, 0.4); g.drawImage(ol, 0, 0);
+    return cv;
+  }
+  let groundHex = null;
 
   // ---------- canvases ----------
   const scene = document.getElementById('scene'), hud = document.getElementById('hud'), stageEl = document.getElementById('stage');
@@ -385,7 +396,8 @@
   const START = {
     stage: { hero: [180, 205], ghosts: [[318, 190], [352, 214], [312, 238]] },
     lineup: { hero: [398, 180], echo: [432, 238], ghosts: [[134, 152], [172, 202], [124, 252]] },
-    free: { hero: [110, 215], ghosts: [[330, 180], [385, 222], [300, 248]] }
+    free: { hero: [110, 215], ghosts: [[330, 180], [385, 222], [300, 248]] },
+    hex: { hero: [1, 5], ghosts: [[6, 4], [7, 5], [6, 6]] }
   };
   const FORMATIONS = {
     cluster: [[318, 190], [352, 214], [312, 238]],
@@ -395,7 +407,7 @@
   };
   const FORM_TEXT = { cluster: 'bunch together', row: 'line up in a row', spread: 'scatter', surround: 'circle around you' };
 
-  let mode = 'stage', hero, ghosts, echo, meter, phase, sel, hover = null, mouse = null, pin = null, turn, lastForm = 'cluster', battleId = 0, moveLeft = MOVE;
+  let mode = 'stage', hero, ghosts, echo, meter, phase, sel, hover = null, mouse = null, pin = null, turn, lastForm = 'cluster', battleId = 0, moveLeft = MOVE, hexLeft = 3;
   const effects = [], pops = [], tweens = [];
 
   const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -411,9 +423,10 @@
     hero = { x: P.hero[0], y: P.hero[1], hp: HERO_MAX, lift: 0, shake: 0, home: P.hero.slice() };
     ghosts = GH.map((g, i) => ({ ...g, i, x: P.ghosts[i][0], y: P.ghosts[i][1], hp: GHOST_MAX, alpha: 1, lift: 0, shake: 0 }));
     echo = { active: false, left: 0, x: 0, y: 0, alpha: 0, lift: 0, shake: 0 };
-    meter = 40; phase = 'player'; sel = null; pin = null; turn = 1; moveLeft = MOVE; lastForm = 'cluster';
+    if (mode === 'hex') { if (!groundHex) groundHex = buildHexGround(); place(hero, ...P.hero); hero.home = [hero.x, hero.y]; ghosts.forEach((g, i) => place(g, ...P.ghosts[i])); }
+    meter = 40; phase = 'player'; sel = null; pin = null; turn = 1; moveLeft = MOVE; hexLeft = HEX_MOVE; lastForm = 'cluster';
     document.getElementById('log').innerHTML = '';
-    log(mode === 'free' ? 'Three ghosts wait across the sand. Walk closer or shoot from here.' : 'Three ghosts drift out of the dark.');
+    log(mode === 'free' || mode === 'hex' ? 'Three ghosts wait across the sand. Walk closer or shoot from here.' : 'Three ghosts drift out of the dark.');
     renderNotes(); updateUI();
   }
 
@@ -424,12 +437,19 @@
   function caught(kind, caster, tgt) {
     const live = alive();
     if (mode === 'lineup') return (kind === 'burst' || kind === 'star') ? live : [tgt];
+    if (mode === 'hex') {
+      if (kind === 'strike') return [tgt];
+      if (kind === 'burst' || kind === 'star') return live.filter(g => hexDist(g, tgt) <= 1);
+      const line = hexLine(caster, tgt, HEX_LINE);
+      return live.filter(g => line.some(h => h.c === g.c && h.r === g.r));
+    }
     if (kind === 'strike') return [tgt];
     if (kind === 'burst' || kind === 'star') return live.filter(g => gd(g.x, g.y, tgt.x, tgt.y) <= AB[kind].R);
     const ax = caster.x, ay = caster.y / SQ; let dx = tgt.x - ax, dy = tgt.y / SQ - ay; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
     return live.filter(g => { const px = g.x - ax, py = g.y / SQ - ay, t = px * dx + py * dy, perp = Math.abs(px * dy - py * dx); return t > 0 && t <= AB.pierce.len && perp <= AB.pierce.w; });
   }
   function inRange(kind, caster, tgt) {
+    if (mode === 'hex') return kind === 'strike' ? hexDist(caster, tgt) <= 1 : kind === 'burst' ? hexDist(caster, tgt) <= HEX_BURST_RANGE : true;
     if (mode !== 'free' || kind === 'star' || kind === 'pierce') return true;
     const d = gd(caster.x, caster.y, tgt.x, tgt.y);
     return kind === 'strike' ? d <= REACH : d <= AB.burst.range;
@@ -442,14 +462,48 @@
 
   // ---------- free-step movement checks ----------
   function validSpot(x, y, self) {
+    if (!terrainOk(x, y)) return false;
+    for (const g of alive()) if (g !== self && gd(x, y, g.x, g.y) < 30) return false;
+    return true;
+  }
+  function terrainOk(x, y) {
     if (x < 16 || x > 464 || y > 292 || y < shoreY(x) + 10) return false;
     if (gd(x, y, POOL.x, POOL.y) < POOL.r + 10) return false;
     for (const r of ROCKS) if (gd(x, y, r.x, r.y) < 27) return false;
     for (const t of TORCHES) if (gd(x, y, t.x, t.y) < 14) return false;
     for (const p of PALMS) if (gd(x, y, p.x, p.y) < 16) return false;
-    for (const g of alive()) if (g !== self && gd(x, y, g.x, g.y) < 30) return false;
     return true;
   }
+
+  // ---------- hex grid (pointy-top, odd rows shifted right) ----------
+  const HR = 26, HW = Math.sqrt(3) * HR, HRS = 1.5 * HR * SQ, HOX = 24, HOY = 64, COLS = 10, ROWS = 9, HEX_MOVE = 3, HEX_BURST_RANGE = 5, HEX_LINE = 8;
+  const hexC = (c, r) => [c * HW + ((r & 1) ? HW / 2 : 0) + HOX, r * HRS + HOY];
+  const hkey = (c, r) => r * COLS + c;
+  const cube = (c, r) => { const x = c - (r - (r & 1)) / 2; return [x, r, -x - r]; };
+  const hexDist = (a, b) => { const A = cube(a.c, a.r), B = cube(b.c, b.r); return Math.max(Math.abs(A[0] - B[0]), Math.abs(A[1] - B[1]), Math.abs(A[2] - B[2])); };
+  const NB = [[[1, 0], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]], [[1, 0], [1, -1], [0, -1], [-1, 0], [0, 1], [1, 1]]];
+  const inGrid = (c, r) => c >= 0 && c < COLS && r >= 0 && r < ROWS;
+  const neighbors = (c, r) => NB[r & 1].map(([dc, dr]) => [c + dc, r + dr]).filter(([a, b]) => inGrid(a, b));
+  const BLOCK = new Uint8Array(COLS * ROWS);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) BLOCK[hkey(c, r)] = terrainOk(...hexC(c, r)) ? 0 : 1;
+  function occupied(c, r, self) { for (const u of [hero, ...(echo.active ? [echo] : []), ...alive()]) if (u !== self && u.c === c && u.r === r) return true; return false; }
+  function bfs(start, max, passable) {
+    const m = new Map(), s0 = { c: start.c, r: start.r, d: 0, prev: null }; m.set(hkey(s0.c, s0.r), s0); const q = [s0];
+    while (q.length) { const n = q.shift(); if (n.d >= max) continue; for (const [c, r] of neighbors(n.c, n.r)) { const k = hkey(c, r); if (m.has(k) || !passable(c, r)) continue; const nn = { c, r, d: n.d + 1, prev: hkey(n.c, n.r) }; m.set(k, nn); q.push(nn); } }
+    return m;
+  }
+  const pathTo = (m, n) => { const a = []; while (n && n.prev !== null) { a.unshift(n); n = m.get(n.prev); } return a; };
+  const heroReach = () => bfs(hero, hexLeft, (c, r) => !BLOCK[hkey(c, r)] && !occupied(c, r, hero));
+  function hexAt(x, y) { let best = null, bd = 1e9; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const [hx, hy] = hexC(c, r), d = gd(x, y, hx, hy); if (d < bd) { bd = d; best = { c, r }; } } return bd < HR * 1.05 ? best : null; }
+  function cround(x, y, z) { let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z); const dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z); if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry; return [rx, ry, rz]; }
+  function hexLine(a, b, n) {
+    const A = cube(a.c, a.r), B = cube(b.c, b.r), d = hexDist(a, b), out = [];
+    if (!d) return out;
+    for (let i = 1; i <= n; i++) { const t = i / d, [x, z] = cround(A[0] + (B[0] - A[0]) * t + 1e-6, A[1] + (B[1] - A[1]) * t + 1e-6, A[2] + (B[2] - A[2]) * t - 2e-6); const c = x + (z - (z & 1)) / 2; if (inGrid(c, z)) out.push({ c, r: z }); }
+    return out;
+  }
+  function hexShape(cx, x, y, rad) { cx.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 180 * (60 * i - 90), px = x + rad * Math.cos(a), py = y + rad * Math.sin(a) * SQ; i ? cx.lineTo(px, py) : cx.moveTo(px, py); } cx.closePath(); }
+  const place = (u, c, r) => { u.c = c; u.r = r; [u.x, u.y] = hexC(c, r); };
   function planMove(mx, my) {
     let dx = mx - hero.x, dy = (my - hero.y) / SQ; const L = Math.hypot(dx, dy);
     let tx = mx, ty = my, cost = L;
@@ -472,7 +526,7 @@
     const id = battleId, hits = caught(kind, caster, tgt), hx = caster.x, hy = caster.y;
     if (kind === 'strike') {
       let px, py;
-      if (mode === 'free') { px = hx + (tgt.x - hx) * 0.55; py = hy + (tgt.y - hy) * 0.55; }
+      if (mode === 'free' || mode === 'hex') { px = hx + (tgt.x - hx) * 0.55; py = hy + (tgt.y - hy) * 0.55; }
       else if (mode === 'lineup') { px = hx - 44; py = hy; }
       else { const side = hx < tgt.x ? -1 : 1; px = tgt.x + side * 30; py = tgt.y + 4; }
       await moveTo(caster, px, py, mode === 'stage' ? 280 : 170);
@@ -483,7 +537,7 @@
       await hop(caster);
       const cx = mode === 'lineup' ? hits.reduce((a, g) => a + g.x, 0) / hits.length : tgt.x;
       const cy = mode === 'lineup' ? hits.reduce((a, g) => a + g.y, 0) / hits.length : tgt.y;
-      const R = mode === 'lineup' ? 80 : AB[kind].R;
+      const R = mode === 'lineup' ? 80 : mode === 'hex' ? HW * 1.4 : AB[kind].R;
       if (kind === 'star') { effects.push({ kind: 'bolt', x0: cx + 40, y0: cy - 170, x1: cx, y1: cy, t0: performance.now(), dur: 320, c: '#d9c2ff' }); await wait(320); }
       effects.push({ kind: 'ring', x: cx, y: cy, R, t0: performance.now(), dur: 420, c: kind === 'star' ? '#c9a8ff' : '#e8efff' });
       await wait(240); if (id !== battleId) return;
@@ -491,6 +545,7 @@
     } else {
       let x1, y1;
       if (mode === 'lineup') { x1 = tgt.x; y1 = tgt.y; }
+      else if (mode === 'hex') { const ln = hexLine(caster, tgt, HEX_LINE), end = ln[ln.length - 1] || tgt; [x1, y1] = end.c !== undefined ? hexC(end.c, end.r) : [tgt.x, tgt.y]; }
       else { const ax = hx, ay = hy / SQ; let dx = tgt.x - ax, dy = tgt.y / SQ - ay; const L = Math.hypot(dx, dy) || 1; x1 = ax + dx / L * AB.pierce.len; y1 = (ay + dy / L * AB.pierce.len) * SQ; }
       await hop(caster, 5, 180);
       effects.push({ kind: 'bolt', x0: hx, y0: hy - 34, x1, y1: y1 - 34, t0: performance.now(), dur: 420, c: '#7ff0e0', long: true });
@@ -524,7 +579,7 @@
     }
     if (mode === 'stage') await regroup();
     if (id !== battleId) return;
-    turn++; moveLeft = MOVE; phase = 'player'; updateUI();
+    turn++; moveLeft = MOVE; hexLeft = HEX_MOVE; phase = 'player'; updateUI();
   }
   function hurtHero(g) {
     const d = 5 + Math.floor(Math.random() * 4);
@@ -538,6 +593,17 @@
       await moveTo(g, hero.x + side * 30, hero.y + 2, 340); hurtHero(g); await wait(160); await moveTo(g, gx, gy, 340);
     } else if (mode === 'lineup') {
       await moveTo(g, gx + 44, gy, 200); hurtHero(g); await wait(160); await moveTo(g, gx, gy, 220);
+    } else if (mode === 'hex') {
+      if (hexDist(g, hero) > 1) {
+        const m = bfs(g, 14, (c, r) => !occupied(c, r, g)); // ghosts float over water and rocks
+        let best = null;
+        for (const n of m.values()) if (hexDist(n, hero) === 1 && (!best || n.d < best.d)) best = n;
+        let steps = best ? pathTo(m, best) : [];
+        steps = steps.slice(0, HEX_MOVE);
+        for (const st of steps) { await moveTo(g, ...hexC(st.c, st.r), 170); g.c = st.c; g.r = st.r; }
+      }
+      if (hexDist(g, hero) <= 1) { const sx = g.x, sy = g.y; await moveTo(g, sx + (hero.x - sx) * 0.5, sy + (hero.y - sy) * 0.5, 170); hurtHero(g); await wait(140); await moveTo(g, sx, sy, 210); }
+      else log(`${g.name} drifts closer.`);
     } else {
       let d = gd(g.x, g.y, hero.x, hero.y);
       if (d > 58) {
@@ -565,6 +631,10 @@
     const id = battleId; phase = 'busy'; updateUI();
     let ex, ey;
     if (mode === 'lineup') [ex, ey] = START.lineup.echo;
+    else if (mode === 'hex') {
+      const spot = neighbors(hero.c, hero.r).find(([c, r]) => !BLOCK[hkey(c, r)] && !occupied(c, r, echo)) || [hero.c, hero.r];
+      echo.c = spot[0]; echo.r = spot[1]; [ex, ey] = hexC(spot[0], spot[1]);
+    }
     else { ex = hero.x - 34; ey = hero.y + 24; if (!validSpot(ex, ey) || ey > 290) { ex = hero.x + 34; ey = hero.y - 20; } }
     Object.assign(echo, { active: true, left: 2, x: ex, y: ey, alpha: 0, lift: 0 });
     meter = 0;
@@ -594,6 +664,13 @@
       heroAct(sel, g); return;
     }
     if (g && !sel) { log('Pick an ability first.'); return; }
+    if (mode === 'hex' && hexLeft > 0) {
+      const cell = hexAt(p.x, p.y);
+      if (touch && (!pin || pin.g || Math.hypot(pin.x - p.x, pin.y - p.y) > 16)) { pin = { x: p.x, y: p.y }; mouse = p; hover = null; return; }
+      const m = heroReach(), n = cell && m.get(hkey(cell.c, cell.r));
+      if (!n || n.d === 0) { log('Can\'t walk there: pick a lit hex.'); return; }
+      walkHex(pathTo(m, n)); return;
+    }
     if (mode === 'free' && moveLeft > 2) {
       if (touch && (!pin || pin.g || Math.hypot(pin.x - p.x, pin.y - p.y) > 16)) { pin = { x: p.x, y: p.y }; mouse = p; hover = null; return; }
       const m = planMove(p.x, p.y);
@@ -601,6 +678,12 @@
       walk(m);
     }
   });
+  async function walkHex(steps) {
+    const id = battleId; phase = 'busy'; pin = null; updateUI();
+    for (const st of steps) { const [x, y] = hexC(st.c, st.r); await Promise.all([moveTo(hero, x, y, 170), hop(hero, 4, 170)]); if (id !== battleId) return; hero.c = st.c; hero.r = st.r; }
+    hexLeft -= steps.length; hero.home = [hero.x, hero.y];
+    phase = 'player'; updateUI();
+  }
   async function walk(m) {
     const id = battleId; phase = 'busy'; pin = null; updateUI();
     const x0 = hero.x, y0 = hero.y;
@@ -628,7 +711,8 @@
   const DESC = {
     stage: { strike: 'Dash in and hit one ghost.', burst: 'Hits every ghost inside a circle around the target.', pierce: 'A line from you through the target. Hits everyone on it.', star: 'Echo drops a star: circle around the target.' },
     lineup: { strike: 'Hit one ghost.', burst: 'Hits all ghosts, a little weaker.', pierce: 'One ghost, hits hard.', star: 'Echo hits all ghosts.' },
-    free: { strike: 'Hit one ghost. You must be close (inside the gold ring).', burst: 'Circle around the target. Cast range: gold ring.', pierce: 'A line from where you stand. Step to line them up.', star: 'Echo drops a star: circle around any target.' }
+    free: { strike: 'Hit one ghost. You must be close (inside the gold ring).', burst: 'Circle around the target. Cast range: gold ring.', pierce: 'A line from where you stand. Step to line them up.', star: 'Echo drops a star: circle around any target.' },
+    hex: { strike: 'Hit a ghost next to you (1 hex).', burst: 'Target hex plus the 6 around it. Cast range: 5 hexes.', pierce: 'A straight row of hexes from you through the target.', star: 'Echo drops a star: target hex plus the 6 around it.' }
   };
   function updateUI() {
     const busy = phase !== 'player';
@@ -649,14 +733,15 @@
     if (phase === 'won') h = `You won on turn ${turn}. Try another mode, or play again.`;
     else if (phase === 'lost') h = 'The ghosts won. Play again?';
     else if (busy) h = 'Turn in progress…';
-    else if (sel) h = mode === 'free' && sel !== 'star' ? `Turn ${turn}. Click a ghost to use ${AB[sel].name}, or keep walking first.` : `Turn ${turn}. Click a ghost. The gold highlight shows who gets hit.`;
-    else h = mode === 'free' ? `Turn ${turn}. Click the ground to walk (${Math.round(moveLeft)} steps left), or pick an ability.` : `Turn ${turn}. Pick an ability.`;
+    else if (sel) h = (mode === 'free' || mode === 'hex') && sel !== 'star' ? `Turn ${turn}. Click a ghost to use ${AB[sel].name}, or keep walking first.` : `Turn ${turn}. Click a ghost. The gold highlight shows who gets hit.`;
+    else h = mode === 'free' ? `Turn ${turn}. Click the ground to walk (${Math.round(moveLeft)} steps left), or pick an ability.` : mode === 'hex' ? `Turn ${turn}. Click a lit hex to walk (${hexLeft} hex${hexLeft === 1 ? '' : 'es'} left), or pick an ability.` : `Turn ${turn}. Pick an ability.`;
     $('hint').textContent = h;
   }
 
   const NOTES = {
     stage: { title: 'Stage', chip: ['Easy to build', ''], how: 'Your hero fights where they stand and you never move them. Between turns the ghosts drift into new spots. Moon Burst catches whoever is near the target; Tide Arrow catches whoever is lined up with you. Wait for a good formation, or take what you get.', adds: 'Positions still matter, but the game sets them up, so turns stay quick. It feels lively: the hero dashes in, swings and runs back. Fits "small and quick" well.', costs: 'Less tactics. You react to the setup instead of creating it. The painted map is mostly scenery.', build: 'No pathfinding and no collision checks. The game picks every spot from a short list of formations.' },
     lineup: { title: 'Lineup', chip: ['Easiest to build', ''], how: 'Two sides face each other. Nobody moves and position never matters. Abilities hit one ghost or all of them.', adds: 'The quickest to read and play, and the best fit for a phone. Strategy comes from abilities, timing and when to spend the Echo.', costs: 'The island is only a backdrop. Moon Burst and Tide Arrow lose their shapes, so there is less to think about each turn.', build: 'Menus and animations only. This is the classic menu-battle style.' },
+    hex: { title: 'Hex grid', chip: ['Medium to build', 'mid'], how: 'The painted island is split into hexes. Walk up to 3 hexes, then act. Strike needs a ghost next to you, Moon Burst hits the target hex and the 6 around it, and Tide Arrow fires down a straight row of hexes. Rocks, water and the tide pool block hexes; ghosts float over them.', adds: 'Ranges you can count at a glance, taps that snap to a hex (easy on a phone), and fights that read like a board game. Very close to how Tacticus plays.', costs: 'Grid lines sit on top of the painted map, and movement looks more like a board game than a scene. Lines and bursts follow hex shapes, so some angles feel a bit stiff.', build: 'Grid pathfinding is a solved, well-documented problem (a simple breadth-first search), and enemy AI is easy to write. More work than Stage, much less than Free step.' },
     free: { title: 'Free step', chip: ['Hardest to build', 'hard'], how: 'Each turn you can walk anywhere inside your teal ring, then act. Strike needs you close, Moon Burst has a cast range, and Tide Arrow fires a line from where you stand, so where you step decides who you hit. Ghosts float toward you and ignore water.', adds: 'The most tactical of the three, and the closest to the tactical-grid vote, without any lines on the map. Rocks, water and the tide pool really matter.', costs: 'Exact ranges are hard to judge ("am I in reach?"), aiming is fiddly on a phone, and enemy AI gets harder to write.', build: 'Needs collision, range circles and a real pathfinder to walk around rocks and water. This mockup only walks in straight lines.' }
   };
   function renderNotes() {
@@ -685,6 +770,16 @@
 
     if (phase === 'player') {
       const tgt = hover || (pin && pin.g) || null;
+      if (mode === 'hex' && !(sel && tgt) && hexLeft > 0) {
+        const m = heroReach();
+        for (const n of m.values()) if (n.d > 0) { const [x, y] = hexC(n.c, n.r); hexShape(fctx, x, y, HR - 2); fctx.fillStyle = '#5eead4'; fctx.fill(); }
+        const m0 = pin && !pin.g ? pin : (mouse && !hover ? mouse : null), cell = m0 && hexAt(m0.x, m0.y);
+        if (cell) {
+          const n = m.get(hkey(cell.c, cell.r)), [cx, cy] = hexC(cell.c, cell.r);
+          if (n && n.d > 0) { lctx.beginPath(); lctx.moveTo(hero.x, hero.y); for (const st of pathTo(m, n)) lctx.lineTo(...hexC(st.c, st.r)); lctx.strokeStyle = '#5eead4'; lctx.stroke(); hexShape(lctx, cx, cy, HR - 2); lctx.stroke(); }
+          else if (!n) { hexShape(lctx, cx, cy, HR - 2); lctx.strokeStyle = '#ff7b7b'; lctx.stroke(); }
+        }
+      }
       if (mode === 'free' && !(sel && tgt)) {
         if (moveLeft > 2) { ell(fctx, hero.x, hero.y, moveLeft, '#5eead4'); lctx.setLineDash([PX * 3, PX * 2]); ell(lctx, hero.x, hero.y, moveLeft, null, '#5eead4'); lctx.setLineDash([]); }
         const m0 = pin && !pin.g ? pin : (mouse && !hover ? mouse : null);
@@ -697,10 +792,18 @@
       if (sel) {
         const caster = sel === 'star' ? echo : hero;
         if (mode === 'free' && (sel === 'strike' || sel === 'burst')) { lctx.setLineDash([PX * 2, PX * 2]); ell(lctx, hero.x, hero.y, sel === 'strike' ? REACH : AB.burst.range, null, '#ffd36b'); lctx.setLineDash([]); }
+        if (mode === 'hex' && (sel === 'strike' || sel === 'burst')) {
+          const rng = sel === 'strike' ? 1 : HEX_BURST_RANGE; lctx.strokeStyle = '#ffd36b';
+          for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (hexDist(hero, { c, r }) === rng) { const [x, y] = hexC(c, r); hexShape(lctx, x, y, HR - 3); lctx.stroke(); }
+        }
         if (tgt) {
           const ok = inRange(sel, caster, tgt), c = ok ? '#ffd36b' : '#ff7b7b', hits = caught(sel, caster, tgt);
-          if (mode !== 'lineup' && (sel === 'burst' || sel === 'star')) { ell(fctx, tgt.x, tgt.y, AB[sel].R, c); ell(lctx, tgt.x, tgt.y, AB[sel].R, null, c); }
-          if (mode !== 'lineup' && sel === 'pierce') {
+          if (mode === 'hex') {
+            const cells = sel === 'strike' ? [tgt] : sel === 'pierce' ? hexLine(caster, tgt, HEX_LINE) : [{ c: tgt.c, r: tgt.r }, ...neighbors(tgt.c, tgt.r).map(([c2, r2]) => ({ c: c2, r: r2 }))];
+            for (const h of cells) { const [x, y] = hexC(h.c, h.r); hexShape(fctx, x, y, HR - 2); fctx.fillStyle = c; fctx.fill(); hexShape(lctx, x, y, HR - 2); lctx.strokeStyle = c; lctx.stroke(); }
+          }
+          if (mode !== 'lineup' && mode !== 'hex' && (sel === 'burst' || sel === 'star')) { ell(fctx, tgt.x, tgt.y, AB[sel].R, c); ell(lctx, tgt.x, tgt.y, AB[sel].R, null, c); }
+          if (mode !== 'lineup' && mode !== 'hex' && sel === 'pierce') {
             const ax = caster.x, ay = caster.y / SQ; let dx = tgt.x - ax, dy = tgt.y / SQ - ay; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
             const w = AB.pierce.w, len = AB.pierce.len, nx = -dy * w, ny = dx * w;
             const pts = [[ax + nx, ay + ny], [ax + dx * len + nx, ay + dy * len + ny], [ax + dx * len - nx, ay + dy * len - ny], [ax - nx, ay - ny]];
@@ -725,7 +828,7 @@
     const flick = REDUCE ? 1 : 1 + ((Math.floor(t * 8) % 3) - 1) * 0.05;
     const L = [{ x: hero.x, y: hero.y - 30, r: 70, c: [0.87, 0.9, 1], k: 0.55 }];
     if (echo.active) L.push({ x: echo.x, y: echo.y - 30, r: 64, c: [0.64, 0.45, 1], k: 0.7 * echo.alpha });
-    for (const g of ghosts) if (g.alpha > 0) { const c = h2r(g.c); L.push({ x: g.x, y: g.y - 14, r: 56, c: [c[0] / 255 * 0.5, c[1] / 255 * 0.85, c[2] / 255], k: 0.45 * g.alpha }); }
+    for (const g of ghosts) if (g.alpha > 0) { const c = h2r(g.col); L.push({ x: g.x, y: g.y - 14, r: 56, c: [c[0] / 255 * 0.5, c[1] / 255 * 0.85, c[2] / 255], k: 0.45 * g.alpha }); }
     for (const f of effects) L.push({ x: f.kind === 'ring' ? f.x : f.x1, y: f.kind === 'ring' ? f.y : f.y1, r: 70, c: f.kind === 'ring' && f.c === '#fff3c4' ? [1, 0.8, 0.5] : [0.7, 0.8, 1], k: 0.8 });
     const nL = L.length, R2 = L.map(l => l.r * l.r);
     for (let i = 0; i < N; i++) {
@@ -762,7 +865,7 @@
     crispAlpha(shC, 0.42);
 
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(ground, 0, 0); ctx.drawImage(shC, 0, 0);
+    ctx.drawImage(mode === 'hex' ? groundHex : ground, 0, 0); ctx.drawImage(shC, 0, 0);
     buildLight(t); applyLight(ctx, null);
     drawUI(now); ctx.drawImage(fillC, 0, 0); ctx.drawImage(lineC, 0, 0);
 
@@ -818,7 +921,7 @@
       c.fillText(ok ? (n > 1 ? `hits ${n}` : 'hits 1') : 'too far', tgt.x, tgt.y + 24);
       if (pin && pin.g) { c.font = '600 8px "Pixelify Sans", monospace'; c.fillStyle = '#ece9ff'; c.fillText('tap again to confirm', tgt.x, tgt.y + 35); }
     }
-    if (phase === 'player' && pin && !pin.g && mode === 'free') { c.font = '600 8px "Pixelify Sans", monospace'; c.fillStyle = '#ece9ff'; c.fillText('tap again to walk', pin.x, pin.y + 18); }
+    if (phase === 'player' && pin && !pin.g && (mode === 'free' || mode === 'hex')) { c.font = '600 8px "Pixelify Sans", monospace'; c.fillStyle = '#ece9ff'; c.fillText('tap again to walk', pin.x, pin.y + 18); }
     for (let i = pops.length - 1; i >= 0; i--) {
       const p = pops[i], a = (now - p.t0) / 800; if (a >= 1) { pops.splice(i, 1); continue; }
       c.font = '700 13px "Pixelify Sans", monospace'; c.globalAlpha = 1 - a * a; c.lineWidth = 3; c.strokeStyle = '#140e26';
