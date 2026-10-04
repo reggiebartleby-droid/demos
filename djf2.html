@@ -1,0 +1,2478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Jump Duck Faster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #14103a;
+    --ink: #fff4e0;
+    --ink-dim: rgba(255, 244, 224, 0.68);
+    --jump: #ffc21a;
+    --tall: #ff8a00;
+    --duck: #ff2a2a;
+    --ember: #ff6a2b;
+    --water: #3fb8e6;
+    --butter: #ffe2a8;
+    --panel: rgba(20, 16, 58, 0.9);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* The game is a night scene in both themes; tokens are restated so the viewer's theme can't wash it out. */
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sky: #14103a; --ink: #fff4e0; } }
+  :root[data-theme="dark"] { --sky: #14103a; --ink: #fff4e0; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--sky); color: var(--ink);
+    font-family: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; }
+  /* v27 STAGE: every part of the game lives in #stage. On a phone it is the whole screen. On a PC it is a
+     402x700 box (iPhone 18 Pro in the browser) so the PC shows exactly what the phone shows. The transform
+     makes it the frame for all position:fixed parts, and container units (cqw/cqh) replace vw/vh. */
+  #stage { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden;
+    container: stage / size; transform: translate(0, 0); transform-origin: 0 0; }
+  body.phone-frame { background: #0a0820; }
+  body.phone-frame #stage { box-shadow: 0 0 0 2px rgba(255,244,224,.25), 0 20px 60px rgba(0,0,0,.6); }
+  .frame-lbl { position: absolute; left: 10px; top: 8px; font: 600 12px/1.3 "Space Grotesk", system-ui, sans-serif; color: rgba(255,244,224,.6); display: none; }
+  body.phone-frame .frame-lbl { display: block; }
+  canvas { position: fixed; inset: 0; display: block; }
+  #touch { position: fixed; inset: 0; z-index: 1; }
+
+  .hud { position: fixed; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none;
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 0; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 12px; }
+  .hud.hidden { display: none; }
+  .hud-left { display: flex; gap: 12px; align-items: flex-start; }
+  .pause { pointer-events: auto; width: 42px; height: 42px; border-radius: 12px; border: 2px solid rgba(255,244,224,.4);
+    background: rgba(20,16,58,.55); display: flex; gap: 5px; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+  .pause span { width: 5px; height: 16px; background: var(--ink); border-radius: 2px; }
+  .lvl-label { font-family: "Bungee", "Impact", sans-serif; font-size: 22px; line-height: 1; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+  .lvl-label.boss { color: var(--ember); }
+  .prog { width: min(150px, 34cqw); height: 8px; border-radius: 4px; background: rgba(255,244,224,.16); margin-top: 8px; overflow: hidden; }
+  .prog div { height: 100%; width: 0%; background: var(--butter); border-radius: 4px; }
+  .small { font-size: 13px; color: var(--ink-dim); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .right { text-align: right; }
+  .coils { display: flex; gap: 6px; justify-content: flex-end; }
+  /* v31 gold counter + "+10 gold" pop-up */
+  .gold { display: flex; align-items: center; gap: 5px; margin-top: 4px; font: 400 14px/1 "Bungee", "Impact", sans-serif; color: #ffd23f; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
+  .gold i { width: 12px; height: 15px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: radial-gradient(circle at 35% 30%, #fff1a8, #ffc83d 45%, #b97a12); box-shadow: 0 0 6px rgba(255,200,61,.7); }
+  .gold.bump { animation: goldBump .35s ease-out; }
+  @keyframes goldBump { 40% { transform: scale(1.18); } }
+  .goldpop { position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; font: 400 20px/1 "Bungee", "Impact", sans-serif;
+    background: linear-gradient(100deg, #b97a12 0%, #ffe27a 32%, #fffbe6 46%, #ffc83d 60%, #b97a12 100%); background-size: 250% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 6px rgba(255,200,61,.85)) drop-shadow(0 2px 0 rgba(0,0,0,.55));
+    animation: goldUp .9s ease-out forwards, goldShine .9s linear forwards; }
+  @keyframes goldUp { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.7); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -170%) scale(1); } }
+  @keyframes goldShine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .goldpop { animation: goldUp .9s linear forwards; } .gold.bump { animation: none; } }
+  .coil { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--butter); box-sizing: border-box; }
+  .coil.on { background: var(--butter); }
+  .coil.off { opacity: .3; }
+  .god { color: #a8f58f; font-size: 11px; margin: -4px 0 6px; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
+  .place { font-family: "Bungee", "Impact", sans-serif; font-size: 26px; line-height: 1; margin-bottom: 8px; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+  .place:empty { display: none; }
+  .upbar { width: 96px; height: 6px; border-radius: 3px; background: rgba(255,244,224,.16); margin: 6px 0 0 auto; overflow: hidden; }
+  .upbar div { height: 100%; width: 0%; background: var(--jump); border-radius: 3px; }
+  .upbar.flash { animation: upflash .6s ease-out; }
+  @keyframes upflash { from { box-shadow: 0 0 0 4px rgba(57,208,255,.7); } to { box-shadow: 0 0 0 0 rgba(57,208,255,0); } }
+  .speed { font-family: "Bungee", "Impact", sans-serif; font-size: 17px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+  /* ----- duck tracker (top of screen, inside the HUD, over the coils still to come; read-only) ----- */
+  .tracker { flex: 1 1 100%; margin: 0 auto; z-index: 2;
+    pointer-events: none; max-width: 420px; box-sizing: border-box; padding: 4px 10px;
+    background: rgba(20,16,58,.62); border: 1px solid rgba(255,226,168,.22); border-radius: 12px; }
+  .tracker.hidden { display: none; }
+  .tracker table { width: 100%; border-collapse: collapse; font-size: 11.5px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+  .tracker th { font-weight: 400; color: var(--ink-dim); text-align: right; padding: 0 0 2px 6px; }
+  .tracker td { text-align: right; padding: 0 0 0 6px; }
+  .tracker th:first-child, .tracker td:first-child { text-align: left; padding-left: 0; }
+  .tracker td:first-child { font-weight: 600; }
+  .tracker tr.out td { opacity: .4; }
+  .tracker tr.me td:first-child::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-left: 5px; vertical-align: middle; }
+  .tracker td.warn { color: var(--ember); font-weight: 600; }
+  .toast { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 3; pointer-events: none;
+    font-family: "Bungee", "Impact", sans-serif; font-size: clamp(24px, 7cqw, 50px); opacity: 0; text-align: center;
+    width: 92cqw; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
+  .toast.show { animation: pop 1.5s ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.8); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -65%) scale(1); } }
+  /* v35: version number in the bottom-right corner (always shown, never blocks taps) */
+  .ver { position: fixed; right: 5px; bottom: calc(env(safe-area-inset-bottom, 0px) + 3px); z-index: 6; pointer-events: none;
+    font: 600 10px/1 system-ui, sans-serif; color: rgba(255,244,224,.6); text-shadow: 0 1px 1px rgba(0,0,0,.6); }
+  .flash { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: var(--ember); opacity: 0; }
+  .flash.show { animation: flash .35s ease-out; }
+  @keyframes flash { from { opacity: .4; } to { opacity: 0; } }
+  /* ----- thumb pads: one per thumb, bottom corners. Each pad tracks its own fingers, so holding one never blocks the other. ----- */
+  .pads { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; pointer-events: none; display: flex; justify-content: space-between; align-items: flex-end;
+    padding: 0 10px calc(env(safe-area-inset-bottom, 0px) + 10px); box-sizing: border-box; }
+  .pads.hidden { display: none; }
+  .pad { pointer-events: auto; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+    width: min(29cqw, 170px); flex: none; height: clamp(92px, 20cqh, 150px); border-radius: 22px; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer;
+    background: rgba(20,16,58,.5); border: 3px solid currentColor; box-shadow: 0 5px 0 rgba(0,0,0,.45);
+    transition: transform .05s, box-shadow .05s, background .05s; }
+  .pad b { font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: clamp(22px, 6.5cqw, 30px); line-height: 1; text-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  .pad span { font-size: 12px; color: var(--ink-dim); }
+  .pad.jump { color: var(--jump); }
+  .pad.duck { color: var(--duck); }
+  .pad.down { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,.45); background: rgba(20,16,58,.78); }
+  .pad.jump.down { background: rgba(255,194,26,.28); }
+  .pad.duck.down { background: rgba(255,42,42,.28); }
+  .pads.results .pad { visibility: hidden; }
+  /* ----- finish podium between the pads: a washed-out duck swims up under its step and climbs on ----- */
+  .podium { flex: 1 1 auto; min-width: 0; margin: 0 6px; height: clamp(184px, 40cqh, 300px); pointer-events: none;   /* v24: doubled */
+    display: flex; align-items: flex-end; justify-content: center; gap: 3px; }
+  .slot { flex: 1 1 0; min-width: 0; max-width: 100px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  .slot { position: relative; }
+  .slot[data-place="1"] { z-index: 3; }   /* v33: 1st place draws in front of the other steps */
+  .seat { position: relative; width: 100%; height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+  .seat svg { width: 100%; max-width: 68px; height: auto; display: block; }
+  /* v31: a duck that has swum up shows a picture rendered from its 3D game model, bobbing gently */
+  .seat .d3 { width: 100%; display: flex; justify-content: center; }
+  .seat img.duck3d { width: 100%; max-width: 76px; height: auto; display: block; animation: duckBob 2.4s ease-in-out infinite;
+    filter: drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
+  @keyframes duckBob { 50% { transform: translateY(-3px) rotate(-2deg); } }
+  /* v33 champion: 3x the other ducks, feet planted on the 1st-place step (no bob that lifts the feet) */
+  .seat .champ3d { position: absolute; bottom: 0; pointer-events: none; }
+  .seat .champ3d img { width: 100%; height: auto; display: block; transform-origin: 50% 100%;
+    animation: champSway 2.8s ease-in-out infinite; filter: drop-shadow(0 4px 3px rgba(0,0,0,.45)); }
+  @keyframes champSway { 50% { transform: rotate(-2deg) scaleY(1.02); } }
+  .seat .nm.champnm { position: absolute; width: 300px; text-align: center; font-size: 16px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  @media (prefers-reduced-motion: reduce) { .seat img.duck3d, .seat .champ3d img { animation: none; } }
+  .seat .nm { font-size: 14px; line-height: 1.1; white-space: nowrap; overflow: hidden; max-width: 100%; }
+  .stand { width: 100%; box-sizing: border-box; border: 2px solid rgba(255,226,168,.4); border-bottom: 0; border-radius: 7px 7px 0 0;
+    background: rgba(20,16,58,.55); color: var(--butter); font: 400 18px "Bungee", "Impact", sans-serif; text-align: center; padding-top: 6px; }
+  .slot[data-place="1"] .stand { height: 92px; border-color: #ffd23f; background: rgba(255,210,63,.22); }
+  .slot[data-place="2"] .stand { height: 68px; }
+  .slot[data-place="3"] .stand { height: 50px; }
+  .slot[data-place="4"] .stand { height: 36px; font-size: 16px; padding-top: 4px; }
+  .seat.swim > * { animation: swimIn .7s ease-out both; }
+  @keyframes swimIn { 0% { opacity: 0; transform: translateY(14px) scale(.75); } 40% { opacity: 1; transform: translateY(-5px) scale(1.05) rotate(-6deg); }
+    70% { transform: translateY(1px) rotate(4deg); } 100% { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .seat.swim > * { animation: none; } }
+  /* Phone held sideways: little height, so the tracker sits between the level info and the place instead of under them. */
+  @container stage (orientation: landscape) and (max-height: 520px) {
+    .hud { flex-wrap: nowrap; }
+    .tracker { order: 0; flex: 0 1 380px; margin: 0; }
+    .hud-left { order: -1; }
+    .right { order: 1; }
+  }
+
+  .overlay { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 16px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 16px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); box-sizing: border-box; }
+  .overlay.hidden { display: none; }
+  .card { background: var(--panel); border: 2px solid rgba(255,226,168,.35); border-radius: 22px; padding: 24px 22px; max-width: 410px; width: 100%;
+    max-height: 100%; overflow-y: auto; box-sizing: border-box; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  .card.wide { max-width: 540px; }
+  .card h1 { font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: clamp(32px, 9.5cqw, 44px); line-height: .95; margin: 0 0 8px; color: var(--butter); }
+  .card .sub { color: var(--ink-dim); margin: 0 0 16px; font-size: 15px; line-height: 1.4; }
+  .card ul { list-style: none; margin: 0 0 18px; padding: 0; font-size: 15px; line-height: 1.4; }
+  .card li { padding: 6px 0 6px 26px; position: relative; }
+  .card li::before { content: ""; position: absolute; left: 0; top: 11px; width: 14px; height: 14px; border-radius: 4px; background: var(--ink-dim); }
+  .card li.j::before { background: var(--jump); }
+  .card li.t::before { background: var(--tall); }
+  .card li.d::before { background: var(--duck); }
+  .card li.e::before { background: var(--water); border-radius: 50%; }
+  kbd { font-family: inherit; font-size: 13px; border: 1px solid rgba(255,244,224,.4); border-radius: 5px; padding: 0 5px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 14px; text-align: center; }
+  .stats b { display: block; font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: 26px; color: var(--butter); }
+  .stats span { font-size: 13px; color: var(--ink-dim); }
+  .btn { display: block; font-family: "Bungee", "Impact", sans-serif; font-size: 19px; width: 100%; padding: 13px 18px; margin-top: 10px;
+    border: 0; border-radius: 14px; cursor: pointer; background: var(--butter); color: #2a1660; box-shadow: 0 5px 0 #c99a4a; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c99a4a; }
+  .btn.ghost { background: transparent; color: var(--butter); box-shadow: inset 0 0 0 2px rgba(255,226,168,.5); }
+  .btn.ghost:active { transform: translateY(1px); }
+  button:focus-visible { outline: 3px solid var(--jump); outline-offset: 3px; }
+
+  .chapter { margin-top: 18px; }
+  .chapter h2 { font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: 18px; margin: 0; color: var(--butter); }
+  .chapter p { margin: 3px 0 10px; font-size: 14px; color: var(--ink-dim); }
+  .chapter.locked h2, .chapter.locked p { opacity: .45; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .lvl { font-family: "Bungee", "Impact", sans-serif; font-size: 17px; aspect-ratio: 1; border-radius: 12px; padding: 0;
+    border: 2px solid rgba(255,226,168,.45); background: transparent; color: var(--ink); cursor: pointer; }
+  .lvl.done { background: var(--butter); border-color: var(--butter); color: #2a1660; }
+  .lvl.next { border-color: var(--jump); box-shadow: 0 0 0 3px rgba(255,194,26,.3); }
+  .lvl.boss { border-color: var(--ember); font-size: 12px; }
+  .lvl.boss.done { background: var(--ember); color: #fff4e0; }
+  .lvl:disabled { opacity: .28; cursor: default; }
+  .fun { margin-top: 16px; text-align: center; }
+  .fun .small { margin: 0 0 8px; }
+  .fun-row { display: flex; gap: 6px; justify-content: center; }
+  .fun-row button { width: 48px; height: 44px; border-radius: 12px; border: 2px solid rgba(255,226,168,.4); background: transparent;
+    color: var(--ink); font: 600 15px "Space Grotesk", system-ui, sans-serif; cursor: pointer; padding: 0; }
+  .fun-row button.picked { background: var(--butter); color: #2a1660; border-color: var(--butter); }
+  /* ----- treasure reveal ----- */
+  .loot { z-index: 5; background: radial-gradient(circle at 50% 45%, rgba(255,200,61,.18), rgba(20,16,58,.55) 60%); }
+  .loot-card { text-align: center; max-width: 360px; width: 100%; }
+  .loot-title { font-family: "Bungee", "Impact", sans-serif; font-size: clamp(30px, 9cqw, 42px); color: var(--butter); text-shadow: 0 4px 0 rgba(0,0,0,.4); opacity: 0; }
+  .loot .sub { color: var(--ink-dim); margin: 6px 0 4px; opacity: 0; }
+  .chest-stage { position: relative; height: 230px; display: flex; align-items: flex-end; justify-content: center; }
+  .chest { width: 112px; overflow: visible; transform: translateY(-300px); position: relative; z-index: 2; }
+  .chest-lid { transform-box: fill-box; transform-origin: 50% 100%; }
+  .rays { position: absolute; left: 50%; top: 52%; width: 340px; height: 340px; margin: -170px 0 0 -170px; border-radius: 50%; opacity: 0;
+    background: repeating-conic-gradient(rgba(255,226,120,.35) 0 10deg, transparent 10deg 24deg);
+    -webkit-mask: radial-gradient(circle, #000 20%, transparent 68%); mask: radial-gradient(circle, #000 20%, transparent 68%); }
+  .loot-spray { position: absolute; left: 50%; top: 58%; width: 0; height: 0; }
+  .loot-spray i { position: absolute; width: 16px; height: 16px; margin: -8px; opacity: 0; }
+  .coin-bit { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff1a8, #ffc83d 45%, #b97a12); }
+  .gem-bit { background: linear-gradient(135deg, #c9f7ff, #5fe3ff 50%, #1b7fa6); transform: rotate(45deg); }
+  /* loot explosion: flash + fireworks + big amount */
+  .boom { position: absolute; left: 50%; bottom: 30px; width: 60px; height: 60px; margin-left: -30px; border-radius: 50%; opacity: 0; z-index: 1;
+    background: radial-gradient(circle, #fff 0%, #ffe27a 35%, rgba(255,176,32,.6) 60%, transparent 72%); }
+  .fireworks { position: absolute; inset: 0; pointer-events: none; }
+  .fw { position: absolute; width: 0; height: 0; }
+  .fw i { position: absolute; width: 6px; height: 6px; margin: -3px; border-radius: 50%; opacity: 0; box-shadow: 0 0 6px currentColor; background: currentColor; }
+  .loot-amount { font-family: "Bungee", "Impact", sans-serif; font-weight: 900; font-size: clamp(34px, 11cqw, 52px); line-height: 1.1; margin: 8px 0 10px;
+    color: #ffd23f; -webkit-text-stroke: 2px #9a6a14; text-shadow: 0 0 18px rgba(255,200,61,.75), 0 4px 0 #7a4c0c; opacity: 0; }
+  .loot.play .boom { animation: boom .7s ease-out 1.05s forwards; }
+  .loot.play .fw i { animation: fw 1.1s cubic-bezier(.15,.75,.35,1) forwards; }
+  .loot.play .loot-amount { animation: amountPop .55s cubic-bezier(.3,1.7,.5,1) 1.35s forwards; }
+  @keyframes boom { 0% { opacity: 1; transform: scale(.2); } 60% { opacity: .9; } 100% { opacity: 0; transform: scale(6); } }
+  @keyframes fw { 0% { opacity: 1; transform: translate(0,0) scale(1.2); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 18px)) scale(.4); } }
+  @keyframes amountPop { 0% { opacity: 0; transform: scale(.3); } 100% { opacity: 1; transform: scale(1); } }
+  .loot-items { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 10px 0 6px; min-height: 52px; }
+  .loot-item { display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 6px; border-radius: 999px; background: rgba(20,16,58,.85);
+    border: 2px solid rgba(255,226,168,.45); font-family: "Bungee", "Impact", sans-serif; font-size: 16px; color: var(--butter); opacity: 0; }
+  .loot-item svg { width: 30px; height: 30px; }
+  .loot #lootBtn { opacity: 0; }
+  .loot.play .loot-title, .loot.play .sub { animation: fadeUp .5s ease-out .1s forwards; }
+  .loot.play .chest { animation: chestDrop .7s cubic-bezier(.3,1.4,.5,1) .25s forwards, chestShake .35s ease-in-out .95s 2; }
+  .loot.play .chest-lid { animation: lidOpen .45s cubic-bezier(.3,1.6,.5,1) 1.05s forwards; }
+  .loot.play .rays { animation: raysIn .6s ease-out 1.05s forwards, spin 9s linear 1.05s infinite; }
+  .loot.play .loot-spray i { animation: spray 1.1s cubic-bezier(.2,.7,.4,1) forwards; }
+  .loot.play .loot-item { animation: fadeUp .4s ease-out forwards; }
+  .loot.play #lootBtn { animation: fadeUp .4s ease-out 2.2s forwards; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes chestDrop { from { transform: translateY(-260px); } to { transform: translateY(0); } }
+  @keyframes chestShake { 0%,100% { rotate: 0deg; } 25% { rotate: -4deg; } 75% { rotate: 4deg; } }
+  @keyframes lidOpen { from { transform: rotate(0deg) translateY(0); } to { transform: rotate(-28deg) translate(-14px, -18px); } }
+  @keyframes raysIn { to { opacity: 1; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spray { 0% { opacity: 1; transform: translate(0,0) scale(.4); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 60px)) scale(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .loot.play .chest, .loot.play .chest-lid, .loot.play .rays, .loot.play .loot-spray i, .loot.play .boom, .loot.play .fw i, .loot.play .loot-amount { animation-duration: .01s; animation-delay: 0s; }
+  }
+  .linkish { display: block; margin: 14px auto 0; background: none; border: 0; color: var(--ink-dim); font: inherit; font-size: 13px; text-decoration: underline; cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) { .toast.show, .flash.show { animation-duration: .01s; } }
+  /* v26 PLAY AREA outline (dev aid): bottom of the tracker -> top of the Duck/Jump pads, full screen width. */
+  .playarea { position: fixed; left: 0; right: 0; z-index: 2; pointer-events: none; box-sizing: border-box;
+    border: 2px dashed #ff3df5; background: rgba(255,61,245,.08); display: none; }
+  .playarea.on { display: block; }
+  .playarea span { position: absolute; left: 4px; top: 3px; font: 600 11px/1.2 "Space Grotesk", system-ui, sans-serif;
+    color: #fff; background: rgba(255,61,245,.85); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="frame-lbl" id="frameLbl"></div>
+<div id="stage">
+<div id="touch" aria-hidden="true"></div>
+
+<div class="hud hidden" id="hud">
+  <div class="hud-left">
+    <button class="pause" id="pauseBtn" aria-label="Pause"><span></span><span></span></button>
+    <div>
+      <div class="lvl-label" id="lvlLabel">Level 1-1</div>
+      <div class="prog" aria-hidden="true"><div id="progFill"></div></div>
+      <div class="small" id="scoreLine">0 dodged</div>
+      <div class="gold" id="gold" aria-label="Golden eggs"><i></i><span id="goldAmt">0</span></div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="place" id="place"></div>
+    <div class="god" id="god" style="display:none">Invincible (Y)</div>
+    <div class="coils" id="coils" aria-label="Stumbles left"></div>
+  </div>
+  <div class="tracker hidden" id="tracker" aria-label="Duck tracker">
+    <table>
+      <thead><tr><th>Duck</th><th>Dodged</th><th>Missed</th><th>Left</th><th>Streak</th><th>Best</th></tr></thead>
+      <tbody id="trackerBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="pads hidden" id="pads">
+  <div class="pad duck" id="duckPad" role="button" aria-label="Duck"><b>Duck</b><span>hold</span></div>
+  <div class="podium" id="podium" aria-label="Finish order">
+    <div class="slot" data-place="4"><div class="seat"></div><div class="stand">4th</div></div>
+    <div class="slot" data-place="3"><div class="seat"></div><div class="stand">3rd</div></div>
+    <div class="slot" data-place="2"><div class="seat"></div><div class="stand">2nd</div></div>
+    <div class="slot" data-place="1"><div class="seat"></div><div class="stand">1st</div></div>
+  </div>
+  <div class="pad jump" id="jumpPad" role="button" aria-label="Jump"><b>Jump</b><span>tap hop<br>hold big</span></div>
+</div>
+<div class="playarea" id="playArea" aria-hidden="true"><span id="playAreaLbl">Play area</span></div>
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast"></div>
+<div class="ver" id="ver" aria-hidden="true"></div>
+
+<div class="overlay" id="title">
+  <div class="card">
+    <h1>Jump Duck Faster</h1>
+    <p class="sub">Race three rival ducks up the water slide to the finish arch. Every level speeds up as you go.</p>
+    <ul>
+      <li class="j">Yellow hurdles: hop. Quick tap on <b>Jump</b> (bottom right), or tap <kbd>↑</kbd> / <kbd>Space</kbd>.</li>
+      <li class="t">Orange hurdles: big jump. Hold <b>Jump</b> or <kbd>↑</kbd> to keep rising.</li>
+      <li class="d">Red bars: duck. Hold <b>Duck</b> (bottom left) or <kbd>↓</kbd>; you stay down while you hold. You can press one while holding the other.</li>
+      <li class="e">Each miss and a wave washes you back down the slide. Run out of stumbles and you're in the pool.</li>
+    </ul>
+    <button class="btn" id="playBtn">Play</button>
+    <button class="btn ghost" id="levelsBtn">Choose a level</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="select">
+  <div class="card wide">
+    <h1>Levels</h1>
+    <p class="sub">Every tenth level is a boss. Beat it to unlock the next chapter.</p>
+    <div id="chapters"></div>
+    <button class="btn ghost" id="selectBack">Back</button>
+    <button class="linkish" id="unlockAll">Unlock all levels (for testing)</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="paused">
+  <div class="card">
+    <h1>Paused</h1>
+    <p class="sub" id="pausedSub"></p>
+    <button class="btn" id="resumeBtn">Resume</button>
+    <button class="btn ghost" id="restartBtn">Restart level</button>
+    <button class="btn ghost" id="quitBtn">Choose a level</button>
+  </div>
+</div>
+
+<div class="overlay hidden loot" id="loot">
+  <div class="loot-card">
+    <div class="loot-title" id="lootTitle">Level passed!</div>
+    <p class="sub" id="lootSub"></p>
+    <div class="chest-stage">
+      <div class="rays"></div>
+      <div class="fireworks" id="lootFw"></div>
+      <div class="boom"></div>
+      <div class="loot-spray" id="lootSpray"></div>
+      <svg class="chest" viewBox="0 0 160 130" aria-hidden="true">
+        <g class="chest-body">
+          <rect x="18" y="58" width="124" height="64" rx="8" fill="#8a4b22" stroke="#4e2610" stroke-width="4"/>
+          <rect x="18" y="74" width="124" height="10" fill="#b8742f"/>
+          <rect x="30" y="58" width="12" height="64" fill="#e8b341" stroke="#9a6a14" stroke-width="2"/>
+          <rect x="118" y="58" width="12" height="64" fill="#e8b341" stroke="#9a6a14" stroke-width="2"/>
+          <rect x="70" y="68" width="20" height="24" rx="4" fill="#ffd23f" stroke="#9a6a14" stroke-width="3"/>
+          <circle cx="80" cy="79" r="3.5" fill="#4e2610"/>
+        </g>
+        <g class="chest-lid">
+          <path d="M18 60 V44 C18 22 142 22 142 44 V60 Z" fill="#a35a29" stroke="#4e2610" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M30 60 V36 M130 60 V36" stroke="#e8b341" stroke-width="12"/>
+        </g>
+      </svg>
+    </div>
+    <div class="loot-amount">+1000 coins</div>   <!-- static until the money system exists -->
+    <button class="btn" id="lootBtn">Collect</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="result">
+  <div class="card">
+    <h1 id="resTitle">Level cleared</h1>
+    <p class="sub" id="resMsg"></p>
+    <div class="stats">
+      <div><b id="rCleared">0</b><span>dodged</span></div>
+      <div><b id="rSpeed">0</b><span>top ft/s</span></div>
+      <div><b id="rStumbles">0</b><span id="rThird">stumbles</span></div>
+    </div>
+    <button class="btn" id="resPrimary">Next level</button>
+    <button class="btn ghost" id="resSecondary">Choose a level</button>
+    <div class="fun" id="funBox">
+      <p class="small">How fun was that run? 1 = dull, 5 = great</p>
+      <div class="fun-row" id="funRow"></div>
+    </div>
+    <p class="small" id="saveNote" style="text-align:center;margin-top:12px"></p>
+  </div>
+</div>
+
+</div><!-- /stage -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  // =====================================================================
+  //  LEVEL DATA
+  //  Chapters say WHAT is in play. buildLevel() says HOW HARD each level is.
+  //  The engine below never mentions a specific level; it runs whatever
+  //  level object it's handed.
+  // =====================================================================
+  // Feature switches: a disabled feature's chapter moves to "coming later" and its
+  // obstacles are removed from every other chapter's mix.
+  const FEATURES = {
+    tall: false,      // amber big-jump hurdles: off for now, back as a later addition
+    spectate: false,  // watch rivals after you wash out in overtime: off until multiplayer
+    otRegroup: false, // at the finish arch: move everyone to the front with fresh misses (off: positions and misses carry over)
+  };
+  const ALL_CHAPTERS = [
+    { name: 'Hop and duck', newThing: 'Cyan hurdles and pink bars',
+      mix: { low: 0.5, high: 0.5 }, combos: 0, intro: null,
+      boss: { note: 'A long climb that keeps getting faster' } },
+    { name: 'Big jumps', requires: 'tall', newThing: 'Amber hurdles: hold jump to go higher',
+      mix: { low: 0.35, high: 0.35, tall: 0.3 }, combos: 0,
+      intro: { kind: 'tall', hint: 'Amber hurdle: hold jump!' },
+      boss: { note: 'Hops and big jumps, back to back', mix: { low: 0.4, high: 0.15, tall: 0.45 } } },
+    { name: 'Combos', newThing: 'Hurdle, then a bar right after: hop small, then duck',
+      mix: { low: 0.35, high: 0.35, tall: 0.3 }, combos: 0.22,
+      intro: { kind: 'combo', hint: 'Combo: tap, then duck!' },
+      boss: { note: 'The combo gauntlet', combos: 0.38 } },
+    { name: 'Race for place', newThing: 'Your finishing place now counts',
+      mix: { low: 0.35, high: 0.35, tall: 0.3 }, combos: 0.15, intro: null, placeCounts: true,
+      boss: { note: 'Beat all three ducks: first place only', combos: 0.25 } },
+    { name: 'Split lanes', newThing: 'Obstacles that block only some lanes', locked: true },
+  ];
+  const featureOn = c => !c.requires || FEATURES[c.requires];
+  const CHAPTERS = [
+    ...ALL_CHAPTERS.filter(c => featureOn(c) && !c.locked),
+    ...ALL_CHAPTERS.filter(c => !featureOn(c) || c.locked).map(c => ({ ...c, locked: true })),
+  ];
+  const cleanMix = mix => Object.fromEntries(Object.entries(mix).filter(([k]) => k !== 'tall' || FEATURES.tall));
+
+  // Difficulty has two separate dials:
+  //   SPEED   - how fast obstacles arrive (startSpeed, then speed-ups during the level)
+  //   DENSITY - how much time between obstacles (gapStart -> gapEnd, in seconds)
+  // Each new chapter loosens density again (a "sawtooth" curve): learn the new thing
+  // in easy conditions, then get squeezed.
+  function buildLevel(ci, n) {
+    const ch = CHAPTERS[ci], i = n - 1, boss = n === 10;
+    // (Halving the number of speed-ups also halved the quiet zones around them, which by
+    //  itself adds ~20-30% more obstacles, so the base spacing stays the same.)
+    const gapStart = Math.max(1.5, 3.4 - i * 0.17 - ci * 0.3);
+    const L = {
+      chapter: ci + 1, n, boss, id: `${ci + 1}-${n}`,
+      warmup: 3.5,                            // seconds of clear slide after "Go!"
+      startSpeed: 6.75 + ci * 0.6 + i * 0.15,  // ft/s (v21: 4.5 -> 9.0; v24: 25% slower start, 9.0 -> 6.75); speed never drops during a level
+      stepEvery: 2 * (8 - i * 0.2),           // seconds between speed-ups (doubled: 16 s -> 12.8 s)
+      stepMult: 1 + 1.5 * (0.06 + i * 0.003), // each speed-up: +9% -> +12.6% (1.5x bigger)
+      gapStart, gapEnd: gapStart * 0.8,       // seconds between obstacles, start -> finish
+      lengthCoils: 2 * (2.2 + i * 0.18),      // finish arch, in turns (v21: doubled with the speed, so a level lasts about as long)
+      stumblesAllowed: 6,
+      mix: cleanMix(ch.mix), combos: ch.combos, intro: n === 1 ? ch.intro : null, note: ch.newThing,
+      rivals: 3,
+      mustPlace: ch.placeCounts ? (n <= 4 ? 3 : 2) : 4,   // 4 = just finish
+      botSkill: Math.min(1, (ci + i / 9) / 3.5),          // rivals sharpen across the whole game
+    };
+    if (boss) Object.assign(L, {
+      startSpeed: L.startSpeed + 0.4, stepEvery: 11, stepMult: 1.135,
+      gapStart: gapStart * 1.05, gapEnd: gapStart * 1.05 * 0.8,
+      lengthCoils: 5, stumblesAllowed: 4, note: ch.boss.note,
+      mustPlace: ch.placeCounts ? 1 : 4, botSkill: Math.min(1.1, L.botSkill + 0.1),
+    }, ch.boss.mix ? { mix: cleanMix(ch.boss.mix) } : {}, ch.boss.combos ? { combos: ch.boss.combos } : {});
+    return L;
+  }
+  const LEVELS = [];
+  CHAPTERS.forEach((ch, ci) => { if (!ch.locked) for (let n = 1; n <= 10; n++) LEVELS.push(buildLevel(ci, n)); });
+
+  // The rivals. Each is just a personality: how fast it reacts and how often it slips.
+  const RIVALS = [
+    // err = [lowest, highest] chance to slip on any obstacle. Each bot has a "form" that drifts
+    // obstacle to obstacle, so it has hot and cold stretches inside that range.
+    // fixed: the level's skill doesn't sharpen it (used for the test duck).
+    { name: 'Pip',  color: 0xf6f1e7, tag: '#fff4e0', react: 0.30, err: [0.40, 0.40], fixed: true }, // TEST DUCK: misses often, washes out early
+    { name: 'Dash', color: 0x7fe06a, tag: '#a8f58f', react: 0.22, err: [0.08, 0.34] },              // quick but streaky (v31: was 0.05-0.26)
+    { name: 'Mo',   color: 0x8fb4ff, tag: '#b9d0ff', react: 0.26, err: [0.04, 0.20] },              // v34: the strong rival again (v32: 0.06-0.28 was too easy)
+  ];
+
+  // =====================================================================
+  //  WORLD  (1 unit = 1 foot)
+  // =====================================================================
+  const TAU = Math.PI * 2;
+  const R = 3.5;                    // tower radius
+  const LANES = 4, LANE_W = 0.9;    // four lanes; a duck is ~0.72 ft wide
+  const EDGE = 0.1;
+  const W = LANES * LANE_W + 2 * EDGE;   // 3.8 ft wide slide
+  const laneR = i => R + EDGE + LANE_W * (i + 0.5);
+  const RP = laneR(LANES - 1);      // the player's (outer) lane: 6.75 ft from center
+  const RT = R + W / 2;             // center of the track, where obstacles sit
+  // v30: back to the original 3.4 ft per turn (v28 tried 8.2, v29 tried 6.4).
+  // Gameplay is unchanged: progress, speed and timing are in angle and seconds, not height.
+  const P = 3.4, K = P / TAU;       // height = K * angle
+  // Everyone's progress is measured as ANGLE around the tower, so all lanes are equally long.
+
+  const LEFT_EDGE = -1.0;           // where the slide runs into the pool, left of screen
+  const WATER_Y = K * LEFT_EDGE + 0.06;
+  const STUMBLE_TIME = 0.8;
+  const STUMBLE_LOCK = 0.12;   // after a hit, controls are locked this long so the hit reads; then jump/duck cuts the stumble short
+  // Comeback rules (off in overtime):
+  //   - a miss: back one step toward the pool (and a little lower)
+  //   - clear an obstacle that another duck missed: up half a step ("clutch")
+  //   - every duck still racing misses the same obstacle: nobody loses ground
+  //   - RECOVER_STREAK clean dodges in a row: up half a step (every duck, leaders included)
+  // A duck can climb ahead of the front by as much room as there is behind it (to the pool).
+  // Misses push a duck back instantly. GAINS wait for a "regroup moment": every duck on the
+  // ground and a clear stretch of slide past each mover's new spot, then all move together.
+  const GLOW_STREAK = 10;   // v36: dodges in a row to light the glow (also the player's one-hit shield)
+  const RECOVER_STREAK = 6, STREAK_GAIN = 0.5, CLUTCH_GAIN = 0.5, MAX_AHEAD = -LEFT_EDGE;
+  const REGROUP_AHEAD = 0.7;   // seconds of warning kept clear past a duck's new spot
+
+  // v29 DUCK SIZE: ducks are 1.2x bigger, as wide as a lane allows (0.72 ft -> 0.87 ft in a 0.9 ft lane).
+  // Jump heights, duck heights, obstacle heights AND gravity all scale by DS, so every jump, duck and
+  // dodge takes exactly the same time as before; bot timing (HOP_LEAD etc.) stays valid.
+  const DS = 1.2;
+  const GRAVITY = 32.2 * DS, HOP_H = 0.8 * DS, BIG_H = 1.40 * DS;    // tap height / full-hold height (measured at DS 1)
+  // A thumb tap on a phone lasts ~100-190 ms, so the extra rise only starts after 0.13 s of holding.
+  const BOOST_DELAY = 0.13, BOOST_TIME = 0.2, BOOST_GRAV = 0.0;
+  const LAND_LAG_HOP = 0.04, LAND_LAG_BIG = 0.24;
+  const COMBO_GAP = 0.55;           // hurdle -> bar: a hop lands in time, a full big jump doesn't
+  const STAND_H = 1.22 * DS, DUCK_H = 0.6 * DS;
+  const LOW_H = 0.5 * DS, TALL_H = 0.95 * DS, HIGH_BOTTOM = 0.86 * DS;
+  const SPAWN_AHEAD = 2.2;
+  const HIT_HALF = 0.26;            // duck + obstacle overlap, ft (at the player's lane)
+
+  // Bot timing, measured from the jump physics: a hop is highest 0.22 s after takeoff,
+  // a full big jump clears an amber hurdle best ~0.41 s after. Bots aim to be at the top of the jump over the hurdle.
+  const HOP_LEAD = 0.223, BIG_LEAD = 0.41, BIG_HOLD = 0.35, DUCK_LEAD = 0.22;
+  const BOT_SIGHT = 1.15;           // radians ahead of the screen center a bot can "see"
+
+  // =====================================================================
+  //  SCENE
+  // =====================================================================
+  // ---------- v27: phone preview on PC ----------
+  // PHONE_W x PHONE_H = the game's area on an iPhone 18 Pro in Chrome (402 x 874 pt screen, minus the
+  // browser's top and bottom bars; measured from a real screenshot). Devices with a mouse get this box;
+  // touch devices use their whole screen. Add ?frame=off or ?frame=on to the URL to override.
+  const PHONE_W = 402, PHONE_H = 700;
+  const stageEl = document.getElementById('stage');
+  const frameParam = new URLSearchParams(location.search).get('frame');
+  let phoneFrame = false, stageScale = 1;
+  const viewW = () => phoneFrame ? PHONE_W : window.innerWidth;
+  const viewH = () => phoneFrame ? PHONE_H : window.innerHeight;
+  function layoutStage() {
+    phoneFrame = frameParam === 'on' || (frameParam !== 'off' && !matchMedia('(pointer: coarse)').matches);
+    document.body.classList.toggle('phone-frame', phoneFrame);
+    const ss = stageEl.style;
+    if (!phoneFrame) { stageScale = 1; ss.width = ss.height = '100%'; ss.left = ss.top = '0px'; ss.transform = 'translate(0, 0)'; return; }
+    // Shrink (never enlarge) to fit a short window; sizes inside stay the phone's.
+    stageScale = Math.min(1, (window.innerWidth - 20) / PHONE_W, (window.innerHeight - 36) / PHONE_H);
+    ss.width = PHONE_W + 'px'; ss.height = PHONE_H + 'px';
+    ss.left = Math.round((window.innerWidth - PHONE_W * stageScale) / 2) + 'px';
+    ss.top = Math.round(Math.max(28, (window.innerHeight - PHONE_H * stageScale) / 2)) + 'px';
+    ss.transform = `scale(${stageScale})`;
+    document.getElementById('frameLbl').textContent = `iPhone 18 Pro preview: ${PHONE_W} × ${PHONE_H}` + (stageScale < 1 ? ` (shown at ${Math.round(stageScale * 100)}%)` : '');
+  }
+  // Screen point (from getBoundingClientRect) -> point inside the stage, in phone pixels
+  function toStage(x, y) {
+    const r = stageEl.getBoundingClientRect();
+    return [(x - r.left) / stageScale, (y - r.top) / stageScale];
+  }
+  layoutStage();
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  stageEl.insertBefore(renderer.domElement, stageEl.firstChild);
+  const scene = new THREE.Scene();
+  const SKY = new THREE.Color(0x14103a);
+  scene.background = SKY;
+  scene.fog = new THREE.Fog(SKY, 14, 44);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 160);
+  // v29 CAMERA: the same angle as the first PC view (16.6 ft out, 4.6 ft up, ~17 degrees down), on every
+  // screen. The view widens (zoom) until the slide fits the screen width, then shifts so the slide sits
+  // on top of the pads, inside the play area.
+  const CAM_TARGET = new THREE.Vector3(0, 0.2, 2.5), CAM_D = 14.8, CAM_PITCH = 17.3;
+  const camBase = new THREE.Vector3(0, 4.6, 16.6);
+
+  scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x2a0c3a, 0.8));
+  const sun = new THREE.DirectionalLight(0xfff0d8, 0.85);
+  sun.position.set(6, 12, 10);
+  scene.add(sun);
+  const waterLight = new THREE.PointLight(0x5fd4ff, 1.6, 18, 2);
+  scene.add(waterLight);
+  {
+    const g = new THREE.BufferGeometry(), n = 600, p = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, r = 60 + Math.random() * 25;
+      p[i * 3] = Math.sin(a) * r; p[i * 3 + 1] = -10 + Math.random() * 70; p[i * 3 + 2] = Math.cos(a) * r;
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xfff4e0, size: 0.22, fog: false })));
+  }
+
+  function canvasTex(w, h, draw) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
+    return t;
+  }
+
+  // The spiral rotates under the fixed camera.
+  const spiral = new THREE.Group();
+  scene.add(spiral);
+  // Tree trunk: vertical bark ridges (straight top to bottom, so it tiles cleanly) plus a few knots
+  const towerTex = canvasTex(512, 128, (g, w, h) => {
+    g.fillStyle = '#4a2f1c'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 46; i++) {                     // ridges
+      const x = Math.random() * w, bw = 3 + Math.random() * 9;
+      g.fillStyle = Math.random() < 0.5 ? '#5e3c23' : '#382213';
+      g.fillRect(x, 0, bw, h); if (x + bw > w) g.fillRect(x - w, 0, bw, h);
+    }
+    g.fillStyle = '#2a180c';
+    for (let i = 0; i < 18; i++) g.fillRect(Math.random() * w, 0, 1.5, h);   // deep cracks
+    for (let i = 0; i < 3; i++) {                      // knots
+      const x = 40 + Math.random() * (w - 80), y = 30 + Math.random() * (h - 60);
+      g.fillStyle = '#2a180c'; g.beginPath(); g.ellipse(x, y, 9, 14, 0, 0, TAU); g.fill();
+      g.strokeStyle = '#6b4426'; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, 13, 19, 0, 0, TAU); g.stroke();
+    }
+  });
+  const BARK_PER_LAP = Math.max(1, Math.round(P / 1.7));   // keep bark ~1.7 ft tall, a whole number per turn
+  towerTex.repeat.set(3, 18 * BARK_PER_LAP);   // trunk is 18 turns tall; the pattern lines up again every turn
+  spiral.add(new THREE.Mesh(new THREE.CylinderGeometry(R, R, P * 18, 80, 1, true),
+    new THREE.MeshStandardMaterial({ map: towerTex, roughness: 0.95, emissive: 0x24140a, emissiveIntensity: 0.6 })));
+
+  const pt = (r, a, y) => [r * Math.sin(a), y, r * Math.cos(a)];
+  function strip(a0, a1, n, edgeA, edgeB, uvLen) {
+    const pos = new Float32Array((n + 1) * 6), uv = new Float32Array((n + 1) * 4), idx = [];
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + (a1 - a0) * i / n, y = K * a;
+      pos.set(edgeA(a, y), i * 6); pos.set(edgeB(a, y), i * 6 + 3);
+      const u = a * RT / uvLen; uv.set([u, 0, u, 1], i * 4);
+      if (i < n) { const j = i * 2; idx.push(j, j + 1, j + 2, j + 1, j + 3, j + 2); }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  // Track surface: wooden planks laid across the track (x runs along the track, y across it)
+  const slideTex = canvasTex(128, 256, (g, w, h) => {
+    const PLANKS = 4, pw = w / PLANKS;
+    const tones = ['#9a6a3a', '#a8774a', '#8f6134', '#a06f40'];
+    for (let i = 0; i < PLANKS; i++) {
+      g.fillStyle = tones[i]; g.fillRect(i * pw, 0, pw, h);
+      g.strokeStyle = 'rgba(70,40,18,0.35)'; g.lineWidth = 1;
+      for (let k = 0; k < 7; k++) {                    // wood grain runs along each plank
+        const x = i * pw + 3 + Math.random() * (pw - 6);
+        g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + 3, h * 0.3, x - 3, h * 0.7, x, h); g.stroke();
+      }
+      g.fillStyle = '#3a2210'; g.fillRect(i * pw, 0, 2, h);          // gap between planks
+      g.fillStyle = '#2a180c';                                         // nail heads near each edge
+      for (const y of [14, h - 14]) { g.beginPath(); g.arc(i * pw + pw / 2, y, 2.2, 0, TAU); g.fill(); }
+    }
+    // Burnt-in chevron pointing uphill: kept for reading speed, but dark so obstacles stay the brightest thing
+    g.fillStyle = 'rgba(58,32,14,0.55)';
+    g.beginPath(); g.moveTo(10, 10); g.lineTo(52, h / 2); g.lineTo(10, h - 10); g.lineTo(34, h - 10); g.lineTo(76, h / 2); g.lineTo(34, 10); g.closePath(); g.fill();
+    for (let i = 1; i < LANES; i++) {                  // lane grooves
+      const y = (1 - (EDGE + LANE_W * i) / W) * h;
+      g.fillStyle = 'rgba(42,24,12,0.7)'; g.fillRect(0, y - 1.5, w, 3);
+    }
+  });
+  const A0 = -5 * TAU, A1 = 5 * TAU, SEG = 2600, THICK = 0.3, LIP = 0.32;
+  // Texture repeat lengths must fit a whole number of times into one lap, or the
+  // pattern visibly jumps every time the spiral completes a turn.
+  const LAP = TAU * RT, SLIDE_UV = LAP / 14, FLOW_UV = LAP / 11;
+  let slideMat;
+  spiral.add(new THREE.Mesh(
+    strip(A0, A1, SEG, (a, y) => pt(R - 0.02, a, y), (a, y) => pt(R + W, a, y), SLIDE_UV),
+    slideMat = new THREE.MeshStandardMaterial({ map: slideTex, roughness: 0.8, side: THREE.DoubleSide, emissive: 0x2a1708, emissiveIntensity: 0.5 })));
+  // Flowing water sheet on top of the slide; its texture scrolls downhill.
+  // Two layers: a blue sheet with darker troughs, and a faster layer of white ripple crests and foam.
+  // Every stroke is drawn twice (at x and x - w) so the tile wraps with no seam.
+  const wavy = (g, x, y, len, amp, w) => { for (const ox of [0, -w]) { g.beginPath(); g.moveTo(x + ox, y);
+    g.bezierCurveTo(x + ox + len * 0.3, y - amp, x + ox + len * 0.7, y + amp, x + ox + len, y); g.stroke(); } };
+  const flowTex = canvasTex(256, 128, (g, w, h) => {
+    const grad = g.createLinearGradient(0, 0, 0, h);   // across the track: foamy edges, deeper blue middle
+    grad.addColorStop(0, 'rgba(190,235,255,0.65)'); grad.addColorStop(0.12, 'rgba(45,155,235,0.55)');
+    grad.addColorStop(0.5, 'rgba(25,120,215,0.6)'); grad.addColorStop(0.88, 'rgba(45,155,235,0.55)'); grad.addColorStop(1, 'rgba(190,235,255,0.65)');
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+    g.lineCap = 'round';
+    for (let i = 0; i < 18; i++) {                      // darker troughs
+      g.strokeStyle = `rgba(10,70,150,${0.25 + Math.random() * 0.2})`; g.lineWidth = 4 + Math.random() * 6;
+      wavy(g, Math.random() * w, 8 + Math.random() * (h - 16), 60 + Math.random() * 90, 4, w);
+    }
+    for (let i = 0; i < 22; i++) {                      // light glints
+      g.strokeStyle = `rgba(160,225,255,${0.35 + Math.random() * 0.3})`; g.lineWidth = 1.5 + Math.random() * 2;
+      wavy(g, Math.random() * w, 6 + Math.random() * (h - 12), 30 + Math.random() * 60, 3, w);
+    }
+  });
+  const foamTex = canvasTex(256, 128, (g, w, h) => {
+    g.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {                      // white crests, longer near the edges where water piles up
+      const y = Math.random() < 0.5 ? 4 + Math.random() * 22 : h - 4 - Math.random() * 22;
+      const yy = Math.random() < 0.6 ? y : 20 + Math.random() * (h - 40);
+      g.strokeStyle = `rgba(255,255,255,${0.45 + Math.random() * 0.4})`; g.lineWidth = 1.2 + Math.random() * 2.2;
+      wavy(g, Math.random() * w, yy, 25 + Math.random() * 55, 2.5, w);
+    }
+    g.fillStyle = 'rgba(255,255,255,0.7)';            // bubbles
+    for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * h, r = 0.8 + Math.random() * 1.6;
+      for (const ox of [0, -w]) { g.beginPath(); g.arc(x + ox, y, r, 0, TAU); g.fill(); } }
+  });
+  spiral.add(new THREE.Mesh(
+    strip(A0, A1, SEG, (a, y) => pt(R + 0.02, a, y + 0.035), (a, y) => pt(R + W - 0.02, a, y + 0.035), FLOW_UV),
+    new THREE.MeshBasicMaterial({ map: flowTex, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide })));
+  spiral.add(new THREE.Mesh(
+    strip(A0, A1, SEG, (a, y) => pt(R + 0.02, a, y + 0.05), (a, y) => pt(R + W - 0.02, a, y + 0.05), LAP / 7),
+    new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide })));
+  // Raised outer lip makes it a trough, like a real slide
+  // Outer rail: a long bark-covered branch (same bark texture as the trunk, run sideways)
+  const railTex = towerTex.clone(); railTex.needsUpdate = true; railTex.repeat.set(1, 1);
+  railTex.center.set(0.5, 0.5); railTex.rotation = Math.PI / 2;
+  const wallMat = new THREE.MeshStandardMaterial({ map: railTex, color: 0xb08060, roughness: 0.95, emissive: 0x24140a, emissiveIntensity: 0.5, side: THREE.DoubleSide });
+  spiral.add(new THREE.Mesh(strip(A0, A1, SEG, (a, y) => pt(R + W, a, y + LIP), (a, y) => pt(R + W, a, y - THICK), LAP / 40), wallMat));
+  spiral.add(new THREE.Mesh(
+    strip(A0, A1, SEG, (a, y) => pt(R + W, a, y - THICK), (a, y) => pt(R - 0.02, a, y - THICK), 2.4),
+    new THREE.MeshStandardMaterial({ color: 0x2e1b0d, side: THREE.DoubleSide })));
+  // The track GROWS out of the trunk: a bark shelf flares out underneath it (like a branch collar),
+  // and a rounded bark lip covers the seam where the planks meet the trunk on top.
+  {
+    const shelfTex = towerTex.clone(); shelfTex.needsUpdate = true; shelfTex.repeat.set(1, 1);
+    const shelfMat = new THREE.MeshStandardMaterial({ map: shelfTex, color: 0xa07858, roughness: 0.95, emissive: 0x24140a, emissiveIntensity: 0.5, side: THREE.DoubleSide });
+    const ring = (prof, uv) => {   // a curved profile swept along the helix, as a chain of strips
+      for (let i = 0; i < prof.length - 1; i++) {
+        const [r0, y0] = prof[i], [r1, y1] = prof[i + 1];
+        spiral.add(new THREE.Mesh(strip(A0, A1, SEG, (a, y) => pt(r0, a, y + y0), (a, y) => pt(r1, a, y + y1), uv), shelfMat));
+      }
+    };
+    // underneath: concave flare from low on the trunk out to the plank underside
+    const FLARE_OUT = W * 0.8, FLARE_DROP = 0.8, under = [];
+    for (let k = 0; k <= 5; k++) { const t = k / 5; under.push([R - 0.02 + FLARE_OUT * t, -THICK - FLARE_DROP * (1 - t) * (1 - t)]); }
+    ring(under, LAP / 30);
+    // on top: a low rounded lip where wood meets bark (stays inside the inner edge, clear of every lane)
+    ring([[R - 0.02, 0.32], [R + 0.05, 0.16], [R + 0.11, 0.06], [R + 0.15, 0.01]], LAP / 30);
+  }
+
+  // Leaves and branches. The spiral wraps every lap, so the layout is built for ONE lap
+  // and copied to every lap (otherwise the leaves would visibly jump each turn).
+  {
+    const LAPS0 = Math.floor(A0 / TAU), LAPS1 = Math.ceil(A1 / TAU);
+    const leafGeo = new THREE.IcosahedronGeometry(1, 0);
+    const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true, emissive: 0x0c2a0c, emissiveIntensity: 0.6 });
+    const greens = [0x2f7a2c, 0x3f9a34, 0x5bb840, 0x2a6a30].map(c => new THREE.Color(c));
+    const rnd = (a, b) => a + Math.random() * (b - a);   // (rand() is defined further down)
+    const leaves = [];   // one lap's worth: [angle, radius, height above this coil, size]
+    // Bushy leaves along the outer rail. Kept small and at/below the rail top: the camera looks
+    // across this edge, so anything taller would hide a jumping duck or the coil above.
+    for (let a = 0; a < TAU - 1e-6; a += TAU / 54) {
+      for (let k = 0; k < 3; k++) leaves.push([a + rnd(-0.04, 0.04), R + W + rnd(0.05, 0.22), rnd(-0.3, 0.0), rnd(0.14, 0.22)]);
+    }
+    // Short branches growing from the trunk into the gap between coils, each with a leafy clump.
+    // They sit near the trunk, so from the camera they're BEHIND the ducks and obstacles, never in front.
+    const branches = [];   // [angle, height above this coil]
+    for (let i = 0; i < 6; i++) {
+      const a = (i + rnd(0.2, 0.8)) * TAU / 6, dy = rnd(2.0, 2.5);
+      branches.push([a, dy]);
+      for (let k = 0; k < 5; k++) leaves.push([a + rnd(-0.06, 0.06), R + rnd(0.6, 1.0), dy + rnd(-0.1, 0.25), rnd(0.2, 0.3)]);
+    }
+    // Small sprigs on the trunk, also high in the gap
+    for (let i = 0; i < 6; i++) {
+      const a = rnd(0, TAU), dy = rnd(1.9, 2.6);
+      for (let k = 0; k < 3; k++) leaves.push([a + rnd(-0.05, 0.05), R + rnd(0.05, 0.2), dy + rnd(-0.12, 0.12), rnd(0.12, 0.18)]);
+    }
+    const laps = LAPS1 - LAPS0;
+    const leafMesh = new THREE.InstancedMesh(leafGeo, leafMat, leaves.length * laps);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    let n = 0;
+    for (let L = LAPS0; L < LAPS1; L++) for (let i = 0; i < leaves.length; i++) {
+      const [a, r, dy, size] = leaves[i], A = a + L * TAU;
+      v.set(...pt(r, A, K * A + dy));
+      e.set(i * 1.7, i * 2.3, i * 0.9); q.setFromEuler(e);
+      sc.set(size, size * 0.8, size);
+      leafMesh.setMatrixAt(n, m4.compose(v, q, sc));
+      leafMesh.setColorAt(n, greens[i % greens.length]);
+      n++;
+    }
+    spiral.add(leafMesh);
+    const barkMat = new THREE.MeshStandardMaterial({ color: 0x5a3820, roughness: 0.95, emissive: 0x24140a, emissiveIntensity: 0.5 });
+    const branchGeo = new THREE.CylinderGeometry(0.06, 0.13, 1, 7); branchGeo.translate(0, 0.5, 0);
+    const branchMesh = new THREE.InstancedMesh(branchGeo, barkMat, branches.length * laps);
+    n = 0;
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let L = LAPS0; L < LAPS1; L++) for (const [a, dy] of branches) {
+      const A = a + L * TAU, y0 = K * A + dy;
+      const from = new THREE.Vector3(...pt(R - 0.05, A, y0 - 0.35));
+      const to = new THREE.Vector3(...pt(R + 0.8, A, y0));
+      const dir = to.clone().sub(from);
+      q.setFromUnitVectors(up, dir.clone().normalize());
+      branchMesh.setMatrixAt(n++, m4.compose(from, q, sc.set(1, dir.length(), 1)));
+    }
+    spiral.add(branchMesh);
+  }
+
+  // FOCUS: everything on the spiral fades toward the night sky the farther it sits above or below the
+  // coil the ducks race on. The spiral turns under a FIXED camera, so in world space the racing coil is
+  // always the same helix: floor height = K * (angle around the trunk). Height above that floor tells
+  // the shader which coil a pixel belongs to. (Applied to the spiral only; the pool and ducks stay bright.)
+  const DIM_COLOR = new THREE.Color(0x14103a), DIM_STRENGTH = 0.62;
+  function focusDim(mat) {
+    if (!mat || mat.userData.focusDim) return;
+    mat.userData.focusDim = true;
+    mat.onBeforeCompile = sh => {
+      if (!sh.vertexShader.includes('#include <project_vertex>') || !sh.fragmentShader.includes('#include <fog_fragment>')) return;
+      sh.uniforms.dimColor = { value: DIM_COLOR };
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vDimW;')
+        .replace('#include <project_vertex>', `#include <project_vertex>
+          vec4 dimP = vec4(transformed, 1.0);
+          #ifdef USE_INSTANCING
+            dimP = instanceMatrix * dimP;
+          #endif
+          vDimW = (modelMatrix * dimP).xyz;`);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vDimW;\nuniform vec3 dimColor;')
+        .replace('#include <fog_fragment>', `#include <fog_fragment>
+          float dimOff = vDimW.y - ${K.toFixed(6)} * atan(vDimW.x, vDimW.z);   // height above the racing floor
+          float dimAmt = max(smoothstep(2.3, 3.3, dimOff), 1.0 - smoothstep(-1.4, -0.45, dimOff));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, dimColor, dimAmt * ${DIM_STRENGTH.toFixed(2)});`);
+    };
+    mat.needsUpdate = true;
+  }
+  spiral.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(focusDim); });
+
+  // Pool at the bottom
+  const WATER_SEG = 64;
+  const waterGeo = new THREE.PlaneGeometry(170, 170, WATER_SEG, WATER_SEG);
+  waterGeo.rotateX(-Math.PI / 2);
+  const waterBase = waterGeo.attributes.position.array.slice();
+  const water = new THREE.Mesh(waterGeo, new THREE.MeshStandardMaterial({
+    color: 0x1f8fb8, emissive: 0x0a3050, emissiveIntensity: 0.7, roughness: 0.25, metalness: 0.15,
+    flatShading: true, transparent: true, opacity: 0.5 }));   // v29: see-through, the slide continues underneath
+  water.position.y = WATER_Y;
+  scene.add(water);
+  function animateWater(t) {
+    const p = waterGeo.attributes.position.array;
+    for (let i = 0; i < p.length; i += 3) {
+      const x = waterBase[i], z = waterBase[i + 2];
+      p[i + 1] = 0.13 * Math.sin(x * 0.45 + t * 1.5) + 0.09 * Math.sin(z * 0.6 - t * 1.1) + 0.05 * Math.sin((x + z) * 1.1 + t * 2.3);
+    }
+    waterGeo.attributes.position.needsUpdate = true;
+    waterGeo.computeVertexNormals();
+  }
+
+  // Particle pool (spray, splashes, confetti), handed out round-robin
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const particles = Array.from({ length: 90 }, () => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    m.visible = false; m.userData.v = new THREE.Vector3(); scene.add(m); return m;
+  });
+  let pNext = 0;
+  function burst(pos, colors, up, count, spread = 2.4) {
+    for (let i = 0; i < count; i++) {
+      const m = particles[pNext++ % particles.length];
+      m.position.copy(pos);
+      m.material.color.set(colors[i % colors.length]);
+      const a = Math.random() * TAU, out = rand(0.5, spread);
+      m.userData.v.set(Math.cos(a) * out, rand(up * 0.5, up), Math.sin(a) * out);
+      m.visible = true;
+    }
+  }
+  const SPRAY = [0xc9f3ff, 0x8fe3ff, 0xffffff];
+  const ripple = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.0, 40),
+    new THREE.MeshBasicMaterial({ color: 0xc9f3ff, transparent: true, opacity: 0, side: THREE.DoubleSide }));
+  ripple.rotation.x = -Math.PI / 2;
+  scene.add(ripple);
+  let rippleT = -1;
+  function rippleAt(x, z) { ripple.position.set(x, WATER_Y + 0.15, z); rippleT = 0; }
+
+  // ---------- Models ----------
+  function makeDuck(bodyColor) {
+    const lean = new THREE.Group();
+    const tumble = new THREE.Group(); tumble.position.y = 0.55; lean.add(tumble);
+    const body = new THREE.Group(); tumble.add(body);
+    const mat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.55, emissive: 0x2a2010, emissiveIntensity: 0.4 });
+    const orange = new THREE.MeshStandardMaterial({ color: 0xff8a1f, roughness: 0.5 });
+    const black = new THREE.MeshBasicMaterial({ color: 0x14103a });
+    const add = (geo, m, x, y, z, setup) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (setup) setup(o); body.add(o); return o; };
+    add(new THREE.SphereGeometry(0.38, 20, 14), mat, 0, 0.45, 0, o => o.scale.set(1.25, 0.9, 0.95));
+    add(new THREE.SphereGeometry(0.26, 20, 14), mat, 0.2, 0.96, 0);
+    add(new THREE.ConeGeometry(0.1, 0.28, 12), orange, 0.5, 0.92, 0, o => { o.rotation.z = -Math.PI / 2; });
+    for (const s of [-1, 1]) add(new THREE.SphereGeometry(0.045, 8, 6), black, 0.38, 1.03, s * 0.13);
+    add(new THREE.ConeGeometry(0.12, 0.28, 10), mat, -0.5, 0.6, 0, o => { o.rotation.z = Math.PI / 2 + 0.5; });
+    const feet = [-1, 1].map(s => add(new THREE.BoxGeometry(0.22, 0.06, 0.14), orange, 0.05, 0.04, s * 0.14));
+    const base = new THREE.Group(); base.add(lean);
+    return { base, lean, tumble, body, feet, mat };
+  }
+  // v31 streak glow: a soft gold halo (added light) around a duck on a long run
+  const haloTex = canvasTex(128, 128, (g, w, h) => {
+    const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    gr.addColorStop(0, 'rgba(255,240,170,1)'); gr.addColorStop(0.35, 'rgba(255,205,70,.55)'); gr.addColorStop(1, 'rgba(255,190,40,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
+  haloTex.wrapS = haloTex.wrapT = THREE.ClampToEdgeWrapping;
+  const GLOW_GOLD = new THREE.Color(0xffb020);
+  const waveMat = new THREE.MeshStandardMaterial({ color: 0x6fd3ff, emissive: 0x1b6a96, emissiveIntensity: 0.6, transparent: true, opacity: 0.82, roughness: 0.2 });
+  const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  function makeWave() {
+    // A small breaking wave: a water hump with foam crests curling toward the duck
+    const group = new THREE.Group();
+    const hump = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 10, 0, TAU, 0, Math.PI / 2), waveMat);
+    hump.scale.set(0.6, 1.15, LANE_W * 0.95);
+    group.add(hump);
+    for (const z of [-0.28, 0, 0.28]) {
+      const foam = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.06, 6, 16, Math.PI * 0.85), foamMat);
+      foam.position.set(-0.05, 0.12, z); foam.rotation.z = 0.35;
+      group.add(foam);
+    }
+    group.visible = false;
+    scene.add(group);
+    return { group, t: -1 };
+  }
+  function makeTag(text, color) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+    const tex = new THREE.CanvasTexture(c);
+    const draw = () => {
+      const g = c.getContext('2d');
+      g.clearRect(0, 0, 256, 72);
+      g.fillStyle = 'rgba(20,16,58,0.78)';
+      g.beginPath(); g.moveTo(40, 8); g.arcTo(232, 8, 232, 64, 26); g.arcTo(232, 64, 24, 64, 26); g.arcTo(24, 64, 24, 8, 26); g.arcTo(24, 8, 232, 8, 26); g.fill();
+      g.fillStyle = color; g.font = '40px "Bungee", "Impact", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(text, 128, 38);
+      tex.needsUpdate = true;
+    };
+    draw();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    sp.scale.set(1.5, 0.42, 1); sp.renderOrder = 10;
+    scene.add(sp);
+    return sp;
+  }
+
+  // v29 RUBBER DUCKIES: little floating ducks on the pool, placed on water you can actually see
+  // (inside the play area, not hidden behind the slide or trunk), bobbing with the waves.
+  const DUCKY_N = 12, duckies = [];   // v34: 7 -> 12
+  for (let i = 0; i < DUCKY_N; i++) {
+    const m = makeDuck(0xffd23f);
+    m.feet.forEach(f => { f.visible = false; });
+    m.base.scale.setScalar(0.45 + Math.random() * 0.25);   // v34: random sizes (was 0.42)
+    m.base.visible = false;
+    scene.add(m.base);
+    duckies.push({ m, x: 0, z: 0, ph: Math.random() * TAU, yaw: Math.random() * TAU, spin: (Math.random() - 0.5) * 0.25 });
+  }
+  const waveY = (x, z, t) => 0.13 * Math.sin(x * 0.45 + t * 1.5) + 0.09 * Math.sin(z * 0.6 - t * 1.1) + 0.05 * Math.sin((x + z) * 1.1 + t * 2.3);
+  function placeDuckies(box) {
+    const occluders = [];
+    spiral.traverse(o => { if (o.isMesh && !o.isInstancedMesh) occluders.push(o); });
+    spiral.updateMatrixWorld(true); camera.updateMatrixWorld();
+    const ray = new THREE.Raycaster(), v = new THREE.Vector3(), dir = new THREE.Vector3();
+    const w = viewW(), h = viewH(), spots = [];
+    for (let tries = 0; tries < 300 && spots.length < DUCKY_N; tries++) {   // v34: 40 -> 300 tries
+      const a = Math.random() * TAU, r = R + W + 0.8 + Math.random() * 14;   // v34: wider ring of water
+      const x = r * Math.sin(a), z = r * Math.cos(a);
+      v.set(x, WATER_Y + 0.3, z).project(camera);
+      const sx = (v.x + 1) / 2 * w, sy = (1 - v.y) / 2 * h;
+      if (v.z > 1 || sx < 16 || sx > w - 16 || sy < box.top + 14 || sy > box.bottom - 6) continue;
+      if (spots.some(p => Math.hypot(p.x - x, p.z - z) < 1.6)) continue;
+      dir.set(x, WATER_Y + 0.3, z).sub(camera.position);
+      const dist = dir.length();
+      ray.set(camera.position, dir.normalize()); ray.far = dist - 0.2;
+      if (ray.intersectObjects(occluders, false).length) continue;   // behind the slide or the trunk
+      spots.push({ x, z });
+    }
+    duckies.forEach((d, i) => {
+      const p = spots[i];
+      d.m.base.visible = !!p;
+      if (p) { d.x = p.x; d.z = p.z; }
+    });
+  }
+  function floatDuckies(t) {
+    for (const d of duckies) {
+      if (!d.m.base.visible) continue;
+      d.yaw += d.spin * 0.016;
+      d.m.base.position.set(d.x, WATER_Y + waveY(d.x, d.z, t) - 0.31, d.z);   // body sits a little in the water
+      d.m.base.rotation.set(0.12 * Math.sin(t * 1.7 + d.ph), d.yaw, 0.1 * Math.sin(t * 1.3 + d.ph * 2));
+    }
+  }
+
+  // Obstacles and finish arch
+  const obsGroup = new THREE.Group();
+  scene.add(obsGroup);
+  const mats = {
+    low: new THREE.MeshStandardMaterial({ color: 0xffc21a, emissive: 0xb07a00, emissiveIntensity: 0.9, roughness: 0.4 }),   // hop: bright yellow-orange
+    tall: new THREE.MeshStandardMaterial({ color: 0xff8a00, emissive: 0xa04800, emissiveIntensity: 0.9, roughness: 0.4 }),  // big jump: deeper orange
+    high: new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xa00808, emissiveIntensity: 0.9, roughness: 0.4 }),  // duck: red
+    post: new THREE.MeshStandardMaterial({ color: 0xfff4e0, roughness: 0.6 }),
+    outline: new THREE.MeshBasicMaterial({ color: 0x140a04, side: THREE.BackSide }),
+  };
+  // Dark outline (a slightly bigger box drawn inside-out) so obstacles pop against the wood.
+  const outlined = (mesh) => {
+    const o = new THREE.Mesh(mesh.geometry, mats.outline);
+    o.scale.set(1.35, 1.12, 1.03); mesh.add(o); return mesh;
+  };
+  function makeObstacleMesh(type) {
+    const g = new THREE.Group();
+    if (type === 'low' || type === 'tall') {
+      const h = type === 'low' ? LOW_H : TALL_H;
+      const b = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.2, h, W * 0.96), mats[type]));
+      b.position.y = h / 2; g.add(b);
+    } else {
+      const barH = 0.3 * DS;
+      const bar = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.24, barH, W), mats.high));
+      bar.position.y = HIGH_BOTTOM + barH / 2; g.add(bar);
+      for (const s of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, HIGH_BOTTOM + barH, 0.12), mats.post);
+        post.position.set(0, (HIGH_BOTTOM + barH) / 2, s * (W / 2 - 0.06)); g.add(post);
+      }
+    }
+    return g;
+  }
+  const finishArch = (() => {
+    const g = new THREE.Group();
+    const checker = canvasTex(256, 32, (c) => {
+      for (let x = 0; x < 16; x++) for (let y = 0; y < 2; y++) { c.fillStyle = (x + y) % 2 ? '#14103a' : '#fff4e0'; c.fillRect(x * 16, y * 16, 16, 16); }
+    });
+    for (const s of [-1, 1]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.0, 0.16), mats.post);
+      post.position.set(0, 1.5, s * (W / 2 + 0.05)); g.add(post);
+    }
+    const banner = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, W + 0.3), new THREE.MeshBasicMaterial({ map: checker }));
+    banner.position.y = 2.75; g.add(banner);
+    g.scale.y = DS;   // v29: room for the bigger ducks' jumps
+    scene.add(g);
+    return g;
+  })();
+
+  // =====================================================================
+  //  GAME STATE
+  //  st.theta = how far around the spiral the FRONT of the screen is (radians).
+  //  Each duck has phi = its offset from the front (0 = center, negative = washed back).
+  //  A duck's race progress is theta + phi. All ducks share the same angular speed.
+  // =====================================================================
+  const st = { obs: [], theta: 0 };
+  let rivalHeat = 0;   // adaptive rival difficulty: -0.5 (go easy) .. +0.3 (push harder)
+  let mode = 'title', time = 0, levelIdx = 0, runId = 0;
+  let godMode = false;   // Y key: the player's duck can't be hit (testing / fun). Runs played with it are tagged.
+  const ease3 = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  const easeOut = x => 1 - Math.pow(1 - x, 3);
+
+  // =====================================================================
+  //  RACER: one class for every duck. The player and the bots run the exact
+  //  same physics and press the same "buttons" (pressUp, pressDown...).
+  //  The only difference is WHO presses them: your fingers, or a BotBrain.
+  // =====================================================================
+  class Racer {
+    constructor({ lane, color, name, tagColor, brain, isPlayer }) {
+      this.tagColor = tagColor;
+      Object.assign(this, { lane, name, brain, isPlayer: !!isPlayer });
+      this.r = laneR(lane);
+      this.hitAngle = HIT_HALF / RP;           // same timing in every lane, so inner lanes aren't handicapped
+      this.leanAngle = Math.atan(K / this.r);
+      this.model = makeDuck(color); this.model.base.scale.setScalar(DS);
+      this.bodyColor = color;
+      this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xffd23f, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      this.halo.position.set(0, 0.75, 0); this.halo.visible = false; this.model.lean.add(this.halo);
+      // v32 hero aura (Octopath-style): bright gold rim around the body + light motes rising off the duck
+      this.rimMat = new THREE.MeshBasicMaterial({ color: 0xffd86a, transparent: true, opacity: 0, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      this.rims = [];
+      for (const o of this.model.body.children.slice()) {
+        if (o.material !== this.model.mat) continue;
+        const r = new THREE.Mesh(o.geometry, this.rimMat);
+        r.position.copy(o.position); r.rotation.copy(o.rotation); r.scale.copy(o.scale).multiplyScalar(1.16);
+        r.visible = false; this.model.body.add(r); this.rims.push(r);
+      }
+      this.motes = [];
+      for (let i = 0; i < 16; i++) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xfff0b0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        sp.visible = false; sp.userData = { t: 0, x: 0, z: 0 };
+        this.model.lean.add(sp); this.motes.push(sp);
+      }
+      this.glowLevel = 0; this.baseEmissive = this.model.mat.emissive.clone(); this.baseEI = this.model.mat.emissiveIntensity;
+      scene.add(this.model.base);
+      this.wave = makeWave();
+      this.tag = brain ? makeTag(name, tagColor) : null;
+      this.active = false;
+      this.setActive(isPlayer);
+    }
+    setActive(on) {
+      this.active = on;
+      this.model.base.visible = on;
+      if (this.tag) this.tag.visible = on;
+      if (!on) this.wave.group.visible = false;
+    }
+    reset(L) {
+      Object.assign(this, {
+        phi: 0, jumpY: 0, jumpV: 0, boost: -1, upHeld: false, upBuffer: 0, lag: 0, jumpPower: 0, peak: 0, takeoff: 0,
+        duckHeld: false, ducking: false, pos: 0, maxStumbles: L.stumblesAllowed,
+        stumbleBack: -LEFT_EDGE / L.stumblesAllowed, pending: 0, streak: 0, bestStreak: 0, cleared: 0, stumbles: 0, gains: { clutch: 0, shared: 0, streak: 0 },
+        fall: null, fallOff: 0, tilt: 0, land: 0, invuln: 0, out: false, finished: false, place: 0, stumbleLog: [],
+      });
+      this.wave.t = -1; this.wave.group.visible = false;
+      if (this.brain) this.brain.reset(L);
+      this.model.base.visible = this.active;
+      if (this.tag) this.tag.visible = this.active;
+    }
+    get progress() { return st.theta + this.phi; }
+    get grounded() { return this.jumpY === 0 && this.jumpV === 0 && !this.fall; }
+    home() { return this.pos; }                     // where this duck is heading on the slide
+    // How many more misses until the pool (ahead of the front = more than the starting number)
+    get missesLeft() { return Math.max(0, Math.ceil((this.pos - LEFT_EDGE) / this.stumbleBack - 1e-6)); }
+    gain(steps, why) {
+      if (st.overtime || eliminated(this)) return;
+      const room = MAX_AHEAD - (this.pos + this.pending);
+      if (room > 1e-9) {
+        this.pending += Math.min(room, steps * this.stumbleBack);   // queued: moves at the next regroup
+        this.gains[why]++;
+        if (this.isPlayer) { toast(why === 'clutch' ? 'Clutch! Moving up' : why === 'shared' ? 'Everyone missed: no ground lost' : 'Clean streak! Moving up', '#a8f58f'); hud(); }
+      }
+    }
+
+    // ----- the "buttons" -----
+    pressUp() {
+      this.upHeld = true;
+      this.breakStumble();
+      if (this.grounded && this.lag <= 0) this.launch(); else this.upBuffer = 0.07;   // buffered: fires the moment it's allowed
+    }
+    releaseUp() {
+      if (this.isPlayer && this.upHeld && this.teleJump && !this.teleJump.hold) this.teleJump.hold = Math.round((st.levelTime - this.upPressedAt) * 1000);
+      this.upHeld = false; this.boost = -1;
+    }
+    pressDown() { if (this.isPlayer && !this.duckHeld && tele.run && mode === 'play') tele.run.ducks.push(st.levelTime); this.duckHeld = true; this.breakStumble(); }
+    // Jump or duck during a stumble (after STUMBLE_LOCK) ends the tumble animation right away.
+    // The push-back itself still happens: updateFall() keeps sliding the duck back to its new spot.
+    breakStumble() {
+      const f = this.fall;
+      if (!f || f.out || f.t < STUMBLE_LOCK) return false;
+      this.fall = null; this.tilt = 0; this.fallOff = 0; this.land = 0;
+      return true;
+    }
+    releaseDown() { this.duckHeld = false; }
+    launch() {
+      if (this.isPlayer) { this.teleJump = teleLaunch(); this.upPressedAt = st.levelTime; }
+      this.jumpV = Math.sqrt(2 * GRAVITY * HOP_H);   // v = sqrt(2gh)
+      this.jumpY = 0.0001; this.peak = 0;
+      this.boost = this.upHeld ? 0 : -1;
+      this.takeoff = 0.1; this.upBuffer = 0;
+    }
+
+    physics(simDt, dt) {
+      if (this.jumpY > 0 || this.jumpV > 0) {
+        let g = GRAVITY;
+        if (this.boost >= 0) {
+          this.boost += simDt;
+          if (this.boost >= BOOST_TIME + BOOST_DELAY || this.jumpV <= 0) this.boost = -1;
+          else if (this.boost >= BOOST_DELAY) g = GRAVITY * BOOST_GRAV;
+        }
+        this.jumpV -= g * simDt; this.jumpY += this.jumpV * simDt;
+        this.peak = Math.max(this.peak, this.jumpY);
+        if (this.teleJump) this.teleJump.peak = Math.max(this.teleJump.peak, this.jumpY);
+        if (this.jumpY <= 0) {
+          this.jumpY = 0; this.jumpV = 0; this.boost = -1;
+          this.jumpPower = Math.min(1, Math.max(0, (this.peak - HOP_H) / (BIG_H - HOP_H)));
+          this.lag = LAND_LAG_HOP + (LAND_LAG_BIG - LAND_LAG_HOP) * this.jumpPower;
+          this.land = this.lag + 0.06;
+        }
+      }
+      if (this.takeoff > 0) this.takeoff -= dt;
+      if (this.lag > 0) this.lag -= simDt;
+      if (this.upBuffer > 0) {
+        if (this.grounded && this.lag <= 0) this.launch();
+        else if (!this.fall && this.lag <= 0) this.upBuffer -= simDt;   // the buffer waits out landing lag and the stumble lock
+      }
+      this.ducking = this.duckHeld && this.grounded && this.lag <= 0;
+      if (this.invuln > 0 && !this.fall) this.invuln -= simDt;
+    }
+
+    collide() {
+      if (this.out) return;             // washed-out ducks are out of the race
+      for (const o of st.obs) {
+        if (o.res[this.slot]) continue;
+        const phi = o.theta - this.progress;   // angle from this duck to the obstacle
+        if (phi < -this.hitAngle) {
+          o.res[this.slot] = true;
+          if (this.fall) continue;
+          if (o.spared && o.spared[this.slot]) {
+            // Would have hit it, but was still invulnerable: no stumble, but no dodge credit either
+            o.hit[this.slot] = null; if (this.isPlayer) teleObstacle(o, false, phi, true);
+          } else { o.hit[this.slot] = false; if (this.isPlayer) teleObstacle(o, false, phi); this.dodged(); }
+          continue;
+        }
+        if (Math.abs(phi) < this.hitAngle && !this.fall) {
+          const foot = this.jumpY, top = foot + (this.ducking ? DUCK_H : STAND_H);
+          const hit = o.type === 'low' ? foot < LOW_H : o.type === 'tall' ? foot < TALL_H : top > HIGH_BOTTOM;
+          if (hit && this.isPlayer && godMode) { st.godUsed = true; (o.spared || (o.spared = []))[this.slot] = true; continue; }
+          if (hit && this.invuln > 0) { (o.spared || (o.spared = []))[this.slot] = true; continue; }
+          // v36 GLOW SHIELD (player only): a glowing duck that gets hit loses the glow instead of a stumble
+          if (hit && this.isPlayer && this.streak >= GLOW_STREAK) { this.shieldBreak(o); continue; }
+          if (hit) { o.res[this.slot] = true; o.hit[this.slot] = true; if (this.isPlayer) teleObstacle(o, true, phi); this.stumble(); return; }
+        }
+      }
+    }
+    dodged() {
+      this.cleared++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak);
+      if (this.isPlayer) addGold(10, this.model.base.position);
+      if (this.streak % RECOVER_STREAK === 0) this.gain(STREAK_GAIN, 'streak');
+      if (this.isPlayer) hud();
+    }
+    // v36: the glow is a one-hit shield. Hit while glowing: glow gone (streak back to 0), no ground lost,
+    // no stumble counted, short grace so the same obstacle can't hit next frame. No dodge credit either.
+    shieldBreak(o) {
+      (o.spared || (o.spared = []))[this.slot] = true; o.shielded = true;
+      this.streak = 0; this.invuln = 0.6;
+      const p = this.model.base.position.clone(); p.y += 0.6 * DS;
+      burst(p, [0xffe27a, 0xffffff, 0xffc83d], 6, 26, 1.6);
+      st.shake = 0.2;
+      toast('Glow shield! No ground lost', '#ffe27a');
+      hud();
+    }
+    // A mini wave washes the duck back down the slide.
+    stumble() {
+      this.pos -= this.stumbleBack; this.stumbles++; this.streak = 0;
+      this.stumbleLog.push({ atSec: +st.levelTime.toFixed(1), speed: +st.speed.toFixed(2), overtime: !!st.overtime });
+      this.jumpY = 0; this.jumpV = 0; this.boost = -1; this.lag = 0;
+      const out = this.pos <= LEFT_EDGE + 1e-6;
+      this.fall = { t: 0, dur: out ? 1.0 : STUMBLE_TIME, out, swim: null, from: this.phi, to: out ? LEFT_EDGE - 0.45 : this.home() };
+      if (out && !this.isPlayer) noteElimination(this);
+      this.wave.t = 0;
+      if (!out) this.invuln = st.overtime ? 0.15 : 0.6;   // less grace in overtime so it doesn't drag on
+      const p = this.model.base.position.clone(); p.y += 0.3;
+      burst(p, SPRAY, 4.5, 10, 1.4);
+      if (this.isPlayer) {
+        st.shake = 0.4; st.hitstop = 0.09; flash();
+        if (out) {
+          noteElimination(this);
+          if (!st.overtime) mode = 'dying';
+          // v36: overtime wash-out no longer pops results 0.5 s after the hit; the swim's arrival
+          // on the podium (updateFall) schedules them, RESULT_DELAY s after the duck is seated.
+        }
+        else toast(this.missesLeft === 1 ? 'One more and you swim' : 'Washed back!', '#6fd3ff');
+        hud();
+      }
+    }
+    updateFall(simDt, dt) {
+      const f = this.fall;
+      if (!f) {
+        // Moved up (clutch, streak or shared miss): paddle forward to the new spot, only on the ground.
+        // Still being pushed back (a stumble cut short by a jump/duck): keep sliding back, even in the air.
+        if (this.out) return;
+        const back = this.phi > this.home() + 1e-6;
+        if (back || this.grounded) this.phi += (this.home() - this.phi) * Math.min(1, simDt * (back ? 6 : 2.5));
+        return;
+      }
+      f.t += simDt;
+      // A jump buffered, or duck held, during the lock: cut the stumble short as soon as it ends
+      if (!f.out && f.t >= STUMBLE_LOCK && (this.upBuffer > 0 || this.duckHeld) && this.breakStumble()) return this.updateFall(0, 0);
+      const k = Math.min(1, f.t / f.dur);
+      if (!f.swim) {
+        // Pushed hard at first, then the wave runs out of energy (ease-out)
+        this.phi = f.from + (f.to - f.from) * easeOut(Math.min(1, k * 1.15));
+        const wobble = 0.14 * Math.sin(k * 26) * (1 - k);
+        this.tilt = (f.out ? 0.6 : 0.55 * Math.sin(Math.PI * k)) + wobble;  // rocked back, nose up
+        this.fallOff = 0.26 * Math.sin(Math.PI * Math.min(1, k * 1.3));       // lifted on the wave
+      }
+      if (!f.out) {
+        if (k >= 1) { this.fall = null; this.tilt = 0; this.fallOff = 0; this.phi = f.to; this.land = 0.2; }
+      } else if (!f.swim) {
+        if (K * this.phi + 0.15 < WATER_Y || k >= 1) {
+          const dp = this.phi, r = this.r;
+          const pos = new THREE.Vector3(r * Math.sin(dp), WATER_Y, r * Math.cos(dp));
+          const dir = new THREE.Vector3(-0.4 * Math.cos(dp) + Math.sin(dp), 0, 0.4 * Math.sin(dp) + Math.cos(dp)).normalize();
+          f.swim = { t: 0, pos, dir, wake: 0, target: podiumWater(this.podium || 4, new THREE.Vector3()), arrived: false };
+          this.tilt = 0; this.fallOff = 0;
+          burst(pos, SPRAY, 7, 22);
+          rippleAt(pos.x, pos.z);
+          if (this.isPlayer) { st.shake = 0.35; toast('Splash!', '#c9f3ff'); }
+        }
+      } else {
+        const s = f.swim; s.t += dt; s.wake += dt;
+        // Surface, turn toward this duck's podium step, then paddle straight to it.
+        podiumWater(this.podium || 4, s.target);
+        const dx = s.target.x - s.pos.x, dz = s.target.z - s.pos.z, d = Math.hypot(dx, dz);
+        if (d > 1e-3 && s.t > 0.3) {
+          if (d < 1.5) s.dir.set(dx / d, 0, dz / d);   // close in: head right at it (no circling)
+          else { const turn = Math.min(1, dt * 3.5); s.dir.x += (dx / d - s.dir.x) * turn; s.dir.z += (dz / d - s.dir.z) * turn; s.dir.normalize(); }
+        }
+        const step = Math.min(d, SWIM_SPEED * Math.min(1, 0.25 + s.t / 0.8) * dt);
+        s.pos.addScaledVector(s.dir, step);
+        if (s.t > 0.3 && d - step < 0.35) s.arrived = true;
+        if (s.arrived || s.t > SWIM_MAX) {
+          // Reached the step: the 3D duck becomes the podium duck
+          this.fall = null; this.out = true;
+          podiumSeat(this, this.podium);
+          this.model.base.visible = false; if (this.tag) this.tag.visible = false;
+          if (this.isPlayer) {
+            if (st.overtime) {
+              if (FEATURES.spectate) {
+                const watch = () => { if (mode === 'play' && !st.ending) toast('Spectating: tap to skip', '#ffe2a8'); };
+                maybeLoot(watch);
+              } else if (!st.ending) {
+                // No spectating: your wash-out ends overtime; results RESULT_DELAY s after you're seated (v36)
+                st.ending = true;
+                resultsAfterSeat('overtime');
+              }
+            }
+            else { nudgeHeat(-0.12); resultsAfterSeat('splash'); }   // v36: 1 s pause on the podium first
+          }
+          else { this.model.base.visible = false; if (this.tag) this.tag.visible = false; }
+        }
+      }
+    }
+
+    render(dt) {
+      if (!this.active || this.out) return;   // washed out = sitting on the podium now
+      const m = this.model, pb = m.base, f = this.fall, swim = f && f.swim;
+      if (swim) {
+        const s2 = swim.t;
+        pb.position.copy(swim.pos);
+        pb.position.y = WATER_Y - 0.3 + 0.05 * Math.sin(s2 * 7) - Math.max(0, 0.45 - s2) * 1.2;
+        pb.rotation.y = Math.atan2(-swim.dir.z, swim.dir.x);
+        m.lean.rotation.z = 0;
+        if (swim.wake > 0.45) { swim.wake = 0; rippleAt(pb.position.x, pb.position.z); }
+      } else {
+        const dp = this.phi;
+        pb.position.set(this.r * Math.sin(dp), K * dp + this.jumpY + this.fallOff, this.r * Math.cos(dp));
+        pb.rotation.y = dp;
+        m.lean.rotation.z = this.leanAngle;
+      }
+      m.tumble.rotation.z = this.tilt;
+      const body = m.body, squash = this.land > 0;
+      const tY = this.ducking ? 0.5 : squash ? 0.75 - 0.15 * this.jumpPower : this.takeoff > 0 ? 1.15 : 1;
+      const tX = this.ducking ? 1.18 : squash ? 1.2 : 1;
+      body.scale.y += (tY - body.scale.y) * Math.min(1, dt * 22);
+      body.scale.x += (tX - body.scale.x) * Math.min(1, dt * 22);
+      const onGround = !this.jumpY && !f;
+      const runAnim = onGround && mode !== 'paused' && mode !== 'result' && mode !== 'countdown';
+      const stride = time * (st.speed || 4.6) * (mode === 'cleared' ? st.coast : 1) * 2.4 + this.lane;
+      body.position.y = -0.55 + (runAnim ? Math.abs(Math.sin(stride)) * 0.07 : 0);
+      const pad = swim ? Math.sin(time * 14) * 0.1 : runAnim ? Math.sin(stride) * 0.12 : 0;
+      m.feet[0].position.x = 0.05 + pad; m.feet[1].position.x = 0.05 - pad;
+      body.rotation.z = this.jumpY > 0 ? Math.max(-0.4, Math.min(0.4, this.jumpV * 0.035)) : 0;
+      pb.visible = !(this.invuln > 0 && !f && mode === 'play' && Math.floor(time * 14) % 2 === 0);
+      if (this.land > 0) this.land -= dt;
+
+      // the wave that pushed this duck
+      const w = this.wave;
+      if (w.t >= 0) {
+        w.t += dt;
+        const env = w.t < 0.12 ? w.t / 0.12 : w.t < 0.42 ? 1 : Math.max(0, 1 - (w.t - 0.42) / 0.25);
+        const a = this.phi + 0.42 / this.r;   // just in front of the duck, moving back with it
+        w.group.visible = env > 0.01 && !swim;
+        w.group.position.set(this.r * Math.sin(a), K * a, this.r * Math.cos(a));
+        w.group.rotation.set(0, a, this.leanAngle);
+        w.group.scale.set(1, Math.max(0.01, env), 1);
+        if (w.t > 0.7) { w.t = -1; w.group.visible = false; }
+      }
+      if (this.tag) {
+        this.tag.position.set(pb.position.x, pb.position.y + 1.75 * DS, pb.position.z);
+      }
+      // v31 streak glow: level 1 at 10 dodges in a row, +1 every 5 more (15, 20, ...), up to level 6
+      const lvl = this.streak >= GLOW_STREAK ? Math.min(6, 1 + Math.floor((this.streak - GLOW_STREAK) / 5)) : 0;
+      if (lvl > this.glowLevel && !this.fall) burst(pb.position.clone().add(new THREE.Vector3(0, 1.1 * DS, 0)), [0xffe27a, 0xffffff, 0xffc83d], 5, 10 + lvl * 4, 1.6);
+      this.glowLevel = lvl;
+      const pulse = 0.85 + 0.15 * Math.sin(time * (4 + lvl));
+      const aura = lvl > 0 && pb.visible && !swim;
+      this.halo.visible = aura;
+      if (aura) {   // v32: starts bright (v31 started at 0.45 opacity)
+        this.halo.material.opacity = Math.min(1, 0.65 + 0.07 * lvl) * pulse;
+        this.halo.scale.setScalar((1.9 + 0.3 * lvl) * pulse);
+      }
+      this.rimMat.opacity = aura ? Math.min(0.95, 0.55 + 0.08 * lvl) * (0.8 + 0.2 * pulse) : 0;
+      for (const r of this.rims) r.visible = aura;
+      const nMotes = aura ? Math.min(this.motes.length, 4 + 2 * lvl) : 0;   // 6 motes at level 1, 16 at level 6
+      this.motes.forEach((sp, i) => {
+        const u = sp.userData;
+        if (i >= nMotes) { sp.visible = false; return; }
+        if (!sp.visible) { u.t = Math.random(); u.x = rand(-0.45, 0.45); u.z = rand(-0.4, 0.4); sp.visible = true; }
+        u.t += dt * (0.7 + 0.08 * lvl);
+        if (u.t >= 1) { u.t = 0; u.x = rand(-0.45, 0.45); u.z = rand(-0.4, 0.4); }
+        sp.position.set(u.x, 0.1 + u.t * 1.7, u.z);
+        sp.material.opacity = Math.sin(u.t * Math.PI);
+        sp.scale.setScalar(0.1 + 0.12 * (1 - u.t));
+      });
+      const dm = m.mat;
+      if (lvl) { dm.emissive.copy(GLOW_GOLD); dm.emissiveIntensity = (0.6 + 0.1 * lvl) * pulse; }
+      else if (dm.emissiveIntensity !== this.baseEI) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
+    }
+  }
+
+  // =====================================================================
+  //  BOT BRAIN: game AI is a small set of rules, not a learning system.
+  //  When an obstacle comes into view, the bot decides ONCE whether it will
+  //  handle it cleanly. The odds get worse when the warning time drops
+  //  toward the bot's reaction time, the same squeeze the player feels.
+  // =====================================================================
+  class BotBrain {
+    constructor(p) { this.base = p; this.reset({ botSkill: 0 }); }
+    reset(L) {
+      // Skill for this level, nudged by how the player has been doing lately (rivalHeat)
+      const s = Math.max(-1, Math.min(1.2, (L.botSkill || 0) + rivalHeat));
+      this.react = this.base.react * (1 - 0.15 * s);   // sharper with each level
+      const k = this.base.fixed ? 1 : Math.max(0.6, 1 - 0.5 * s);   // v32: floor 0.6 (was 0.4 at top skill)
+      this.errLo = this.base.err[0] * k; this.errHi = this.base.err[1] * k;
+      this.form = Math.random();   // 0 = on form (errLo), 1 = off form (errHi)
+      this.holdT = -1; this.duckFor = null;
+    }
+    think(d, dt) {
+      if (d.fall || d.out) { if (d.upHeld) d.releaseUp(); if (d.duckHeld) d.releaseDown(); this.holdT = -1; this.duckFor = null; return; }
+      const w = st.speed / RP;                         // shared angular speed (rad/s)
+      if (this.holdT >= 0) { this.holdT -= dt; if (this.holdT < 0) d.releaseUp(); }
+      if (this.duckFor && this.duckFor.theta - d.progress < -d.hitAngle - 0.01) { d.releaseDown(); this.duckFor = null; }
+      for (const o of st.obs) {
+        const rel = o.theta - d.progress;
+        if (rel < -d.hitAngle) continue;
+        if (o.theta - st.theta > BOT_SIGHT) break;    // not visible yet (obstacles are in order)
+        let plan = o.plan[d.slot];
+        if (!plan) {
+          const warning = rel / w;                     // seconds of warning when first seen
+          // With less warning than its reaction time, a bot almost always misses (50% right at the limit)
+          this.form = Math.min(1, Math.max(0, this.form + rand(-0.25, 0.25)));   // drift: hot and cold stretches
+          const err = this.errLo + (this.errHi - this.errLo) * this.form;
+          let pFail = err + (1 - err) / (1 + Math.exp((warning - this.react) / 0.06));
+          if (o.type === 'tall') pFail += 0.04;
+          if (o.combo) pFail += 0.06;
+          // v32 fatigue (added after skill scaling, so even sharp boss-level bots still slip):
+          //   streak: +0.4% per dodge in a row, max +10% (v31: +0.2%, max 6%)
+          //   race:   +0.15% per obstacle cleared this race, max +6% (new: long races wear everyone down)
+          //   overtime: +3% flat (new)
+          pFail += Math.min(0.10, d.streak * 0.004) + Math.min(0.06, d.cleared * 0.0015) + (st.overtime ? 0.03 : 0);
+          // v36 speed strain: +2% for every 10% the slide is above this level's starting speed, max +15%
+          // (1.25x -> +5%, 1.5x -> +10%, 1.75x or faster -> +15%). A random roll still decides each obstacle.
+          pFail += Math.min(0.15, Math.max(0, 0.2 * (st.speed / st.level.startSpeed - 1)));
+          // Rubber band: slip a bit more when ahead of the player, a bit less when behind,
+          // so the pack stays close and there are passes to make.
+          const lead = d.progress - player.progress;
+          if (!st.overtime) pFail *= lead > 0 ? 1 + Math.min(1, lead / 0.5) * 0.7 : 1 - Math.min(1, -lead / 0.5) * 0.4;
+          const ok = Math.random() >= pFail;
+          plan = o.plan[d.slot] = { done: false, shift: ok ? rand(-0.02, 0.02) : -rand(0.12, 0.3) };
+        }
+        if (plan.done) continue;
+        const tta = rel / w;                           // time until it reaches the duck
+        if (o.type === 'low' && tta <= HOP_LEAD + plan.shift) { d.pressUp(); d.releaseUp(); plan.done = true; }
+        else if (o.type === 'tall' && tta <= BIG_LEAD + plan.shift) { d.pressUp(); this.holdT = BIG_HOLD; plan.done = true; }
+        else if (o.type === 'high' && tta <= DUCK_LEAD + plan.shift) { d.pressDown(); this.duckFor = o; plan.done = true; }
+      }
+    }
+  }
+
+  const player = new Racer({ lane: LANES - 1, color: 0xffd23f, name: 'You', isPlayer: true });
+  const bots = RIVALS.map((p, i) => new Racer({ lane: i, color: p.color, name: p.name, tagColor: p.tag, brain: new BotBrain(p) }));
+  let racers = [player];
+
+  // =====================================================================
+  //  LEVEL FLOW
+  // =====================================================================
+  function resetFor(L) {
+    for (const o of st.obs) obsGroup.remove(o.mesh);
+    Object.assign(st, {
+      godUsed: godMode, level: L, theta: 0, speed: L.startSpeed, targetSpeed: L.startSpeed, topSpeed: L.startSpeed, stepTimer: 0, tier: 0,
+      finishTheta: L.lengthCoils * TAU, finishCount: 0, lastPlace: 1, lastPassToast: 0,
+      hitstop: 0, shake: 0, obs: [], spawned: 0, introDone: !L.intro, coast: 1,
+      nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
+      countdown: 3.2, countShown: 4, levelTime: 0,
+      overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, otStart: 0, speedAtFinish: null,
+    });
+    bots.forEach((b, i) => b.setActive(i < L.rivals));
+    racers = [player, ...bots.filter(b => b.active)];
+    racers.forEach((r, i) => { r.slot = i; r.reset(L); r.elimAt = undefined; r.elimOrder = 0; r.survivor = false; });
+    recolor(0);
+  }
+
+  // True if no obstacle reaches the duck within `ahead` seconds or passed it within `behind`.
+  function quietAroundPlayer(ahead, behind) {
+    if (eliminated(player)) return true;
+    const w = st.speed / RP;
+    return !st.obs.some(o => { const t = (o.theta - player.progress) / w; return t < ahead && t > -behind; });
+  }
+  const QUIET = 1.2;   // seconds kept clear on each side of a speed-up
+  const stepEvery = () => st.solo ? 5.5 : st.overtime ? 7 : st.level.stepEvery;   // v34 solo: every 5.5 s
+  const stepMult = () => st.solo ? 1.18 : st.overtime ? 1.15 : st.level.stepMult;   // v34 solo: +18% per step   // overtime keeps ramping
+  const quiet = () => st.overtime ? 0.8 : QUIET;
+  function pickType(mix) {
+    let r = Math.random() * Object.values(mix).reduce((a, b) => a + b, 0);
+    for (const [k, w] of Object.entries(mix)) { if ((r -= w) <= 0) return k; }
+    return 'low';
+  }
+  function addObstacle(theta, type, hint, combo) {
+    const mesh = makeObstacleMesh(type);
+    obsGroup.add(mesh);
+    st.obs.push({ theta, type, mesh, hint: !!hint, hinted: false, combo: !!combo, res: [], hit: [], plan: [], settled: false });
+  }
+  function spawn() {
+    const L = st.level;
+    const stopAt = st.overtime ? Infinity : st.finishTheta - 0.45;
+    const ft = f => f / RP;     // feet along the player's lane -> radians
+    while (st.nextSpawn < st.theta + SPAWN_AHEAD && st.nextSpawn < stopAt) {
+      // When will the next speed-up happen, and when would this obstacle arrive?
+      const w = st.speed / RP;
+      const upAt = st.levelTime + Math.max(0, stepEvery() - st.stepTimer);
+      const arrive = st.levelTime + (st.nextSpawn - player.progress) / w;
+      if (arrive > upAt - quiet() - COMBO_GAP && arrive < upAt + quiet()) {
+        st.nextSpawn = player.progress + (upAt + quiet() + 0.05 - st.levelTime) * w;   // skip past the quiet zone
+        continue;
+      }
+      let kind, hint = false, extraAfter = 0;
+      if (!st.introDone && st.spawned >= 3) {
+        st.introDone = true; kind = L.intro.kind; hint = true;
+        st.nextSpawn += ft(st.speed * 1.4); extraAfter = st.speed * 1.4;
+        if (st.nextSpawn >= stopAt) break;
+      } else if (!st.introDone) {
+        kind = Math.random() < 0.5 ? 'low' : 'high';
+      } else if (L.combos && Math.random() < L.combos) {
+        kind = 'combo';
+      } else {
+        kind = pickType(L.mix);
+      }
+      if (kind === 'combo') {
+        const g = ft(st.speed * COMBO_GAP);
+        addObstacle(st.nextSpawn, 'low', hint);
+        addObstacle(st.nextSpawn + g, 'high', false, true);
+        st.nextSpawn += g;
+      } else {
+        addObstacle(st.nextSpawn, kind, hint);
+      }
+      st.spawned++;
+      const along = Math.min(1, st.nextSpawn / st.finishTheta);          // 0 at start, 1 at finish
+      // Wider random spread so the rhythm is less predictable (the minimum below keeps it fair)
+      const gapSec = (L.gapStart + (L.gapEnd - L.gapStart) * along) * rand(0.6, 1.55);
+      let gap = st.speed * gapSec;                                       // seconds -> feet
+      gap = Math.max(gap, st.speed * 1.0 + 0.8);                         // always room to land and reset
+      st.nextSpawn += ft(gap + extraAfter);
+    }
+  }
+
+  const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+  function standings() {
+    // Still racing: ranked by how far along they are. Washed out: last out ranks highest.
+    const key = r => eliminated(r) ? 1e6 - (r.elimOrder || 0) : -r.progress;
+    return racers.slice().sort((a, b) => key(a) - key(b));
+  }
+  function checkFinishes() {
+    for (const r of racers) {   // the player is checked first, so ties go to the player
+      if (!r.finished && !r.out && !r.fall && r.progress >= st.finishTheta) {
+        r.finished = true; r.place = ++st.finishCount;
+        if (r.isPlayer) playerFinished();
+      }
+    }
+  }
+  function playerFinished() {
+    const L = st.level, myRun = runId;
+    const ok = player.place <= L.mustPlace;
+    st.finishOk = ok; st.finishPlace = player.place;
+    st.crossedFinish = true;   // crossed the arch: treasure is earned, shown when they wash out
+    nudgeHeat(player.place === 1 ? 0.08 : player.place >= 3 ? -0.1 : 0);
+    if (ok) {
+      const p = player.model.base.position.clone(); p.y += 1;
+      burst(p, [0xffe2a8, 0x39d0ff, 0xff4fa3, 0xffc21a], 8, 40);
+      toast(L.boss ? `Boss beaten! ${ordinal(player.place)}` : `${ordinal(player.place)} place!`, '#ffe2a8');
+      saveUnlocked(Math.max(unlocked, levelIdx + 1));
+    } else {
+      toast(`${ordinal(player.place)} place`, '#ff6a2b');
+    }
+    startOvertime();
+  }
+  // Once every duck still racing has passed an obstacle, apply the comeback rules.
+  function settleObstacles() {
+    if (st.overtime) return;
+    const live = racers.filter(r => !eliminated(r));
+    for (const o of st.obs) {
+      if (o.settled || !live.every(r => o.res[r.slot])) continue;
+      o.settled = true;
+      const missed = live.filter(r => o.hit[r.slot]), cleared = live.filter(r => o.hit[r.slot] === false);
+      if (!missed.length) continue;
+      if (!cleared.length && live.length > 1) missed.forEach(r => r.gain(1, 'shared'));   // everyone missed: refund
+      else cleared.forEach(r => r.gain(CLUTCH_GAIN, 'clutch'));                         // they missed, you didn't
+    }
+  }
+  // REGROUP: queued gains are applied to every duck at once, only when
+  //   1) every duck still racing is on the ground (not in the air, not stumbling), and
+  //   2) each mover keeps at least REGROUP_AHEAD seconds of warning before the next
+  //      obstacle AFTER moving up (a forward move of d radians costs d / w seconds).
+  // Same idea as the speed-up quiet zone: decide now, apply when it's safe.
+  // FINISH FREEZE: no regroups from FINISH_FREEZE seconds before the arch onward (and none in
+  // overtime), so nobody slides forward near or after the finish. A regroup that started just
+  // before the freeze has ~2 s to finish paddling, and startOvertime() pins everyone in place.
+  const FINISH_FREEZE = 2.0;
+  function regroup() {
+    if (st.overtime) return;
+    const live = racers.filter(r => !eliminated(r));
+    const movers = live.filter(r => r.pending > 1e-9);
+    if (!movers.length || !live.every(r => r.grounded && r.lag <= 0)) return;
+    const w = st.speed / RP;
+    if (player.progress + w * FINISH_FREEZE >= st.finishTheta) return;   // final stretch: positions frozen
+    for (const r of movers) {
+      const d = Math.min(MAX_AHEAD, r.pos + r.pending) - r.pos;
+      if (st.obs.some(o => !o.res[r.slot] && (o.theta - r.progress - d) / w < REGROUP_AHEAD)) return;
+    }
+    for (const r of movers) { r.pos = Math.min(MAX_AHEAD, r.pos + r.pending); r.pending = 0; }
+    if (movers.includes(player)) hud();
+  }
+  // OVERTIME: the race keeps going and keeps getting faster until one duck is left.
+  // Safety nets are off (no stumbles won back, no rubber-banding), so the results
+  // show what each duck can really handle.
+  function startOvertime() {
+    if (st.overtime) return;
+    st.overtime = true; st.otStart = st.levelTime; st.speedAtFinish = st.speed;
+    st.stepTimer = 0;   // next overtime speed-up comes a full 7 s after the arch, never on the line itself
+    // Pin every duck where it is: drop queued gains, and a duck still paddling stops on the spot.
+    // (A duck mid-stumble keeps its push-back: that's a miss, not an adjustment.)
+    for (const r of racers) {
+      if (eliminated(r)) continue;
+      r.pending = 0;
+      if (!r.fall) r.pos = r.phi;
+    }
+    // Everyone still racing gets a fresh set of OT_STUMBLES misses and regroups at the front.
+    // Each miss pushes a duck back (and down) a quarter of the way to the pool; the last one washes it in.
+    if (FEATURES.otRegroup) for (const r of racers) {
+      if (eliminated(r)) continue;
+      r.maxStumbles = OT_STUMBLES; r.pos = 0; r.pending = 0; r.stumbleBack = -LEFT_EDGE / OT_STUMBLES;
+    }
+    hud();
+    st.nextSpawn = Math.max(st.nextSpawn, st.theta + SPAWN_AHEAD * 0.9);
+  }
+  const RESULT_DELAY = 1.0;   // v36: seconds the player's duck sits on its podium step before the results pop up
+  function resultsAfterSeat(how) {
+    const myRun = runId;
+    const go = () => {
+      if (runId !== myRun) return;
+      if (mode === 'paused') return void setTimeout(go, 300);   // wait out a pause
+      if (mode !== 'play' && mode !== 'dying') return;
+      maybeLoot(() => showResult(how));
+    };
+    setTimeout(go, RESULT_DELAY * 1000);
+  }
+  const OT_STUMBLES = 4;   // misses allowed in overtime
+  const ELIM_POPUP = 0.5;  // seconds from the deciding wash-out to the treasure / results
+  const eliminated = r => r.out || (r.fall && r.fall.out);
+  function noteElimination(r) {
+    if (r.elimAt !== undefined) return;
+    r.elimAt = st.levelTime; r.elimSpeed = st.speed; r.elimOrder = ++st.elimCount;
+    podiumElim(r);
+    st.elims.push({ name: r.name, atSec: +st.levelTime.toFixed(1), speed: +st.speed.toFixed(2), afterFinish: !!st.overtime });
+    if (!r.isPlayer && st.overtime) toast(`${r.name} washed out!`, '#6fd3ff');
+  }
+  function checkOvertimeEnd() {
+    if (!st.overtime || st.ending) return;
+    if (!FEATURES.spectate && eliminated(player)) return;   // player's own splash ends the race
+    const alive = racers.filter(r => !eliminated(r));
+    if (alive.length > 1) return;
+    // v34: the player is the only duck left: keep racing (and speeding up faster) until washed out.
+    // The player's own wash-out then ends the race through the normal overtime path.
+    if (alive.length === 1 && alive[0].isPlayer) {
+      if (!st.solo) { st.solo = true; player.survivor = true; st.stepTimer = 0; toast('Last duck standing! Keep going', '#ffe2a8'); }
+      return;
+    }
+    st.ending = true;
+    podiumFinal();
+    const myRun = runId, last = alive[0];
+    if (last) { last.survivor = true; toast(last.isPlayer ? 'Last duck standing!' : `${last.name} is the last duck standing`, last.isPlayer ? '#ffe2a8' : '#a8f58f'); }
+    setTimeout(() => {
+      if (runId !== myRun || mode !== 'play') return;
+      if (lootOpen) lootThen = () => showResult('overtime');   // chest already up: results come after Collect
+      else maybeLoot(() => showResult('overtime'));
+    }, ELIM_POPUP * 1000);
+  }
+
+  // =====================================================================
+  //  TELEMETRY: records every obstacle the player faces, with input timing,
+  //  and saves each run to this player's private store so Claude can read it.
+  // =====================================================================
+  const BUILD = 'v36-2026-10-04';   // tags every saved run, so runs from different versions aren't mixed
+  document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
+  const ASK_FUN = false;             // fun rating hidden until the fine-tuning phase
+  const tele = { db: null, uid: null, run: null, status: 'off', session: 's' + Date.now().toString(36), runsThisSession: 0, pending: null };
+  (async () => {
+    try {
+      if (!window.claude || !window.claude.use) return;
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      const uid = user ? await user.id() : null;
+      if (db && uid) { tele.db = db; tele.uid = uid; tele.status = 'on'; }
+    } catch (e) {}
+  })();
+  function teleStart(L) {
+    tele.run = { level: L.id, boss: L.boss, startedAt: Date.now(), heatAtStart: +rivalHeat.toFixed(2),
+                 events: [], launches: [], ducks: [], ended: false,
+                 passes: 0, passedBy: 0, secondsInFirst: 0, maxStreak: 0 };
+    tele.runsThisSession++;
+  }
+  function teleLaunch() { const r = tele.run; if (!r) return null; const l = { t: st.levelTime, peak: 0, hold: 0 }; r.launches.push(l); return l; }
+  // Called the moment an obstacle is decided for the player (cleared or hit), before any reset.
+  function teleObstacle(o, hit, phi, spared) {
+    const r = tele.run; if (!r || r.events.length > 400) return;
+    const w = st.speed / RP, arrive = st.levelTime + phi / w;   // when the obstacle's center reaches the duck
+    const ev = { t: +arrive.toFixed(2), type: o.type, speed: +st.speed.toFixed(2), hit };
+    if (st.overtime) ev.ot = true;
+    if (o.combo) ev.combo = true;
+    if (spared) ev.spared = true;
+    if (o.shielded) ev.shield = true;   // v36: the glow shield took this hit   // passed while invulnerable and would have been hit
+    const p = player;
+    if (o.type === 'low' || o.type === 'tall') {
+      const lead = o.type === 'low' ? HOP_LEAD : BIG_LEAD;
+      const j = r.launches.filter(l => l.t > arrive - 0.9 && l.t < arrive + 0.15).pop();
+      if (j) { ev.jumpErrMs = Math.round((j.t - (arrive - lead)) * 1000); ev.holdMs = j.hold; ev.peak = +Math.max(j.peak, p.jumpY).toFixed(2); }
+      if (hit) {
+        if (p.jumpY > 0) ev.cause = p.jumpV > 0 ? 'jumped late' : (o.type === 'tall' && ev.peak < TALL_H ? 'jump too small' : 'jumped early');
+        else if (p.lag > 0) ev.cause = 'still landing';
+        else ev.cause = j ? 'jumped early' : 'no jump';
+      }
+    } else {
+      const press = r.ducks.filter(t => t > arrive - 1.5 && t <= arrive + 0.1).pop();
+      if (press !== undefined) ev.duckLeadMs = Math.round((arrive - press) * 1000);
+      if (hit) ev.cause = p.jumpY > 0 ? 'jumped into bar' : p.lag > 0 ? 'still landing' : press !== undefined ? 'ducked late' : 'no duck';
+    }
+    r.events.push(ev);
+  }
+  function teleEnd(result) {
+    const r = tele.run; if (!r || r.ended) return;
+    r.ended = true;
+    // Gap to the nearest rival at the end, in seconds of running (+ = ahead of them)
+    const w = st.speed / RP;
+    const others = racers.filter(x => !x.isPlayer && !x.out);
+    const nearest = others.length ? others.reduce((a, b) => Math.abs(b.progress - player.progress) < Math.abs(a.progress - player.progress) ? b : a) : null;
+    const doc = {
+      schema: 4, build: BUILD, session: tele.session, runInSession: tele.runsThisSession,
+      level: r.level, chapter: st.level.chapter, boss: r.boss, result, startedAt: r.startedAt, endedAt: Date.now(),
+      passes: r.passes, passedBy: r.passedBy, secondsInFirst: +r.secondsInFirst.toFixed(1), maxStreak: r.maxStreak,
+      finishPlace: st.finishPlace, finishOk: st.finishOk, reachedOvertime: st.overtime,
+      overtimeSec: st.overtime ? +(((player.elimAt ?? st.levelTime)) - st.otStart).toFixed(1) : null,
+      speedAtFinish: st.speedAtFinish ? +st.speedAtFinish.toFixed(2) : null,
+      survivalPlace: st.overtime ? standings().indexOf(player) + 1 : null,
+      lastDuck: (racers.find(x => x.survivor) || {}).name || null,
+      eliminations: st.elims,
+      gapToNearestRivalSec: nearest ? +((player.progress - nearest.progress) / w).toFixed(2) : null,
+      seconds: +st.levelTime.toFixed(1), place: player.place || null, stumbles: player.stumbles, godMode: !!st.godUsed,
+      startSpeed: st.level.startSpeed, topSpeed: +st.topSpeed.toFixed(2), heatAtStart: r.heatAtStart,
+      jumps: r.launches.length, duckPresses: r.ducks.length,
+      rivals: racers.filter(x => !x.isPlayer).map(x => ({ name: x.name, stumbles: x.stumbles, place: x.place || null, out: x.out, survivor: !!x.survivor, stumbleLog: x.stumbleLog, comebacks: x.gains })),
+      playerStumbleLog: player.stumbleLog, comebacks: player.gains,
+      events: r.events,
+    };
+    if (!tele.db) { tele.lastSave = 'off'; return; }
+    tele.lastSave = 'saving';
+    const ref = tele.db.collection('data/users/' + tele.uid).doc('run-' + r.startedAt);
+    const saving = Promise.resolve().then(() => ref.set(doc));
+    saving.then(() => { tele.lastSave = 'saved'; noteSave(); }).catch(() => { tele.lastSave = 'failed'; noteSave(); });
+    if (result !== 'abandoned') tele.pending = { ref, saving, shownAt: Date.now() };
+  }
+  // Fun signals: a rating the player gives, and what they chose to do next.
+  function teleUpdate(fields) {
+    const p = tele.pending; if (!p) return;
+    p.saving.then(() => p.ref.update(fields)).catch(() => {});
+  }
+  function teleNext(action) {
+    const p = tele.pending; if (!p) return;
+    teleUpdate({ nextAction: action, decisionSec: +((Date.now() - p.shownAt) / 1000).toFixed(1) });
+    tele.pending = null;
+  }
+  function noteSave() {
+    const el = $('saveNote'); if (!el) return;
+    el.textContent = tele.lastSave === 'saved' ? 'Run saved for Claude to analyze.'
+      : tele.lastSave === 'saving' ? 'Saving run…'
+      : tele.lastSave === 'failed' ? 'This run couldn\'t be saved.'
+      : 'Run tracking is off in this view.';
+  }
+
+  // =====================================================================
+  //  PROGRESS (saved in this browser)
+  // =====================================================================
+  let unlocked = 0;
+  try { rivalHeat = Math.max(-0.5, Math.min(0.3, parseFloat(localStorage.getItem('jdf-heat') || '0') || 0)); } catch (e) {}
+  function nudgeHeat(d) { rivalHeat = Math.max(-0.5, Math.min(0.3, rivalHeat + d)); try { localStorage.setItem('jdf-heat', String(rivalHeat)); } catch (e) {} }
+  try { unlocked = Math.min(LEVELS.length, parseInt(localStorage.getItem('jdf-unlocked') || '0', 10) || 0); } catch (e) {}
+  function saveUnlocked(n) { unlocked = Math.min(LEVELS.length, n); try { localStorage.setItem('jdf-unlocked', String(unlocked)); } catch (e) {} }
+
+  // =====================================================================
+  //  UI
+  // =====================================================================
+  const $ = id => document.getElementById(id);
+  const overlays = ['title', 'select', 'paused', 'result'];
+  function showOverlay(id) {
+    overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
+    $('hud').classList.toggle('hidden', id === 'title' || id === 'select');
+    $('tracker').classList.toggle('hidden', id === 'title' || id === 'select');
+    $('pads').classList.toggle('hidden', !!id && id !== 'result');   // pads while racing; podium stays up on the results screen
+    requestAnimationFrame(() => fitCamera());   // v29: HUD size may have changed
+    $('pads').classList.toggle('results', id === 'result');
+    if (!id && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    const firstBtn = id && $(id).querySelector('button:not(:disabled)');
+    if (firstBtn) setTimeout(() => firstBtn.focus({ preventScroll: true }), 30);
+  }
+  const levelName = L => L.boss ? `Boss ${L.chapter}` : `Level ${L.id}`;
+  // Finish podium: a front-facing duck in the racer's color swims into its place slot.
+  const duckSVG = c => `<svg viewBox="0 0 40 40" aria-hidden="true">
+    <path d="M3 36 q4 -3 8 0 t8 0 t8 0 t8 0" fill="none" stroke="#6fd3ff" stroke-width="2" stroke-linecap="round"/>
+    <ellipse cx="7.5" cy="27" rx="3.6" ry="5.5" transform="rotate(-20 7.5 27)" fill="${c}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>
+    <ellipse cx="32.5" cy="27" rx="3.6" ry="5.5" transform="rotate(20 32.5 27)" fill="${c}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>
+    <ellipse cx="20" cy="28.5" rx="13" ry="8.5" fill="${c}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>
+    <circle cx="20" cy="14.5" r="8" fill="${c}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>
+    <circle cx="16.8" cy="12.8" r="1.7" fill="#1a1030"/><circle cx="23.2" cy="12.8" r="1.7" fill="#1a1030"/>
+    <circle cx="17.3" cy="12.2" r=".5" fill="#fff"/><circle cx="23.7" cy="12.2" r=".5" fill="#fff"/>
+    <ellipse cx="20" cy="18" rx="4.2" ry="2.3" fill="#ff9a1f" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`;
+  function podiumReset() {
+    document.querySelectorAll('#podium .seat').forEach(el => { el.innerHTML = ''; el.classList.remove('swim'); el.dataset.who = ''; });
+    racers.forEach(r => { r.podium = 0; r.seated = false; });
+    podiumLive(true);
+  }
+  // v31 LIVE PODIUM: from the start, every duck still racing stands on the step for its current place.
+  // A washed-out duck keeps its reserved step (empty while it swims, then its 3D picture).
+  let podLiveAt = -1;
+  function podiumLive(force) {
+    if (!st.level || !st.level.rivals) return;
+    if (!force && time - podLiveAt < 0.3) return;   // a few updates a second, so neck-and-neck ducks don't flicker
+    podLiveAt = time;
+    const free = [];
+    for (let p = 1; p <= 4; p++) if (!racers.some(r => r.podium === p)) free.push(p);
+    const want = {};
+    racers.forEach(r => { if (r.podium) want[r.podium] = r.seated ? 'keep' : null; });
+    standings().filter(r => !r.podium).forEach((r, i) => { if (free[i]) want[free[i]] = r; });
+    for (let p = 1; p <= 4; p++) {
+      const seat = document.querySelector(`#podium .slot[data-place="${p}"] .seat`);
+      const w = want[p];
+      if (!seat || w === 'keep') continue;
+      const key = w ? 'live:' + w.name : '';
+      if (seat.dataset.who === key) continue;
+      seat.dataset.who = key; seat.classList.remove('swim');
+      if (!w) { seat.innerHTML = ''; continue; }
+      seat.innerHTML = duckSVG(w.isPlayer ? '#ffd23f' : (w.tagColor || '#fff4e0')) + '<span class="nm"></span>';
+      const nm = seat.querySelector('.nm'); nm.textContent = w.name; nm.style.color = w.isPlayer ? '#ffd23f' : (w.tagColor || 'var(--ink)');
+    }
+  }
+  // v31: a picture of the actual 3D duck model (same geometry and colors as in the race), rendered once
+  // per color with a small separate renderer and reused as an image.
+  const duckImgCache = {};
+  let snapR = null;
+  function duckImage(color, px = 160) {
+    const key = color + '@' + px;
+    if (key in duckImgCache) return duckImgCache[key];
+    try {
+      if (!snapR) { snapR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); snapR.setPixelRatio(1); snapR.setClearColor(0x000000, 0); }
+      snapR.setSize(px, px);
+      const sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(0xfff4e0, 0x2a0c3a, 0.95));
+      const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(2, 4, 3); sc.add(dl);
+      const m = makeDuck(color);
+      m.base.rotation.y = -Math.PI / 2 + 0.45;   // beak toward the viewer, turned a little: a three-quarter view
+      sc.add(m.base);
+      const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+      cam.position.set(0.5, 1.5, 3.0); cam.lookAt(0, 0.68, 0);
+      snapR.render(sc, cam);
+      // v33: find the lowest and highest visible pixel rows (feet and head top) so a big duck can stand on its step
+      let feet = 1, top = 0;
+      try {
+        const cv = document.createElement('canvas'); cv.width = cv.height = px;
+        const g2 = cv.getContext('2d'); g2.drawImage(snapR.domElement, 0, 0);
+        const a = g2.getImageData(0, 0, px, px).data;
+        let lo = -1, hi = -1;
+        for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) if (a[(y * px + x) * 4 + 3] > 40) { if (hi < 0) hi = y; lo = y; break; }
+        if (lo >= 0) { feet = (lo + 1) / px; top = hi / px; }
+      } catch (e) {}
+      duckImgCache[key] = { url: snapR.domElement.toDataURL('image/png'), feet, top };
+    } catch (e) { duckImgCache[key] = null; }
+    return duckImgCache[key];
+  }
+  // Where a podium step sits in the 3D pool: cast a ray from the (fixed) camera through the spot just
+  // above that step on screen and find where it meets the water. A washed-out duck swims to that point,
+  // so on screen it ends up right under its own step before climbing on.
+  const SWIM_SPEED = 6, SWIM_MAX = 4.5;   // ft/s once up to speed; give up and seat it after this many seconds
+  const podRay = new THREE.Raycaster(), podNdc = new THREE.Vector2();
+  const podPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -WATER_Y);
+  function podiumWater(place, out) {
+    const seat = document.querySelector(`#podium .slot[data-place="${place}"] .seat`);
+    const rc = seat && seat.getBoundingClientRect(), w = viewW(), h = viewH();
+    const [cx, cb] = rc ? toStage(rc.left + rc.width / 2, rc.bottom) : [0, 0];
+    const sx = rc && rc.width ? cx : w / 2;
+    const sy = rc && rc.height ? cb - 16 : h - 40;   // pads hidden: aim at the bottom middle
+    podNdc.set(sx / w * 2 - 1, 1 - sy / h * 2);
+    camera.updateMatrixWorld();
+    podRay.setFromCamera(podNdc, camera);
+    return podRay.ray.intersectPlane(podPlane, out) || out.set(0, WATER_Y, 12);
+  }
+  // First duck eliminated takes the bottom step (4th), the next 3rd, and so on.
+  // The step is reserved now; the duck itself takes it when its swim arrives (updateFall).
+  function podiumElim(r) {
+    if (r.podium) return;
+    r.podium = racers.length + 1 - r.elimOrder;
+    const myRun = runId, place = r.podium;
+    // Safety net: if the swim never finishes (sim stopped, results already up), seat it anyway.
+    const late = () => { if (runId !== myRun || r.seated) return; if (mode === 'paused') return void setTimeout(late, 500); podiumSeat(r, place); };
+    setTimeout(late, (SWIM_MAX + 1.5) * 1000);
+  }
+  // Game over: everyone not yet on the podium swims to the top steps left, best standing on top.
+  function podiumFinal() {
+    const rest = standings().filter(r => !r.podium);
+    rest.forEach((r, i) => { r.podium = i + 1; podiumSeat(r, i + 1); });
+  }
+  function podiumSeat(r, place) {
+    if (r.seated || !place) return;
+    r.seated = true;
+    const seat = document.querySelector(`#podium .slot[data-place="${place}"] .seat`);
+    if (!seat) return;
+    const nameColor = r.isPlayer ? '#ffd23f' : (r.tagColor || 'var(--ink)');
+    if (place === 1) {
+      // v33 CHAMPION: 3x the width of the other podium ducks (76 px max, or the step width if narrower),
+      // picture lowered so the duck's feet sit exactly on top of the step, name floating above its head.
+      const W = 3 * Math.min(76, seat.clientWidth || 76);
+      const big = duckImage(r.bodyColor, 480);
+      if (big) {
+        seat.innerHTML = `<div class="champ3d" style="width:${W}px;left:calc(50% - ${W / 2}px)"><img alt="" src="${big.url}" style="margin-bottom:${-(1 - big.feet) * W}px"></div><span class="nm champnm"></span>`;
+        const nm = seat.querySelector('.nm');
+        nm.textContent = r.name; nm.style.color = nameColor;
+        nm.style.left = 'calc(50% - 150px)'; nm.style.bottom = ((big.feet - big.top) * W + 4) + 'px';
+        seat.dataset.who = '3d:' + r.name;
+        seat.classList.remove('swim'); void seat.offsetWidth; seat.classList.add('swim');
+        return;
+      }
+    }
+    const img = duckImage(r.bodyColor);
+    seat.innerHTML = (img ? `<div class="d3"><img class="duck3d" alt="" src="${img.url}"></div>` : duckSVG(r.isPlayer ? '#ffd23f' : (r.tagColor || '#fff4e0'))) + '<span class="nm"></span>';
+    seat.dataset.who = '3d:' + r.name;
+    const nm = seat.querySelector('.nm'); nm.textContent = r.name; nm.style.color = nameColor;
+    seat.classList.remove('swim'); void seat.offsetWidth; seat.classList.add('swim');
+  }
+
+  function hud() {
+    const L = st.level; if (!L) return;
+    const lab = $('lvlLabel'); lab.textContent = levelName(L); lab.classList.toggle('boss', L.boss);
+    $('scoreLine').textContent = `${player.cleared} dodged`;
+    const coils = $('coils');
+    const left = player.missesLeft, n = Math.max(left, player.maxStumbles);
+    if (coils.children.length !== n) { coils.innerHTML = ''; for (let i = 0; i < n; i++) coils.appendChild(document.createElement('div')); }
+    [...coils.children].forEach((d, i) => { d.className = 'coil ' + (i < left ? 'on' : 'off'); });
+  }
+  // Duck tracker: fixed row order (you first, then rivals) so each duck stays on the same line.
+  let trackerAt = -1;
+  function trackerFrame(force) {
+    if (!force && time - trackerAt < 0.15) return;   // ~7 updates a second is plenty for numbers
+    trackerAt = time;
+    const body = $('trackerBody');
+    if (body.children.length !== racers.length) {
+      body.innerHTML = '';
+      racers.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td></td>';
+        tr.cells[0].textContent = r.name;
+        tr.cells[0].style.color = r.isPlayer ? '#ffd23f' : (r.tagColor || 'var(--ink)');
+        if (r.isPlayer) tr.classList.add('me');
+        body.appendChild(tr);
+      });
+    }
+    racers.forEach((r, i) => {
+      const tr = body.children[i], out = r.out || eliminated(r), left = out ? 0 : r.missesLeft;
+      tr.cells[0].textContent = r.name;
+      tr.cells[1].textContent = r.cleared;
+      tr.cells[2].textContent = r.stumbles;
+      tr.cells[3].textContent = out ? 'out' : left;
+      tr.cells[3].className = !out && left === 1 ? 'warn' : '';
+      tr.cells[4].textContent = r.streak;
+      tr.cells[5].textContent = r.bestStreak;
+      tr.classList.toggle('out', out);
+    });
+  }
+  function hudFrame() {
+    trackerFrame();
+    podiumLive();
+    $('progFill').style.width = Math.min(100, Math.max(0, 100 * player.progress / st.finishTheta)) + '%';
+
+    const visAngle = 1.25;
+    const visFt = (visAngle - player.phi) * RP - 0.4;
+
+    if (st.level.rivals) {
+      const order = standings(), place = order.indexOf(player) + 1;
+      $('place').textContent = `${ordinal(place)} of ${racers.length}`;
+      if (tele.run && mode === 'play') {
+        if (place < st.lastPlace) tele.run.passes++;
+        if (place > st.lastPlace) tele.run.passedBy++;
+        if (place === 1) tele.run.secondsInFirst += frameDt;
+        tele.run.maxStreak = Math.max(tele.run.maxStreak, player.streak);
+      }
+      if (place !== st.lastPlace && mode === 'play' && time - st.lastPassToast > 0.8) {
+        const other = place > st.lastPlace ? order[place - 2] : order[place];
+        if (other) toast(place > st.lastPlace ? `${other.name} passed you` : `You passed ${other.name}`, place > st.lastPlace ? '#ff6a2b' : '#a8f58f');
+        st.lastPassToast = time;
+      }
+      st.lastPlace = place;
+    } else $('place').textContent = '';
+  }
+  // v31 GOLD: +10 for every obstacle the player dodges. Saved on this device between runs.
+  let gold = 0;
+  try { gold = Math.max(0, parseInt(localStorage.getItem('jdf-gold') || '0', 10) || 0); } catch (e) {}
+  const showGold = () => { $('goldAmt').textContent = gold.toLocaleString(); };
+  const goldV = new THREE.Vector3();
+  function addGold(n, pos) {
+    gold += n;
+    try { localStorage.setItem('jdf-gold', String(gold)); } catch (e) {}
+    showGold();
+    const g = $('gold'); g.classList.remove('bump'); void g.offsetWidth; g.classList.add('bump');
+    if (tele.run) tele.run.gold = (tele.run.gold || 0) + n;
+    // Shiny pop-up just above the duck's head
+    goldV.copy(pos); goldV.y += 2.2 * DS + P / 2; goldV.project(camera);   // v32: +half a lap higher, out of the player's view
+    const el = document.createElement('div');
+    el.className = 'goldpop'; el.textContent = `+${n} Eggs`;   // v33: currency is golden eggs
+    el.style.left = ((goldV.x + 1) / 2 * viewW()) + 'px'; el.style.top = ((1 - goldV.y) / 2 * viewH()) + 'px';
+    stageEl.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  }
+  showGold();
+
+  let toastTimer;
+  function toast(text, color) {
+    const t = $('toast');
+    t.textContent = text; t.style.color = color || 'var(--ink)';
+    t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1550);
+  }
+  function flash() { const f = $('flash'); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
+  // Each speed level gets its own slide tint and rim color, so a speed-up is easy to see
+  const TIER_TINT = ['#ffffff', '#c8f5dc', '#fff0a8', '#ffd2a8', '#ffc0d2', '#dccbff', '#b8e4ff'];
+  const tintTarget = new THREE.Color('#ffffff');
+  function recolor(step) {
+    tintTarget.set(TIER_TINT[Math.min(step, TIER_TINT.length - 1)]);
+    if (step === 0 && slideMat) slideMat.color.set('#ffffff');
+  }
+
+  function buildSelect() {
+    const box = $('chapters'); box.innerHTML = '';
+    let idx = 0;
+    CHAPTERS.forEach((ch, ci) => {
+      const sec = document.createElement('div');
+      sec.className = 'chapter' + (ch.locked ? ' locked' : '');
+      sec.innerHTML = `<h2>Chapter ${ci + 1}: ${ch.name}</h2><p>${ch.locked ? 'Coming later. ' : 'New: '}${ch.newThing}</p>`;
+      if (!ch.locked) {
+        const grid = document.createElement('div'); grid.className = 'grid';
+        for (let n = 1; n <= 10; n++, idx++) {
+          const L = LEVELS[idx], my = idx;
+          const b = document.createElement('button');
+          b.className = 'lvl' + (L.boss ? ' boss' : '') + (idx < unlocked ? ' done' : '') + (idx === unlocked ? ' next' : '');
+          b.textContent = L.boss ? 'Boss' : n;
+          b.setAttribute('aria-label', levelName(L) + (idx < unlocked ? ', cleared' : idx > unlocked ? ', locked' : ''));
+          b.disabled = idx > unlocked;
+          b.addEventListener('click', () => startLevel(my));
+          grid.appendChild(b);
+        }
+        sec.appendChild(grid);
+      }
+      box.appendChild(sec);
+    });
+  }
+
+  function startLevel(idx) {
+    lootOpen = false; lootThen = null; $('loot').classList.add('hidden');
+    if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned');
+    teleNext(idx === levelIdx ? 'retry' : idx === levelIdx + 1 ? 'next' : 'other level');
+    levelIdx = Math.min(idx, LEVELS.length - 1);
+    const L = LEVELS[levelIdx];
+    runId++;
+    resetFor(L);
+    podiumReset();
+    mode = 'countdown';
+    teleStart(L);
+    showOverlay(null);
+    hud();
+    $('place').textContent = '';
+    toast(L.boss ? `Boss ${L.chapter}` : levelName(L), L.boss ? '#ff6a2b' : '#ffe2a8');
+  }
+
+  function onGo() {
+    const L = st.level, myRun = runId;
+    mode = 'play';
+    toast('Go!', '#a8f58f');
+    let msg = null;
+    if (L.boss) msg = L.note;
+    else if (L.n === 1 && L.chapter > 1) msg = 'New: ' + L.note;
+    else if (L.mustPlace < 4) msg = `Finish ${ordinal(L.mustPlace)} or better`;
+    if (msg) setTimeout(() => { if (runId === myRun && mode === 'play') toast(msg, L.boss ? '#ff6a2b' : '#ffb020'); }, 1100);
+  }
+
+  function showResult(how) {
+    podiumFinal();
+    // The sim stops on the results screen, so a duck still swimming would freeze in the pool: put it on its step now.
+    racers.forEach(r => { if (r.fall && r.fall.out && r.podium && !r.seated) {
+      r.fall = null; r.out = true; podiumSeat(r, r.podium);
+      r.model.base.visible = false; if (r.tag) r.tag.visible = false;
+    } });
+    trackerFrame(true);   // final numbers on the results screen
+    mode = 'result';
+    teleEnd(how);
+    noteSave();
+    buildFun();
+    const L = st.level, next = LEVELS[levelIdx + 1];
+    $('rCleared').textContent = player.cleared;
+    $('rSpeed').textContent = st.topSpeed.toFixed(1);
+    if (player.finished) { $('rStumbles').textContent = ordinal(player.place); $('rThird').textContent = 'place'; }
+    else { $('rStumbles').textContent = `${player.stumbles}/${player.maxStumbles}`; $('rThird').textContent = 'stumbles'; }
+    if (how === 'overtime') {
+      const surv = standings().indexOf(player) + 1, ot = st.levelTime - st.otStart;
+      $('resTitle').textContent = player.survivor ? 'Last duck standing' : `Out ${ordinal(surv)}`;
+      $('resMsg').textContent = `Finished ${ordinal(st.finishPlace)} at the arch${st.finishOk ? '' : ` (needed ${ordinal(L.mustPlace)})`}. `
+        + (player.survivor ? `Then outlasted everyone for ${ot.toFixed(0)} s of overtime, up to ${st.speed.toFixed(1)} ft/s.`
+                           : `Lasted ${Math.max(0, (player.elimAt || st.levelTime) - st.otStart).toFixed(0)} s of overtime, out at ${(player.elimSpeed || st.speed).toFixed(1)} ft/s.`);
+      $('rStumbles').textContent = ordinal(surv); $('rThird').textContent = 'survival';
+      const advance = st.finishOk && next;
+      $('resPrimary').textContent = advance ? (next.boss ? 'Face the boss' : 'Next level') : st.finishOk ? 'Race it again' : 'Try again';
+      $('resPrimary').onclick = () => advance ? startLevel(levelIdx + 1) : startLevel(levelIdx);
+    } else if (how === 'won') {
+      $('resTitle').textContent = L.boss ? 'Boss beaten' : `${levelName(L)} cleared`;
+      if (L.boss) {
+        const nc = CHAPTERS[L.chapter];
+        $('resMsg').textContent = nc ? (nc.locked ? `Next up, chapter ${L.chapter + 1}: ${nc.newThing.toLowerCase()}. Coming later.` : `Chapter ${L.chapter + 1} unlocked. New: ${nc.newThing}`) : 'You beat every chapter.';
+      } else $('resMsg').textContent = player.place === 1 ? `First place, ahead of all three rivals, at ${st.topSpeed.toFixed(1)} ft/s.`
+        : `You finished ${ordinal(player.place)} of ${racers.length}. Beat them all next time?`;
+      $('resPrimary').textContent = next ? (next.boss ? 'Face the boss' : 'Next level') : 'Race it again';
+      $('resPrimary').onclick = () => next ? startLevel(levelIdx + 1) : startLevel(levelIdx);
+    } else {
+      if (how === 'place') {
+        $('resTitle').textContent = `${ordinal(player.place)} place`;
+        $('resMsg').textContent = `This race needs ${L.mustPlace === 1 ? 'first place' : ordinal(L.mustPlace) + ' or better'}.`;
+      } else {
+        $('resTitle').textContent = 'Splash!';
+        $('resMsg').textContent = `Washed into the pool ${Math.round(100 * Math.max(0, player.progress) / st.finishTheta)}% of the way to the arch.`;
+      }
+      $('resPrimary').textContent = 'Try again';
+      $('resPrimary').onclick = () => startLevel(levelIdx);
+    }
+    $('resSecondary').onclick = openSelect;
+    showOverlay('result');
+  }
+  function buildFun() {
+    const row = $('funRow'); row.innerHTML = '';
+    $('funBox').style.display = (tele.db && ASK_FUN) ? '' : 'none';
+    for (let n = 1; n <= 5; n++) {
+      const b = document.createElement('button');
+      b.textContent = n; b.setAttribute('aria-label', `Fun ${n} of 5${n === 1 ? ', dull' : n === 5 ? ', great' : ''}`);
+      b.addEventListener('click', () => {
+        [...row.children].forEach(c => c.classList.toggle('picked', c === b));
+        teleUpdate({ fun: n, funAt: Date.now() });
+      });
+      row.appendChild(b);
+    }
+  }
+  // Treasure reveal after you go out in overtime (or win it): purely cosmetic for now.
+  let lootOpen = false, lootThen = null;
+  // Show the treasure once per run, if the player passed the level, whichever comes first:
+  // their own wash-out or the end of overtime.
+  function maybeLoot(then) {
+    then();   // v33: treasure-chest screen removed (showLoot kept below, unused, in case we want it back)
+  }
+  function showLoot(survivor, then) {
+    const ot = Math.max(0, (player.elimAt ?? st.levelTime) - st.otStart);
+    $('lootTitle').textContent = survivor ? 'Last duck standing!' : st.finishOk ? 'Level passed!' : 'You crossed the finish!';
+    $('lootSub').textContent = survivor ? 'You outlasted every rival.' : `You made it ${ot.toFixed(0)} s into overtime.`;
+    // fireworks: a few bursts over the chest, each a ring of sparks flying outward
+    const fwBox = $('lootFw'); fwBox.innerHTML = '';
+    const FW_COLORS = ['#ffd23f', '#ff4fa3', '#39d0ff', '#a8f58f', '#ffb020', '#ffffff'];
+    const bursts = [[50, 18, 1.15], [22, 30, 1.45], [78, 26, 1.7], [38, 10, 2.0], [64, 8, 2.25]];   // [left %, top %, delay s]
+    for (const [x, y, delay] of bursts) {
+      const fw = document.createElement('div');
+      fw.className = 'fw'; fw.style.left = x + '%'; fw.style.top = y + '%';
+      const color = FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)], n = 16, R = 45 + Math.random() * 25;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2, el = document.createElement('i');
+        el.style.color = color;
+        el.style.setProperty('--dx', `${Math.cos(a) * R}px`); el.style.setProperty('--dy', `${Math.sin(a) * R}px`);
+        el.style.animationDelay = `${delay}s`;
+        fw.appendChild(el);
+      }
+      fwBox.appendChild(fw);
+    }
+    // coins and gems spraying out of the chest
+    const spray = $('lootSpray'); spray.innerHTML = '';
+    for (let i = 0; i < 26; i++) {
+      const el = document.createElement('i');
+      el.className = i % 5 === 0 ? 'gem-bit' : 'coin-bit';
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, d = 90 + Math.random() * 110;
+      el.style.setProperty('--dx', `${Math.cos(a) * d}px`); el.style.setProperty('--dy', `${Math.sin(a) * d}px`);
+      el.style.animationDelay = `${1.05 + Math.random() * 0.35}s`;
+      spray.appendChild(el);
+    }
+    const box = $('loot'); box.classList.remove('hidden', 'play'); void box.offsetWidth; box.classList.add('play');
+    lootOpen = true; lootThen = then;
+    setTimeout(() => $('lootBtn').focus({ preventScroll: true }), 1800);
+  }
+  function closeLoot() {
+    if (!lootOpen) return;
+    lootOpen = false; $('loot').classList.add('hidden');
+    const t = lootThen; lootThen = null; if (t) t();
+  }
+  const ICONS = {
+    coin: '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#ffc83d" stroke="#b97a12" stroke-width="3"/><circle cx="20" cy="20" r="10" fill="none" stroke="#fff1a8" stroke-width="2.5"/></svg>',
+    gem: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 15 L14 7 H26 L32 15 L20 34 Z" fill="#5fe3ff" stroke="#1b7fa6" stroke-width="2.5" stroke-linejoin="round"/><path d="M8 15 H32 M14 7 L20 15 L26 7 M20 15 V34" stroke="#c9f7ff" stroke-width="1.5" fill="none"/></svg>',
+    feather: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M30 6 C14 10 9 22 10 33 C20 30 31 21 30 6 Z" fill="#ffd23f" stroke="#b98a12" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 33 L26 12" stroke="#b98a12" stroke-width="2"/></svg>',
+  };
+  $('lootBtn').addEventListener('click', closeLoot);
+  function openSelect() { if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned'); teleNext('level select'); mode = 'select'; buildSelect(); showOverlay('select'); }
+  let pausedFrom = null;
+  function pause() {
+    if (mode !== 'play' && mode !== 'dying') return;
+    pausedFrom = mode; mode = 'paused';
+    player.releaseUp(); player.releaseDown(); releasePads();
+    $('pausedSub').textContent = `${levelName(st.level)}: ${st.level.note}`;
+    showOverlay('paused');
+  }
+  function resume() { if (mode !== 'paused') return; mode = pausedFrom; showOverlay(null); clock.getDelta(); }
+  const refreshPlay = () => { $('playBtn').textContent = unlocked > 0 ? `Play ${levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)])}` : 'Play'; };
+
+  $('playBtn').addEventListener('click', () => startLevel(Math.min(unlocked, LEVELS.length - 1)));
+  $('levelsBtn').addEventListener('click', openSelect);
+  $('selectBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
+  $('unlockAll').addEventListener('click', () => { saveUnlocked(LEVELS.length - 1); buildSelect(); });
+  $('pauseBtn').addEventListener('click', pause);
+  $('resumeBtn').addEventListener('click', resume);
+  $('restartBtn').addEventListener('click', () => startLevel(levelIdx));
+  $('quitBtn').addEventListener('click', openSelect);
+  refreshPlay();
+
+  // =====================================================================
+  //  INPUT (the player's "brain" is your fingers)
+  // =====================================================================
+  const UP_KEYS = ['ArrowUp', 'KeyW', 'Space'], DOWN_KEYS = ['ArrowDown', 'KeyS'];
+  const live = () => mode === 'play' && !eliminated(player);
+  const spectating = () => mode === 'play' && st.overtime && player.out && !st.ending;
+  const skipSpectate = () => { st.ending = true; showResult('overtime'); };
+  // ---------- v26: PLAY AREA outline ----------
+  // The play area = from the bottom of the duck tracker to the top of the Duck/Jump pads, edge to edge.
+  // SHOW_PLAY_AREA: set to false for the GitHub copy. The O key toggles it while playing.
+  const SHOW_PLAY_AREA = false;
+  let playAreaOn = SHOW_PLAY_AREA;
+  function playAreaRect() {
+    const trk = $('tracker').classList.contains('hidden') ? $('hud') : $('tracker');
+    const top = toStage(0, trk.getBoundingClientRect().bottom)[1];
+    const bottom = toStage(0, Math.min($('duckPad').getBoundingClientRect().top, $('jumpPad').getBoundingClientRect().top))[1];
+    return { top, bottom, width: viewW(), height: Math.max(0, bottom - top) };
+  }
+  function drawPlayArea() {
+    const el = $('playArea');
+    // v27: only during a race (HUD and pads showing), so it's always measured with the real tracker in place
+    const racingView = !$('hud').classList.contains('hidden') && !$('pads').classList.contains('hidden');
+    el.classList.toggle('on', playAreaOn && racingView);
+    if (!playAreaOn || !racingView) return;
+    const r = playAreaRect();
+    el.style.top = r.top + 'px'; el.style.height = r.height + 'px';
+    $('playAreaLbl').textContent = `Play area ${Math.round(r.width)} × ${Math.round(r.height)} px (${Math.round(100 * r.height / viewH())}% of screen height)`;
+  }
+  window.addEventListener('resize', drawPlayArea);
+  setInterval(drawPlayArea, 500);   // tracker rows and overlays can change its size
+  drawPlayArea();
+
+  window.addEventListener('keydown', e => {
+    const gameKey = UP_KEYS.includes(e.code) || DOWN_KEYS.includes(e.code);
+    if (gameKey && (mode === 'play' || mode === 'dying')) e.preventDefault();
+    if (e.code === 'Escape' || e.code === 'KeyP') { if (mode === 'paused') resume(); else pause(); return; }
+    if (e.code === 'KeyO' && !e.repeat) { playAreaOn = !playAreaOn; drawPlayArea(); return; }
+    if (e.code === 'KeyY' && !e.repeat) {
+      godMode = !godMode; if (godMode && mode === 'play') st.godUsed = true;
+      $('god').style.display = godMode ? '' : 'none';
+      toast(godMode ? 'Invincible: on' : 'Invincible: off', godMode ? '#a8f58f' : '#ffe2a8');
+      return;
+    }
+    if (lootOpen) { if ((gameKey || e.code === 'Enter') && !e.repeat) { e.preventDefault(); closeLoot(); } return; }
+    if (gameKey && !e.repeat && spectating()) { skipSpectate(); return; }
+    if (e.repeat || !live()) return;
+    if (UP_KEYS.includes(e.code)) player.pressUp();
+    if (DOWN_KEYS.includes(e.code)) player.pressDown();
+  });
+  window.addEventListener('keyup', e => {
+    if (UP_KEYS.includes(e.code)) player.releaseUp();
+    if (DOWN_KEYS.includes(e.code)) player.releaseDown();
+  });
+  // Tapping the race area itself only skips the overtime spectate view; play input lives on the pads.
+  $('touch').addEventListener('pointerdown', e => { e.preventDefault(); if (spectating()) skipSpectate(); });
+  // Thumb pads. Each pad keeps its own set of finger ids, so a thumb resting on Duck never blocks
+  // Jump (and vice versa). Pointer capture keeps a hold alive if the thumb drifts off the pad edge;
+  // the hold ends only when that finger lifts (or the OS cancels the touch).
+  const pads = [];
+  function makePad(el, press, release) {
+    const fingers = new Set();
+    const down = e => {
+      e.preventDefault();
+      if (spectating()) { skipSpectate(); return; }
+      if (!live()) return;
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      const first = fingers.size === 0;
+      fingers.add(e.pointerId); el.classList.add('down');
+      if (first) press();
+    };
+    const up = e => {
+      if (!fingers.delete(e.pointerId)) return;
+      if (fingers.size === 0) { el.classList.remove('down'); release(); }
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('lostpointercapture', up);
+    el.addEventListener('contextmenu', e => e.preventDefault());   // long-press menus on Android/iOS
+    const clear = () => { if (fingers.size) { fingers.clear(); el.classList.remove('down'); release(); } };
+    pads.push(clear);
+  }
+  makePad($('jumpPad'), () => player.pressUp(), () => player.releaseUp());
+  makePad($('duckPad'), () => player.pressDown(), () => player.releaseDown());
+  const releasePads = () => pads.forEach(c => c());
+  // A hold must never get stuck: drop every pad if the page loses focus or is hidden.
+  window.addEventListener('blur', releasePads);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releasePads(); });
+
+  // =====================================================================
+  //  LAYOUT
+  // =====================================================================
+  // Points that must be on screen: every duck spot (pool edge to 1 rad ahead) up to the top of a big jump,
+  // obstacles coming in to 1.25 rad, the outer rail, and the splash point in the pool.
+  const FIT_PTS = [];
+  for (let a = LEFT_EDGE - 0.1; a <= 1.25 + 1e-6; a += 0.05) {
+    for (const dy of [0, STAND_H + BIG_H]) FIT_PTS.push(new THREE.Vector3(...pt(RP, a, K * a + dy)));
+    for (const dy of [-0.3, LIP]) FIT_PTS.push(new THREE.Vector3(...pt(R + W, a, K * a + dy)));
+  }
+  FIT_PTS.push(new THREE.Vector3(...pt(RP, LEFT_EDGE - 0.45, WATER_Y)));
+  let fitKey = '', fitBox = null, fitTick = 0;
+  function measureBox() {
+    // The play area (stage pixels). Measured during a race; before the first race, measured invisibly.
+    const showing = !$('hud').classList.contains('hidden') && !$('pads').classList.contains('hidden') && !$('tracker').classList.contains('hidden');
+    if (!showing && fitBox) return fitBox;
+    const els = [$('hud'), $('tracker'), $('pads')], hid = els.filter(el => el.classList.contains('hidden'));
+    hid.forEach(el => { el.style.visibility = 'hidden'; el.classList.remove('hidden'); });
+    const top = toStage(0, $('tracker').getBoundingClientRect().bottom)[1] + 4;
+    const bottom = toStage(0, Math.min($('duckPad').getBoundingClientRect().top, $('jumpPad').getBoundingClientRect().top))[1] - 2;
+    hid.forEach(el => { el.classList.add('hidden'); el.style.visibility = ''; });
+    const box = { top, bottom };
+    if (showing) fitBox = box;
+    return box;
+  }
+  function fitCamera() {
+    const w = viewW(), h = viewH(), box = measureBox();
+    const key = [w, h, Math.round(box.top), Math.round(box.bottom)].join();
+    if (key === fitKey) return;
+    fitKey = key;
+    const th = THREE.MathUtils.degToRad(CAM_PITCH);
+    camBase.set(0, CAM_TARGET.y + CAM_D * Math.sin(th), CAM_TARGET.z + CAM_D * Math.cos(th));
+    camera.position.copy(camBase); camera.lookAt(CAM_TARGET);
+    camera.zoom = 1; camera.clearViewOffset(); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    const v = new THREE.Vector3();
+    for (const p of FIT_PTS) { v.copy(p).project(camera); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+    const bw = (x1 - x0) / 2 * w, bh = (y1 - y0) / 2 * h;
+    const s = Math.min((w - 6) / bw, Math.max(60, box.bottom - box.top) / bh);
+    camera.zoom = s;
+    // Zoom scales about the screen center; then shift: centered across, bottom of the slide on the pads.
+    const cx = ((x0 + x1) / 2 + 1) / 2 * w, by = (1 - y0) / 2 * h;
+    const dx = w / 2 - (w / 2 + s * (cx - w / 2));
+    const dy = box.bottom - (h / 2 + s * (by - h / 2));
+    camera.setViewOffset(w, h, -dx, -dy, w, h);   // also updates the projection
+    camera.updateMatrixWorld();
+    scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34;
+    placeDuckies(box);
+  }
+  function resize() {
+    layoutStage();
+    const w = viewW(), h = viewH();
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    fitKey = '';
+    fitCamera();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // =====================================================================
+  //  MAIN LOOP
+  // =====================================================================
+  const clock = new THREE.Clock();
+  let frameDt = 0;
+  const SUB_FT = 0.15;   // max feet of travel per sim slice (hit window is 2 * HIT_HALF = 0.52 ft)
+  function simStep(simDt, dt) {
+    if (mode === 'play') {
+        st.levelTime += simDt;
+        st.stepTimer += simDt;
+        // Speed-ups only happen in a quiet stretch: nothing within ~1 s of the duck.
+        if (st.stepTimer >= stepEvery()) {
+          if (quietAroundPlayer(st.overtime ? 0.6 : 1.0, 0.3)) {
+            st.stepTimer = 0; st.tier++;
+            st.targetSpeed *= stepMult(); st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
+            // (no on-screen cue: the speed-up is felt, and seen in the chevrons, not announced)
+          } else st.stepTimer = stepEvery();   // wait for the gap
+        }
+        // Ease into the new speed over about a second instead of jumping
+        st.speed += (st.targetSpeed - st.speed) * Math.min(1, simDt * 2.5);
+        st.theta += (st.speed / RP) * simDt;
+        spawn();
+    } else if (mode === 'cleared') {
+      st.coast = Math.max(0.25, st.coast - dt * 0.6);
+      st.theta += (st.speed * st.coast / RP) * dt;
+    }
+    for (const r of racers) {
+      if (r.brain && mode !== 'dying') r.brain.think(r, simDt);
+      if (r.isPlayer && (mode !== 'play' || eliminated(r))) { r.releaseUp(); r.releaseDown(); }
+      r.physics(simDt, dt);
+      if (mode === 'play' || (!r.isPlayer && mode === 'cleared')) r.collide();
+      r.updateFall(simDt, dt);
+    }
+    if (mode === 'play' || mode === 'cleared') checkFinishes();
+    if (mode === 'play') { settleObstacles(); regroup(); checkOvertimeEnd(); }
+  }
+  function frame() {
+    const dt = Math.min(0.05, clock.getDelta());
+    frameDt = dt;
+    time += dt;
+    const running = mode !== 'paused';
+    const simDt = running && !(st.hitstop > 0) ? dt : 0;
+    if (running) st.hitstop = Math.max(0, (st.hitstop || 0) - dt);
+    const racing = mode === 'play' || mode === 'dying' || mode === 'cleared';
+
+    if (mode === 'countdown') {
+      st.countdown -= dt;
+      const n = Math.ceil(st.countdown - 0.2);
+      if (n < st.countShown && n >= 1 && n <= 3) { st.countShown = n; toast(String(n), '#ffe2a8'); }
+      if (st.countdown <= 0) onGo();
+      hudFrame();
+    } else if (mode === 'play' || mode === 'cleared') {
+      // Substeps: at high speed one frame could carry a duck past an obstacle's whole hit window
+      // (0.52 ft), so the sim runs in slices of at most SUB_FT feet of travel.
+      const n = Math.min(8, Math.max(1, Math.ceil((st.speed || 0) * simDt / SUB_FT)));
+      for (let k = 0; k < n && (mode === 'play' || mode === 'cleared' || mode === 'dying'); k++) simStep(simDt / n, dt / n);
+      if (mode === 'play') hudFrame();
+    } else if (mode === 'dying') {
+      simStep(simDt, dt);
+    } else if (mode === 'title' || mode === 'select') {
+      st.theta += 0.3 * dt;
+    }
+
+    // ---------- Render: (angle, height) -> 3D tower ----------
+    const theta = st.theta;
+    const m = ((theta % TAU) + TAU) % TAU;
+    spiral.rotation.y = -m;
+    spiral.position.y = -K * m;
+    flowTex.offset.x += dt * (0.5 + (st.speed || 4.6) * 0.04);   // water runs downhill
+    foamTex.offset.x += dt * (0.8 + (st.speed || 4.6) * 0.06);   // crests run faster than the sheet: reads as moving water
+    foamTex.offset.y = Math.sin(time * 1.3) * 0.015;
+    if (slideMat) slideMat.color.lerp(tintTarget, Math.min(1, dt * 3));
+
+    for (let i = st.obs.length - 1; i >= 0; i--) {
+      const o = st.obs[i];
+      const phi = o.theta - theta;
+      o.mesh.position.set(RT * Math.sin(phi), K * phi, RT * Math.cos(phi));
+      o.mesh.rotation.y = phi;
+      if (o.hint && !o.hinted && phi < 1.15 && mode === 'play') { o.hinted = true; toast(st.level.intro.hint, '#ffb020'); }
+      if (phi < LEFT_EDGE - 0.7) { obsGroup.remove(o.mesh); st.obs.splice(i, 1); }
+    }
+    const inLevel = racing || mode === 'paused' || mode === 'result' || mode === 'countdown';
+    const fphi = (st.finishTheta || 1e9) - theta;
+    finishArch.visible = inLevel && fphi > LEFT_EDGE - 0.6 && fphi < 2 * TAU;
+    finishArch.position.set(RT * Math.sin(fphi), K * fphi, RT * Math.cos(fphi));
+    finishArch.rotation.y = fphi;
+
+    for (const r of [player, ...bots]) r.render(dt);
+
+    animateWater(time);
+    waterLight.position.set(-4, WATER_Y + 1.8, RP);
+    waterLight.intensity = 1.5 + Math.sin(time * 2) * 0.25;
+    for (const p of particles) {
+      if (!p.visible) continue;
+      p.userData.v.y -= 18 * dt;
+      p.position.addScaledVector(p.userData.v, dt);
+      p.rotation.x += dt * 6; p.rotation.y += dt * 5;
+      if (p.userData.v.y < 0 && p.position.y < WATER_Y - 0.2) p.visible = false;
+    }
+    if (rippleT >= 0) {
+      rippleT += dt;
+      ripple.scale.setScalar(1 + rippleT * 4);
+      ripple.material.opacity = Math.max(0, 0.8 - rippleT * 0.8);
+      if (rippleT > 1) { rippleT = -1; ripple.material.opacity = 0; }
+    }
+
+    st.shake = Math.max(0, (st.shake || 0) - dt);
+    const sx = (Math.random() - 0.5) * st.shake * 0.6, sy = (Math.random() - 0.5) * st.shake * 0.6;
+    if ((fitTick += dt) > 0.5) { fitTick = 0; fitCamera(); }   // re-fit if the HUD or pads change size
+    camera.position.set(camBase.x + sx, camBase.y + sy, camBase.z);
+    camera.lookAt(CAM_TARGET);
+    floatDuckies(time);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  player.reset(LEVELS[0]);
+  showOverlay('title');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
