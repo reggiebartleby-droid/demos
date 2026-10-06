@@ -1904,7 +1904,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v66-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v67-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -2091,7 +2091,7 @@
   //  Session = one page load (tele.session).
   // =====================================================================
   const BOARD_KEY = 'jdf-board', ACC_MIN = 20;   // accuracy shows once 20+ obstacles are counted
-  let board = null, boardTab = 'friends', friends = { state: 'idle', runs: [], sort: 'streak', err: '' }, lastRun = null;
+  let board = null, boardTab = 'friends', friends = { state: 'idle', runs: [], sort: 'dodges', err: '' }, lastRun = null;
   let boardCtx = 'result', friendsReq = 0;   // v47: 'result' (after a race) or 'title' (Leaderboard button)
   function boardLoad() {
     if (board) return board;
