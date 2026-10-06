@@ -542,6 +542,49 @@
 <script>
 (() => {
   // =====================================================================
+  //  v59 LAG PROBE (temp): finds which events line up with long frames.
+  //  Each frame, code that does notable work calls probe.mark('name'). At the start of the next frame the
+  //  gap since the last frame is checked: over LAG_MS = a hitch, and it's charged to every mark from that frame.
+  //  'js' = time spent in our own code that frame. Big gap + small js = the browser's own work
+  //  (layout, painting, compositing layers, garbage collection), not our JavaScript.
+  //  URL switches for A/B tests, e.g. ?off=hoard,bump : hoard = no falling eggs/hoard, bump = no egg-counter
+  //  bump, save = save the egg count at most once a second instead of every dodge.
+  // =====================================================================
+  const OFF = new Set(((new URLSearchParams(location.search)).get('off') || '').split(',').filter(Boolean));
+  const probe = (() => {
+    const LAG_MS = 50;
+    let marks = new Set(), last = 0, t0 = 0, js = 0, on = false;
+    let frames = 0, lags = 0, worst = 0, recent = [];
+    const per = {};   // name -> [frames with it, laggy frames with it]
+    return {
+      LAG_MS,
+      mark(name) { if (on) marks.add(name); },
+      reset() { frames = 0; lags = 0; worst = 0; recent = []; for (const k in per) delete per[k]; last = 0; marks.clear(); },
+      start(playing, info) {   // top of frame(): judge the PREVIOUS frame
+        const now = performance.now(), gap = last ? now - last : 0;
+        if (on && last && gap < 1000) {   // >1 s = tab was hidden, not a hitch
+          frames++;
+          const laggy = gap > LAG_MS;
+          if (!marks.size) marks.add('none');
+          for (const k of marks) { const a = per[k] || (per[k] = [0, 0]); a[0]++; if (laggy) a[1]++; }
+          if (laggy) {
+            lags++; worst = Math.max(worst, gap);
+            recent.push(`${Math.round(gap)}ms js${Math.round(js)} ${info} ${[...marks].join(' ')}`);
+            if (recent.length > 4) recent.shift();
+          }
+        }
+        marks = new Set(); on = playing; last = playing ? now : 0; t0 = now;
+      },
+      end() { js = performance.now() - t0; },
+      text() {
+        const rows = Object.entries(per).filter(([, a]) => a[1] > 0).sort((a, b) => b[1][1] - a[1][1]).slice(0, 6)
+          .map(([k, a]) => `${k} ${a[1]}/${a[0]}`).join('  ');
+        return `lag ${lags}/${frames} worst ${Math.round(worst)}ms${OFF.size ? '  off:' + [...OFF].join(',') : ''}`
+          + (rows ? '\n' + rows : '') + (recent.length ? '\n' + recent.join('\n') : '');
+      },
+    };
+  })();
+  // =====================================================================
   //  LEVEL DATA
   //  Chapters say WHAT is in play. buildLevel() says HOW HARD each level is.
   //  The engine below never mentions a specific level; it runs whatever
@@ -1283,6 +1326,7 @@
     }
     releaseDown() { this.duckHeld = false; }
     launch() {
+      probe.mark(this.isPlayer ? 'jump' : 'botjump');   // v59
       if (this.isPlayer) { this.teleJump = teleLaunch(); this.upPressedAt = st.levelTime; }
       this.jumpV = Math.sqrt(2 * GRAVITY * HOP_H);   // v = sqrt(2gh)
       this.jumpY = 0.0001; this.peak = 0;
@@ -1302,6 +1346,7 @@
         this.peak = Math.max(this.peak, this.jumpY);
         if (this.teleJump) this.teleJump.peak = Math.max(this.teleJump.peak, this.jumpY);
         if (this.jumpY <= 0) {
+          probe.mark(this.isPlayer ? 'land' : 'botland');   // v59
           this.jumpY = 0; this.jumpV = 0; this.boost = -1;
           this.jumpPower = Math.min(1, Math.max(0, (this.peak - HOP_H) / (BIG_H - HOP_H)));
           this.lag = LAND_LAG_HOP + (LAND_LAG_BIG - LAND_LAG_HOP) * this.jumpPower;
@@ -1345,6 +1390,7 @@
     }
     dodged() {
       this.cleared++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak);
+      if (this.isPlayer) probe.mark('dodge');   // v59
       if (this.isPlayer) { addGold(1, this.model.base.position); awardsOnDodge(this); }   // v51: +1 egg per dodge, plus award checks
       if (this.streak % RECOVER_STREAK === 0) this.gain(STREAK_GAIN, 'streak');
       if (this.isPlayer) hud();
@@ -1363,6 +1409,7 @@
     // A mini wave washes the duck back down the slide.
     stumble() {
       this.pos -= this.stumbleBack; this.stumbles++; this.streak = 0;
+      probe.mark(this.isPlayer ? 'hit' : 'bothit');   // v59
       this.stumbleLog.push({ atSec: +st.levelTime.toFixed(1), speed: +st.speed.toFixed(2), overtime: !!st.overtime });
       this.jumpY = 0; this.jumpV = 0; this.boost = -1; this.lag = 0;
       const out = this.pos <= LEFT_EDGE + 1e-6;
@@ -1811,7 +1858,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v57-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v59-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -2566,6 +2613,8 @@
   let gold = 0;
   try { gold = Math.max(0, parseInt(localStorage.getItem('jdf-gold') || '0', 10) || 0); } catch (e) {}
   const showGold = () => { $('goldAmt').textContent = gold.toLocaleString(); };
+  let saveGoldT = 0;   // v59
+  function saveGold() { saveGoldT = 0; try { localStorage.setItem('jdf-gold', String(gold)); } catch (e) {} }
   const goldV = new THREE.Vector3();
   // Screen position (stage px) of a point in the 3D scene, optionally lifted by `up` world units.
   function toScreen(pos, up) {
@@ -2575,24 +2624,29 @@
   // n = eggs earned. drop = how the loot looks: { count, big } (default: n normal eggs).
   function addGold(n, pos, drop) {
     gold += n;
-    try { localStorage.setItem('jdf-gold', String(gold)); } catch (e) {}
+    probe.mark('eggs');   // v59
+    if (OFF.has('save')) { if (!saveGoldT) saveGoldT = setTimeout(saveGold, 1000); }   // v59 A/B: batch the save
+    else saveGold();
     showGold();
-    const g = $('gold'); g.classList.remove('bump'); void g.offsetWidth; g.classList.add('bump');
+    if (!OFF.has('bump')) { probe.mark('bump'); const g = $('gold'); g.classList.remove('bump'); void g.offsetWidth; g.classList.add('bump'); }
     if (tele.run) tele.run.gold = (tele.run.gold || 0) + n;
     // v51: the "+10 Eggs" text is gone; the egg itself pops out behind the duck and falls to the pile
     // v53: drop = { count, kind: 'gold' | 'streak' | 'speed', scale }. Special drops also flash a burst ring.
+    if (OFF.has('hoard')) return;   // v59 A/B: no falling eggs, no hoard
     const d = drop || { count: n }, at = toScreen(pos, 0.9 * DS), kind = d.kind || 'gold';
     for (let i = 0; i < d.count; i++) pile.drop(at.x, at.y, d.scale || (d.big ? 2.2 : 1), i, kind, d.count, n / d.count);   // v54: each egg's worth goes into the hoard
     if (kind !== 'gold' || d.big) pile.burst(at.x, at.y, kind);
   }
   // v51: award text, shown above the duck (same spot the old egg pop-up used, out of the player's way)
   function awardPop(text, kind, pos) {
+    probe.mark('award');   // v59
     const at = toScreen(pos, 2.2 * DS + P / 2), el = document.createElement('div');
     el.className = 'goldpop award ' + kind; el.textContent = text;
     el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
     stageEl.appendChild(el); setTimeout(() => el.remove(), 2300);
   }
   function awardBanner(text) {
+    probe.mark('banner');   // v59
     document.querySelectorAll('.award-banner').forEach(e => e.remove());
     const el = document.createElement('div'); el.className = 'award-banner'; el.textContent = text;
     stageEl.appendChild(el); setTimeout(() => el.remove(), 1550);
@@ -2629,7 +2683,7 @@
     if (player.bestStreak <= aw.top10.st && st.topSpeed <= aw.top10.sp) return;
     aw.top10Done = true;
     awardPop('Friends top 10!', 'top10', pos);
-    const at = toScreen(pos, 0.9 * DS); pile.confetti(at.x, at.y);
+    const at = toScreen(pos, 0.9 * DS); if (!OFF.has('hoard')) pile.confetti(at.x, at.y);
     addGold(25, pos, { count: 1, big: true });
   }
   function awardsOnDodge(r) {
@@ -2752,6 +2806,7 @@
       c.restore();
     }
     function redraw(full) {   // repaint the hoard picture (only when it grows, or on resize/reset)
+      probe.mark('hoard');   // v59: hoard picture repainted
       bctx.setTransform(1, 0, 0, 1, 0, 0);
       bctx.clearRect(0, 0, bake.width, bake.height);   // v56: always the WHOLE canvas: a partial clear made the browser pile up old drawings and stall
       lastPaint = tw;
@@ -2801,7 +2856,7 @@
       const before = stageOf(worth); worth += e.worth;
       if (e.special || e.r > R * 1.5) gems.push({ dx: (Math.random() - .5) * 1.3, dy: Math.random() * .6, kind: e.kind, size: e.r > R * 2 ? 1.5 : 1 });
       const after = stageOf(worth);
-      if (after > before) { flash = { text: STAGES[after] + '!', age: 0 }; rings.push({ x: W / 2, y: H - pileH(worth), kind: 'gold', age: 0, life: .7 }); }
+      if (after > before) { probe.mark('stage'); flash = { text: STAGES[after] + '!', age: 0 }; rings.push({ x: W / 2, y: H - pileH(worth), kind: 'gold', age: 0, life: .7 }); }
       dirty = true;   // repainted once at the end of this frame, however many eggs sank in
     }
     function reset() {
@@ -2848,6 +2903,7 @@
       const busy = eggs.length || rings.length || bits.length || flash || (stage >= 2 && dt > 0);
       if (!busy && !drewLast) return;                         // nothing moving and already cleared: skip the frame
       drewLast = !!busy;
+      probe.mark('eggdraw');   // v59: the moving-egg layer was redrawn this frame
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       for (const g of rings) {                                // burst ring
@@ -2882,12 +2938,13 @@
 
   let toastTimer;
   function toast(text, color) {
+    probe.mark('toast');   // v59
     const t = $('toast');
     t.textContent = text; t.style.color = color || 'var(--ink)';
     t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1550);
   }
-  function flash() { const f = $('flash'); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
+  function flash() { probe.mark('flash'); const f = $('flash'); f.classList.remove('show'); void f.offsetWidth; f.classList.add('show'); }
   // Each speed level gets its own slide tint and rim color, so a speed-up is easy to see
   const TIER_TINT = ['#ffffff', '#c8f5dc', '#fff0a8', '#ffd2a8', '#ffc0d2', '#dccbff', '#b8e4ff'];
   const tintTarget = new THREE.Color('#ffffff');
@@ -2941,6 +2998,7 @@
   }
 
   function onGo() {
+    probe.reset();   // v59: lag stats are per race
     const L = st.level, myRun = runId;
     mode = 'play';
     toast('Go!', '#a8f58f');
@@ -3249,7 +3307,7 @@
     const w = viewW(), h = viewH(), box = measureBox();
     const key = [w, h, Math.round(box.top), Math.round(box.bottom)].join();
     if (key === fitKey) return;
-    fitKey = key;
+    fitKey = key; probe.mark('refit');   // v59
     const th = THREE.MathUtils.degToRad(CAM_PITCH);
     camBase.set(0, CAM_TARGET.y + CAM_D * Math.sin(th), CAM_TARGET.z + CAM_D * Math.cos(th));
     camera.position.copy(camBase); camera.lookAt(CAM_TARGET);
@@ -3270,6 +3328,7 @@
     placeDuckies(box);
   }
   function resize() {
+    probe.mark('resize');   // v59
     layoutStage();
     const w = viewW(), h = viewH();
     renderer.setSize(w, h);
@@ -3279,6 +3338,7 @@
   }
   window.addEventListener('resize', resize);
   resize();
+  const healSize = new THREE.Vector2(); let selfHeals = 0;   // v58: see SELF-HEAL in the main loop
   // v57 TEMP: shows the screen size the game reads vs what the browser reports, to chase the Discord zoom bug.
   // win = window.innerWidth/Height (what the camera fit uses), view = visualViewport, canvas = the 3D canvas on screen.
   // Set SHOW_SIZE_DEBUG = false (or delete this block) once the bug is found.
@@ -3291,7 +3351,8 @@
         + `view ${vv ? R(vv.width) + '×' + R(vv.height) + (vv.scale !== 1 ? ' @' + vv.scale.toFixed(2) : '') : 'n/a'}\n`
         + `canvas ${R(r.width)}×${R(r.height)}\n`
         + `screen ${screen.width}×${screen.height} dpr ${window.devicePixelRatio}\n`
-        + `zoom ${camera.zoom.toFixed(2)}`;
+        + `zoom ${camera.zoom.toFixed(2)}  heals ${selfHeals}`   // v58: heals = times the self-heal had to fix a size mismatch
+        + '\n' + probe.text();   // v59 lag probe
     };
     sizeLine(); setInterval(sizeLine, 500);
   }
@@ -3334,6 +3395,7 @@
     if (mode === 'play') { settleObstacles(); regroup(); checkOvertimeEnd(); }
   }
   function frame() {
+    probe.start(mode === 'play', `${(st.speed || 0).toFixed(0)}ft/s eggs${pile.count()}`);   // v59: judges the previous frame
     const dt = Math.min(0.05, clock.getDelta());
     frameDt = dt;
     time += dt;
@@ -3406,12 +3468,20 @@
 
     st.shake = Math.max(0, (st.shake || 0) - dt);
     const sx = (Math.random() - 0.5) * st.shake * 0.6, sy = (Math.random() - 0.5) * st.shake * 0.6;
-    if ((fitTick += dt) > 0.5) { fitTick = 0; fitCamera(); }   // re-fit if the HUD or pads change size
+    if ((fitTick += dt) > 0.5) {   // re-fit if the HUD or pads change size
+      fitTick = 0;
+      // v58 SELF-HEAL: if the screen size changed without a 'resize' event (seen once in Discord's browser: zoomed in,
+      // track sides cut off), the 3D picture and the camera math disagree. Resize everything when they don't match.
+      renderer.getSize(healSize);
+      if (Math.round(healSize.x) !== Math.round(viewW()) || Math.round(healSize.y) !== Math.round(viewH())) { selfHeals++; resize(); }
+      else fitCamera();
+    }
     camera.position.set(camBase.x + sx, camBase.y + sy, camBase.z);
     camera.lookAt(CAM_TARGET);
     floatDuckies(time);
 
     renderer.render(scene, camera);
+    probe.end();   // v59
     requestAnimationFrame(frame);
   }
 
