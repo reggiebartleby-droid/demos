@@ -284,6 +284,13 @@
   .board th.on button { color: var(--butter); text-decoration: underline; text-underline-offset: 3px; }
   .board td { text-align: right; padding: 5px 4px; border-top: 1px solid rgba(255,226,168,.14); white-space: nowrap; }
   .board td.who { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }   /* v45: device moved to its own column */
+  /* v62 FRIENDS FIT: fixed layout, so the table can never be wider than the card (no sideways scroll).
+     The stat columns get set widths; Name takes what's left and cuts a too-long name with "…". */
+  .board table.friends { table-layout: fixed; }
+  .board table.friends td.who { max-width: none; }
+  .board table.friends th, .board table.friends td { padding-left: 3px; padding-right: 3px; }
+  .board th.c-dodges { width: 50px; } .board th.c-streak { width: 48px; } .board th.c-speed { width: 58px; }
+  .board th.c-dev { width: 20px; text-align: center; } .board table.friends td:last-child { text-align: center; }
   .board tr.me td { color: var(--butter); font-weight: 600; }
   .board .new { color: var(--jump); font-weight: 600; }
   .board-note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; min-height: 1em; }
@@ -299,6 +306,22 @@
   #result .card.tight .btn { padding: 10px 16px; font-size: 17px; margin-top: 6px; }
   #result .card.tight .board { margin-top: 10px; }
   #result .card.tight .board td { padding: 3px 4px; }
+  /* v62 FIT, step 2 (results card and Leaderboard card): still too tall after "tight" -> squeeze the board more */
+  #boards .card.tight { padding: 16px 18px; }
+  #boards .card.tight .board { margin-top: 10px; }
+  #boards .card.tight .board td { padding: 3px 4px; }
+  #boards .card.tight .more-hint { bottom: -16px; }
+  .card.tighter h1 { margin-bottom: 4px; }
+  .card.tighter .board { margin-top: 6px; }
+  .card.tighter .board table { font-size: 12px; }
+  .card.tighter .board th { padding-bottom: 3px; }
+  .card.tighter .board td { padding-top: 2px; padding-bottom: 2px; }
+  .card.tighter .board-tabs { margin-bottom: 4px; }
+  .card.tighter .board-tabs button { padding: 5px 6px; }
+  .card.tighter .fun { margin-top: 6px; }
+  .card.tighter .fun .small { margin-bottom: 4px; }
+  .card.tighter .fun-row button { height: 36px; }
+  #boards .card.tighter .btn { padding: 9px 16px; margin-top: 6px; }
   #result .card.tight .fun { margin-top: 10px; }
   /* v47 "More below" hint: zero-height sticky strip at the bottom of a scrolling card; its label draws upward */
   .more-hint { position: sticky; bottom: -24px; height: 0; pointer-events: none; opacity: 0; transition: opacity .2s; }
@@ -436,7 +459,7 @@
     </ul>
     <div class="tester hidden" id="tester">
       <label for="testerName">Your name, so your test runs are labeled</label>
-      <div class="tester-row"><input id="testerName" maxlength="24" autocomplete="nickname" enterkeyhint="done" placeholder="e.g. Thot"><button class="btn tiny" id="testerSave">Save</button></div>
+      <div class="tester-row"><input id="testerName" maxlength="20" autocomplete="nickname" enterkeyhint="done" placeholder="e.g. Thot"><button class="btn tiny" id="testerSave">Save</button></div>
       <p class="tester-err hidden" id="testerErr">Enter a name first, so your runs show up under it.</p>
     </div>
     <button class="btn" id="playBtn">Play</button>
@@ -1862,7 +1885,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v60-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v62-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1979,7 +2002,7 @@
   const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxCjlxxeGOslsrBM2gbaC2uJ8O5UWC1eqMAqIP2kkHDq2i1DylQdDuqVBcLAEpPyBA_jQ/exec';   // Apps Script web app (Manage deployments)
   const sheet = { on: location.hostname.endsWith('github.io') && SHEET_URL.startsWith('https://script.google.com/'), note: '' };
   let testerName = '';
-  try { testerName = (localStorage.getItem('jdf-tester') || '').slice(0, 24); } catch (e) {}
+  try { testerName = (localStorage.getItem('jdf-tester') || '').slice(0, 20); } catch (e) {}   // v62: names max 20
   function myDevice() {   // v49: shared by sheetSend and the friends-board merge
     const ua = navigator.userAgent;
     return (/iPhone|iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
@@ -2015,7 +2038,7 @@
       if (has) $('testerErr').classList.add('hidden');
     };
     const save = () => {
-      const v = $('testerName').value.replace(/[\u0000-\u001f<>=+@]/g, '').trim().slice(0, 24);
+      const v = $('testerName').value.replace(/[\u0000-\u001f<>=+@]/g, '').trim().slice(0, 20);   // v62: names max 20
       if (!v) { $('testerErr').classList.remove('hidden'); $('testerName').focus(); return false; }
       testerName = v; try { localStorage.setItem('jdf-tester', v); } catch (e) {}
       show(); return true;
@@ -2135,23 +2158,23 @@
     $('boardNote').textContent = (L && !L.counts) ? 'God mode or a test toggle was on this session, so these runs don\'t count toward the board.'
       : (L && rows.some(x => x[3])) ? 'Yellow = new personal best.' : `Bests from ${t.runs} counted run${t.runs === 1 ? '' : 's'} in this browser.`;
   }
-  // v45 columns: Name | Max streak | Top ft/s | Accuracy | Device. The three stats are tap-to-rank.
+  // v62 columns: Name | Dodges | Streak | Top ft/s | D (device: i = iOS, A = Android, P = PC). The three stats are tap-to-rank.
   // v50: the friends board is the TOP 10 RUNS (all levels mixed), one row per run, so a player can
-  // hold several spots or none. Accuracy is that run's own dodges / (dodges + stumbles), 20+ obstacles.
+  // hold several spots or none. v62: Accuracy replaced by Dodges = total dodges in that one run.
   const FRIEND_TOP = 10;
-  const FRIEND_COLS = [ ['streak', 'Max streak', p => p.streak], ['speed', 'Top ft/s', p => p.speed.toFixed(1)],
-                        ['acc', 'Accuracy', p => p.acc == null ? '–' : p.acc + '%'] ];
+  const FRIEND_COLS = [ ['dodges', 'Dodges', p => p.d], ['streak', 'Streak', p => p.streak],
+                        ['speed', 'Top ft/s', p => p.speed.toFixed(1)] ];
   // Same ranking rules as the Apps Script (SORTS there). Ties: the other stat, then the earlier run.
   const RUN_SORTS = {
     streak: (a, b) => (b.streak - a.streak) || (b.speed - a.speed) || (a.when - b.when),
     speed:  (a, b) => (b.speed - a.speed) || (b.streak - a.streak) || (a.when - b.when),
-    acc:    (a, b) => (b.acc - a.acc) || (b.streak - a.streak) || (a.when - b.when),
+    dodges: (a, b) => (b.d - a.d) || (b.streak - a.streak) || (a.when - b.when),   // v62 (was acc)
   };
   function topRuns(runs, key) {
-    return runs.filter(r => key !== 'acc' || r.acc != null).sort(RUN_SORTS[key]).slice(0, FRIEND_TOP);
+    return runs.slice().sort(RUN_SORTS[key]).slice(0, FRIEND_TOP);
   }
-  // Device: shown as just PC or Mobile.
-  const deviceKind = r => /^(iOS|Android)$/.test(r.device || '') ? 'Mobile' : 'PC';
+  // v62 Device: one letter. i = iOS, A = Android, P = PC (Windows, Mac, anything else).
+  const deviceKind = r => r.device === 'iOS' ? 'i' : r.device === 'Android' ? 'A' : 'P';
   function renderFriends(body) {
     const f = friends, note = $('boardNote');
     if (f.state !== 'ok') {
@@ -2167,15 +2190,15 @@
     if (!f.runs.length) { note.textContent = f.stale ? 'Updating the board…' : 'No counted runs yet. Finish a race to start the board.'; return; }
     const key = f.sort, col = FRIEND_COLS.find(c => c[0] === key);
     const list = topRuns(f.runs, key);
-    const tbl = el('table'), head = tbl.createTHead().insertRow();
+    const tbl = el('table', null, 'friends'), head = tbl.createTHead().insertRow();   // v62: fixed layout, fits the card width
     head.appendChild(el('th', 'Name'));
     FRIEND_COLS.forEach(([k, lab]) => {
-      const th = el('th', null, k === key ? 'on' : ''), b = el('button', lab);
+      const th = el('th', null, 'c-' + k + (k === key ? ' on' : '')), b = el('button', lab);
       b.setAttribute('aria-label', 'Rank by ' + lab);
       b.addEventListener('click', () => { friends.sort = k; boardRender(); });
       th.appendChild(b); head.appendChild(th);
     });
-    head.appendChild(el('th', 'Device'));
+    const dth = el('th', 'D', 'c-dev'); dth.title = 'Device: i = iOS, A = Android, P = PC'; head.appendChild(dth);
     const tb = tbl.createTBody(), me = (testerName || '').trim().toLowerCase();
     list.forEach(r => {
       const tr = tb.insertRow(); if (r.me || r.name.trim().toLowerCase() === me) tr.className = 'me';
@@ -2184,7 +2207,10 @@
       tr.appendChild(el('td', deviceKind(r)));
     });
     body.appendChild(tbl);
-    if (!list.length) { note.textContent = 'No run has 20+ obstacles yet, so nothing ranks by accuracy. Tap another heading.'; return; }
+    // v62: a name too long for its cell shrinks (13px down to 10px) before it gets cut with "…"
+    tbl.querySelectorAll('td.who').forEach(td => {
+      for (let px = 12; px >= 10 && td.scrollWidth > td.clientWidth + 1; px--) td.style.fontSize = px + 'px';
+    });
     if (f.stale && f.refreshErr) {   // v49: cached board stays up; offer a retry instead of an error screen
       const mins = Math.max(1, Math.round((Date.now() - f.cachedAt) / 60000));
       note.textContent = `Showing the board from ${mins} min ago; the sheet didn't answer. `;
@@ -2203,11 +2229,11 @@
   function previewPlayers() {   // v50: sample RUNS (same name can appear more than once)
     const t = boardTotals();
     return [
-      { id: 'p0', name: 'You (preview)', me: true, device: 'Windows', streak: t.st, speed: t.sp, acc: (t.td + t.ts) >= ACC_MIN ? Math.round(100 * t.td / (t.td + t.ts)) : null, when: 1 },
-      { id: 'p1', name: 'Sample Quacky', device: 'iOS', streak: 31, speed: 58.2, acc: 86, when: 2 },
-      { id: 'p2', name: 'Sample Quacky', device: 'iOS', streak: 24, speed: 61.0, acc: 81, when: 3 },
-      { id: 'p3', name: 'Sample Puddles', device: 'Android', streak: 18, speed: 49.6, acc: 79, when: 4 },
-      { id: 'p4', name: 'Sample Waddle', device: 'Mac', streak: 9, speed: 41.0, acc: null, when: 5 },
+      { id: 'p0', name: 'You (preview)', me: true, device: 'Windows', streak: t.st, speed: t.sp, d: t.d, when: 1 },
+      { id: 'p1', name: 'Sample Quacky', device: 'iOS', streak: 31, speed: 58.2, d: 212, when: 2 },
+      { id: 'p2', name: 'Sample Quacky', device: 'iOS', streak: 24, speed: 61.0, d: 187, when: 3 },
+      { id: 'p3', name: 'Sample Puddles', device: 'Android', streak: 18, speed: 49.6, d: 240, when: 4 },
+      { id: 'p4', name: 'Twentycharacternamex', device: 'Mac', streak: 9, speed: 41.0, d: 95, when: 5 },   // v62: longest allowed name
     ];
   }
   // v47: (1) wait for this run's upload at most 8 s, then give the board request its OWN 20 s
@@ -2229,7 +2255,7 @@
     if (runs.some(x => x.id === L.id)) return runs;
     const r = L.run;
     return runs.concat([{ id: L.id, name: testerName, device: myDevice(), streak: r.st, speed: Math.round(r.sp * 10) / 10,
-      d: r.d, s: r.s, acc: (r.d + r.s) >= ACC_MIN ? Math.round(100 * r.d / (r.d + r.s)) : null, when: L.at }]);
+      d: r.d, s: r.s, when: L.at }]);
   }
   function friendsLoad(retrying) {
     const req = ++friendsReq;
@@ -2257,8 +2283,8 @@
         if (!j || !Array.isArray(j.runs)) throw new Error(Array.isArray(j && j.players) ? 'the scoreboard script needs the v50 update' : 'bad reply');
         if (req !== friendsReq) return;
         const fresh = j.runs.filter(r => r && typeof r.name === 'string').map(r => ({
-          id: String(r.id), name: r.name.slice(0, 24), device: String(r.device || ''), streak: +r.streak || 0, speed: +r.speed || 0,
-          acc: r.acc == null ? null : +r.acc, when: +r.when || 0 }));
+          id: String(r.id), name: r.name.slice(0, 20), device: String(r.device || ''), streak: +r.streak || 0, speed: +r.speed || 0,
+          d: +r.d || 0, when: +r.when || 0 }));   // v62: d (dodges this run) instead of acc
         friendsCachePut(fresh);
         friends.runs = mergeMine(fresh);   // in case the upload hadn't landed yet
         friends.state = 'ok'; friends.stale = false;
@@ -2404,7 +2430,11 @@
   // content below the fold shows a "More below" hint at the bottom edge until you scroll down.
   function fitCard(card) {
     if (!card) return;
-    if (card.closest('#result') && card.scrollHeight > card.clientHeight + 1) card.classList.add('tight');
+    // v62: both the results card and the Leaderboard card; two steps (tight, then tighter)
+    if (card.closest('#result, #boards')) {
+      if (card.scrollHeight > card.clientHeight + 1) card.classList.add('tight');
+      if (card.scrollHeight > card.clientHeight + 1) card.classList.add('tighter');
+    }
     moreHint(card);
   }
   function moreHint(card) { card.classList.toggle('has-more', card.scrollHeight - card.scrollTop - card.clientHeight > 8); }
@@ -2789,8 +2819,10 @@
       const fh = Math.ceil(MAXH() + 20);
       field.width = Math.round(W * dpr); field.height = Math.round(fh * dpr);
       fctx.setTransform(dpr, 0, 0, dpr, 0, 0); fctx.fillStyle = '#8a520a'; fctx.fillRect(0, 0, W, fh);
+      // v61: paint the TOP row first and work DOWN, so each lower row covers the bottoms of the eggs above it
+      // (painter's order: lower = closer to the viewer). Bottom-up made upper eggs look hung in front of the ones below.
       let i = 0;
-      for (let y = fh + 6, row = 0; y > -10; y -= 9, row++)
+      for (let y = -10, row = 0; y < fh + 6; y += 9, row++)
         for (let x = (row % 2) * 6 - 6; x < W + 10; x += 12, i++) egg(fctx, x + (rnd(i + 11) - .5) * 5, y + (rnd(i + 13) - .5) * 4, rnd(i + 3));
     }
     function nest(c, cx) {   // stage 0: a twig bowl at the bottom middle
@@ -2828,6 +2860,12 @@
       c.restore();
       const cols = Math.max(2, Math.round(w / 6));          // a row of eggs along the top edge makes it bumpy
       for (let i = 0; i < cols; i++) { const x = cx - w + 8 + i * (2 * w - 16) / (cols - 1); egg(c, x, surf(x) + 2, rnd(i + 50)); }
+      // v61: a second row just below the edge row, painted AFTER it, tucks the edge eggs' bottoms behind it
+      // (before, the edge row sat on top of the packed eggs like a separate layer)
+      for (let i = 0; i < cols - 1; i++) {
+        const x = cx - w + 8 + (i + .5) * (2 * w - 16) / (cols - 1), y = surf(x) + 10;
+        if (y < H - 4) egg(c, x, y, rnd(i + 80));
+      }
       for (const g of gems.slice(-60)) {                    // newest 60 gems
         const x = cx + g.dx * w, top = surf(x), y = top + 8 + g.dy * Math.max(0, H - top - 8), s = g.size;
         c.drawImage(gemSpr[g.kind], x - 14 * s, y - 14 * s, 28 * s, 28 * s);
@@ -3024,7 +3062,7 @@
     mode = 'result';
     teleEnd(how);
     noteSave();
-    const rc = $('result').querySelector('.card'); rc.classList.remove('tight'); rc.scrollTop = 0;   // v47
+    const rc = $('result').querySelector('.card'); rc.classList.remove('tight', 'tighter'); rc.scrollTop = 0;   // v47; v62 tighter
     $('resSecondary').after($('board'));   // v47: the scoreboard lives under Choose a level on results
     boardShow('result');   // v44
     const fadeRun = runId;   // v50: 1st-place duck fades 2 s after the results appear
@@ -3159,6 +3197,7 @@
   // v47 LEADERBOARD from the title screen: same scoreboard, moved into its own card
   $('boardBtn').addEventListener('click', () => {
     mode = 'boards'; $('boardsSlot').appendChild($('board')); $('boards').querySelector('.card').scrollTop = 0;
+    $('boards').querySelector('.card').classList.remove('tight', 'tighter');   // v62: re-measure each time it opens
     showOverlay('boards'); boardShow('title');
   });
   $('boardsBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
