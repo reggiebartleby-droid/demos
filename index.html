@@ -1131,7 +1131,10 @@
     duckies.push({ m, x: 0, z: 0, ph: Math.random() * TAU, yaw: Math.random() * TAU, spin: (Math.random() - 0.5) * 0.25 });
   }
   const waveY = (x, z, t) => 0.13 * Math.sin(x * 0.45 + t * 1.5) + 0.09 * Math.sin(z * 0.6 - t * 1.1) + 0.05 * Math.sin((x + z) * 1.1 + t * 2.3);
+  let duckiesMs = -1;   // v60: how long the last placeDuckies() took (shown in the size readout)
   function placeDuckies(box) {
+    probe.mark('ducks');
+    const tStart = performance.now();
     const occluders = [];
     spiral.traverse(o => { if (o.isMesh && !o.isInstancedMesh) occluders.push(o); });
     spiral.updateMatrixWorld(true); camera.updateMatrixWorld();
@@ -1155,6 +1158,7 @@
       d.m.base.visible = !!p;
       if (p) { d.x = p.x; d.z = p.z; }
     });
+    duckiesMs = performance.now() - tStart;
   }
   function floatDuckies(t) {
     for (const d of duckies) {
@@ -1858,7 +1862,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v59-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v60-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3325,8 +3329,14 @@
     camera.setViewOffset(w, h, -dx, -dy, w, h);   // also updates the projection
     camera.updateMatrixWorld();
     scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34;
-    placeDuckies(box);
+    // v60 LAG FIX: placeDuckies() fires up to 300 rays at every triangle of the slide (~150-180 ms on the phone;
+    // v59's probe caught it in all 7 hitches). During a race, only the camera re-fits; the rubber ducks are
+    // re-placed once the race is over (which also stops them teleporting mid-race).
+    if (raceRunning()) { duckiesBox = box; probe.mark('ducks-later'); }
+    else placeDuckies(box);
   }
+  let duckiesBox = null;
+  const raceRunning = () => mode === 'play' || mode === 'dying' || mode === 'cleared' || mode === 'countdown' || mode === 'paused';
   function resize() {
     probe.mark('resize');   // v59
     layoutStage();
@@ -3351,7 +3361,7 @@
         + `view ${vv ? R(vv.width) + '×' + R(vv.height) + (vv.scale !== 1 ? ' @' + vv.scale.toFixed(2) : '') : 'n/a'}\n`
         + `canvas ${R(r.width)}×${R(r.height)}\n`
         + `screen ${screen.width}×${screen.height} dpr ${window.devicePixelRatio}\n`
-        + `zoom ${camera.zoom.toFixed(2)}  heals ${selfHeals}`   // v58: heals = times the self-heal had to fix a size mismatch
+        + `zoom ${camera.zoom.toFixed(2)}  heals ${selfHeals}  ducks ${duckiesMs < 0 ? '-' : Math.round(duckiesMs) + 'ms'}`   // v58 heals; v60 ducks = last rubber-duck placement time
         + '\n' + probe.text();   // v59 lag probe
     };
     sizeLine(); setInterval(sizeLine, 500);
@@ -3468,12 +3478,13 @@
 
     st.shake = Math.max(0, (st.shake || 0) - dt);
     const sx = (Math.random() - 0.5) * st.shake * 0.6, sy = (Math.random() - 0.5) * st.shake * 0.6;
+    if (duckiesBox && !raceRunning()) { placeDuckies(duckiesBox); duckiesBox = null; }   // v60: deferred from mid-race
     if ((fitTick += dt) > 0.5) {   // re-fit if the HUD or pads change size
       fitTick = 0;
       // v58 SELF-HEAL: if the screen size changed without a 'resize' event (seen once in Discord's browser: zoomed in,
       // track sides cut off), the 3D picture and the camera math disagree. Resize everything when they don't match.
       renderer.getSize(healSize);
-      if (Math.round(healSize.x) !== Math.round(viewW()) || Math.round(healSize.y) !== Math.round(viewH())) { selfHeals++; resize(); }
+      if (Math.round(healSize.x) !== Math.round(viewW()) || Math.round(healSize.y) !== Math.round(viewH())) { selfHeals++; probe.mark('heal'); resize(); }
       else fitCamera();
     }
     camera.position.set(camBase.x + sx, camBase.y + sy, camBase.z);
