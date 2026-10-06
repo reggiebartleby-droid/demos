@@ -1717,7 +1717,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v42-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v43-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1868,8 +1868,12 @@
       testerName = v; try { localStorage.setItem('jdf-tester', v); } catch (e) {}
       show(); return true;
     };
-    $('testerSave').addEventListener('click', save);
-    $('testerName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+    // v43: Save (or Enter) saves the name AND starts the game, same as tapping Play, so nobody is left
+    // wondering whether it saved. The keyboard is closed first so it isn't covering the race.
+    const saveAndPlay = () => { if (save()) { $('testerName').blur(); $('playBtn').click(); } };
+    testerSaveOnly = save;   // Play / Choose a level use the plain save, so they don't start a game twice
+    $('testerSave').addEventListener('click', saveAndPlay);
+    $('testerName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveAndPlay(); } });
     show();
   }
   function testerReady() {
@@ -1879,7 +1883,8 @@
     if (testerName) return true;
     $('testerErr').classList.remove('hidden'); $('testerName').focus(); return false;
   }
-  function save_tester_from_box() { $('testerSave').click(); return !!testerName; }
+  let testerSaveOnly = () => false;   // v43: set by setupTester
+  function save_tester_from_box() { return testerSaveOnly(); }
 
   // Fun signals: a rating the player gives, and what they chose to do next.
   function teleUpdate(fields) {
