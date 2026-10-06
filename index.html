@@ -242,6 +242,24 @@
   .lvl.boss { border-color: var(--ember); font-size: 12px; }
   .lvl.boss.done { background: var(--ember); color: #fff4e0; }
   .lvl:disabled { opacity: .28; cursor: default; }
+  /* v44 SCOREBOARD */
+  .board { margin-top: 18px; }
+  .board-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .board-tabs button { flex: 1; font: 600 14px "Space Grotesk", system-ui, sans-serif; padding: 8px 6px; border-radius: 10px; cursor: pointer;
+    border: 2px solid rgba(255,226,168,.35); background: transparent; color: var(--ink-dim); }
+  .board-tabs button[aria-selected="true"] { background: var(--butter); border-color: var(--butter); color: #2a1660; }
+  .board-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .board table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .board th { font-weight: 600; color: var(--ink-dim); text-align: right; padding: 4px 4px 6px; white-space: nowrap; }
+  .board th:first-child, .board td:first-child { text-align: left; }
+  .board th button { font: inherit; color: inherit; background: none; border: 0; padding: 2px 0; cursor: pointer; }
+  .board th.on button { color: var(--butter); text-decoration: underline; text-underline-offset: 3px; }
+  .board td { text-align: right; padding: 5px 4px; border-top: 1px solid rgba(255,226,168,.14); white-space: nowrap; }
+  .board td.who { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+  .board td.who small { display: block; font-size: 11px; color: var(--ink-dim); }
+  .board tr.me td { color: var(--butter); font-weight: 600; }
+  .board .new { color: var(--jump); font-weight: 600; }
+  .board-note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; min-height: 1em; }
   .fun { margin-top: 16px; text-align: center; }
   .fun .small { margin: 0 0 8px; }
   .fun-row { display: flex; gap: 6px; justify-content: center; }
@@ -435,6 +453,15 @@
     </div>
     <button class="btn" id="resPrimary">Next level</button>
     <button class="btn ghost" id="resSecondary">Choose a level</button>
+    <!-- v44 SCOREBOARD: My bests (this browser) and Friends (Google Sheet, github.io copy only) -->
+    <section class="board" id="board" aria-label="Scoreboard">
+      <div class="board-tabs hidden" id="boardTabs" role="tablist">
+        <button role="tab" id="tabFriends" aria-selected="true">Friends</button>
+        <button role="tab" id="tabMine" aria-selected="false">My bests</button>
+      </div>
+      <div class="board-body" id="boardBody"></div>
+      <p class="board-note" id="boardNote"></p>
+    </section>
     <div class="fun" id="funBox">
       <p class="small">How fun was that run? 1 = dull, 5 = great</p>
       <div class="fun-row" id="funRow"></div>
@@ -1717,7 +1744,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v43-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v44-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1809,10 +1836,13 @@
       seconds: +st.levelTime.toFixed(1), place: player.place || null, stumbles: player.stumbles, godMode: !!st.godUsed, botMinus: !!botMinus,
       startSpeed: st.level.startSpeed, topSpeed: +st.topSpeed.toFixed(2), heatAtStart: r.heatAtStart,
       jumps: r.launches.length, duckPresses: r.ducks.length,
+      // v44 scoreboard fields
+      dodges: player.cleared, bestStreak: player.bestStreak, eggs: r.gold || 0, godSession: !!tele.godSession,
       rivals: racers.filter(x => !x.isPlayer).map(x => ({ name: x.name, stumbles: x.stumbles, place: x.place || null, out: x.out, survivor: !!x.survivor, stumbleLog: x.stumbleLog, comebacks: x.gains })),
       playerStumbleLog: player.stumbleLog, comebacks: player.gains,
       events: r.events,
     };
+    boardRecord(doc);   // v44: personal bests on this browser (skips god-mode sessions)
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
     if (!tele.db) { tele.lastSave = 'off'; return; }
     tele.lastSave = 'saving';
@@ -1843,10 +1873,11 @@
       result: doc.result, place: doc.place, finishPlace: doc.finishPlace, stumbles: doc.stumbles, seconds: doc.seconds,
       topSpeed: doc.topSpeed, reachedOvertime: !!doc.reachedOvertime, overtimeSec: doc.overtimeSec,
       jumps: doc.jumps, duckPresses: doc.duckPresses, godMode: doc.godMode, botMinus: doc.botMinus,
+      dodges: doc.dodges, bestStreak: doc.bestStreak, eggs: doc.eggs, godSession: doc.godSession,   // v44
       device, screen: `${screen.width}x${screen.height}`, session: doc.session, runInSession: doc.runInSession, details,
     };
     sheet.note = 'Sending run to the test sheet…';
-    fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', keepalive: details.length < 60000,
+    sheet.sending = fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', keepalive: details.length < 60000,
                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(row) })
       .then(() => { sheet.note = 'Run sent to the test sheet.'; noteSave(); })
       .catch(() => { sheet.note = 'This run couldn\'t be sent (no connection?).'; noteSave(); });
@@ -1885,6 +1916,150 @@
   }
   let testerSaveOnly = () => false;   // v43: set by setupTester
   function save_tester_from_box() { return testerSaveOnly(); }
+
+  // =====================================================================
+  //  v44 SCOREBOARD (results card)
+  //  "My bests": kept in this browser (localStorage 'jdf-board'). Works on every copy.
+  //  "Friends": GET SHEET_URL?board=1, answered by doGet in the Apps Script (github.io copy only).
+  //  Overall (all levels): Dodges = most in one run, ft/s = top speed, Streak = longest,
+  //  Acc = all runs combined, OT = longest overtime (s), Eggs = total earned.
+  //  Not counted (but still logged to the sheet as normal): runs with god mode or the bot-miss test
+  //  toggle on, and EVERY run in a session where god mode was switched on at any point.
+  //  Session = one page load (tele.session).
+  // =====================================================================
+  const BOARD_KEY = 'jdf-board', ACC_MIN = 20;   // accuracy shows once 20+ obstacles are counted
+  let board = null, boardTab = 'friends', friends = { state: 'idle', players: [], sort: 'dodges', err: '' }, lastRun = null;
+  function boardLoad() {
+    if (board) return board;
+    try { board = JSON.parse(localStorage.getItem(BOARD_KEY) || 'null'); } catch (e) { board = null; }
+    if (!board || board.v !== 1) {
+      // First time: eggs start from the eggs already earned on this phone; everything else starts now.
+      let eggs = 0; try { eggs = Math.max(0, parseInt(localStorage.getItem('jdf-gold') || '0', 10) || 0); } catch (e) {}
+      board = { v: 1, done: { runs: 0, d: 0, sp: 0, st: 0, ot: 0, td: 0, ts: 0, eg: eggs }, cur: null };
+    }
+    if (!board.cur || board.cur.session !== tele.session) {
+      if (board.cur && !board.cur.tainted) board.cur.runs.forEach(r => boardFold(board.done, r));   // last session counts
+      board.cur = { session: tele.session, tainted: false, runs: [] };
+    }
+    try { boardTab = localStorage.getItem('jdf-boardtab') === 'mine' ? 'mine' : 'friends'; } catch (e) {}
+    boardSave(); return board;
+  }
+  function boardSave() { try { localStorage.setItem(BOARD_KEY, JSON.stringify(board)); } catch (e) {} }
+  function boardFold(a, r) {
+    a.runs++; a.d = Math.max(a.d, r.d); a.sp = Math.max(a.sp, r.sp); a.st = Math.max(a.st, r.st); a.ot = Math.max(a.ot, r.ot);
+    a.td += r.d; a.ts += r.s; a.eg += r.eg; return a;
+  }
+  function boardTotals() {
+    const b = boardLoad(), t = Object.assign({}, b.done);
+    if (!b.cur.tainted) b.cur.runs.forEach(r => boardFold(t, r));
+    return t;
+  }
+  function boardTaint() { tele.godSession = true; const b = boardLoad(); b.cur.tainted = true; boardSave(); }
+  function boardRecord(doc) {
+    const run = { d: doc.dodges || 0, sp: doc.topSpeed || 0, st: doc.bestStreak || 0, ot: doc.overtimeSec || 0, s: doc.stumbles || 0, eg: doc.eggs || 0 };
+    const b = boardLoad(), counts = !(doc.godMode || doc.botMinus || b.cur.tainted);
+    const before = boardTotals();
+    if (counts) { b.cur.runs.push(run); if (b.cur.runs.length > 2000) b.cur.runs.shift(); boardSave(); }
+    if (doc.result !== 'abandoned') lastRun = { run, counts, before };
+  }
+  const accTxt = (d, s) => (d + s) >= ACC_MIN ? Math.round(100 * d / (d + s)) + '%' : '–';
+  function el(tag, text, cls) { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+  function boardShow() {
+    boardLoad();
+    const tabs = $('boardTabs');
+    tabs.classList.toggle('hidden', !sheet.on);
+    if (!sheet.on) boardTab = 'mine';
+    if (!tabs.dataset.wired) {
+      tabs.dataset.wired = '1';
+      const pick = t => { boardTab = t; try { localStorage.setItem('jdf-boardtab', t); } catch (e) {} boardRender(); };
+      $('tabFriends').addEventListener('click', () => pick('friends'));
+      $('tabMine').addEventListener('click', () => pick('mine'));
+    }
+    if (sheet.on) friendsLoad();
+    boardRender();
+  }
+  function boardRender() {
+    $('tabFriends').setAttribute('aria-selected', String(boardTab === 'friends'));
+    $('tabMine').setAttribute('aria-selected', String(boardTab === 'mine'));
+    const body = $('boardBody'); body.textContent = '';
+    if (boardTab === 'mine') return renderMine(body);
+    renderFriends(body);
+  }
+  function renderMine(body) {
+    const t = boardTotals(), L = lastRun, r = L ? L.run : null, pb = L ? L.before : null;
+    const tbl = el('table'), head = tbl.createTHead().insertRow();
+    ['', 'This run', 'Best'].forEach(h => head.appendChild(el('th', h)));
+    const tb = tbl.createTBody();
+    // [label, this run, best, beat previous best?]
+    const rows = [
+      ['Dodges', r && r.d, t.d, r && pb.runs && r.d > pb.d],
+      ['Top ft/s', r && r.sp.toFixed(1), t.sp ? t.sp.toFixed(1) : 0, r && pb.runs && r.sp > pb.sp],
+      ['Best streak', r && r.st, t.st, r && pb.runs && r.st > pb.st],
+      ['Accuracy', r && accTxt(r.d, r.s), accTxt(t.td, t.ts), false],
+      ['Overtime (s)', r && (r.ot ? r.ot.toFixed(0) : '–'), t.ot ? t.ot.toFixed(0) : '–', r && pb.runs && r.ot > pb.ot],
+      ['Eggs', r && '+' + r.eg, t.eg.toLocaleString(), false],
+    ];
+    rows.forEach(([lab, now, best, isNew]) => {
+      const tr = tb.insertRow();
+      tr.appendChild(el('td', lab));
+      tr.appendChild(el('td', now == null ? '–' : String(now), isNew && L.counts ? 'new' : ''));
+      tr.appendChild(el('td', String(best)));
+    });
+    body.appendChild(tbl);
+    $('boardNote').textContent = (L && !L.counts) ? 'God mode or a test toggle was on this session, so these runs don\'t count toward the board.'
+      : (L && rows.some(x => x[3])) ? 'Yellow = new personal best.' : `Bests from ${t.runs} counted run${t.runs === 1 ? '' : 's'} in this browser.`;
+  }
+  const FRIEND_COLS = [ ['dodges', 'Dodges', p => p.dodges], ['speed', 'ft/s', p => p.speed.toFixed(1)], ['streak', 'Streak', p => p.streak],
+                        ['acc', 'Acc', p => p.acc == null ? '–' : p.acc + '%'], ['ot', 'OT', p => p.ot ? p.ot.toFixed(0) : '–'], ['eggs', 'Eggs', p => p.eggs.toLocaleString()] ];
+  const DEVICE_TXT = { iOS: 'iPhone/iPad', Android: 'Android', Windows: 'Windows PC', Mac: 'Mac', other: 'other' };
+  function renderFriends(body) {
+    const f = friends, note = $('boardNote');
+    if (f.state !== 'ok') {
+      note.textContent = f.state === 'error' ? 'Couldn\'t load the friends board (' + f.err + '). Check your connection and finish another race.' : 'Loading the friends board…';
+      return;
+    }
+    if (!f.players.length) { note.textContent = 'No counted runs yet. Finish a race to start the board.'; return; }
+    const key = f.sort, col = FRIEND_COLS.find(c => c[0] === key);
+    const list = f.players.slice().sort((a, b) => ((b[key] ?? -1) - (a[key] ?? -1)) || (b.dodges - a.dodges));
+    const tbl = el('table'), head = tbl.createTHead().insertRow();
+    head.appendChild(el('th', 'Duck'));
+    FRIEND_COLS.forEach(([k, lab]) => {
+      const th = el('th', null, k === key ? 'on' : ''), b = el('button', lab);
+      b.setAttribute('aria-label', 'Rank by ' + lab);
+      b.addEventListener('click', () => { friends.sort = k; boardRender(); });
+      th.appendChild(b); head.appendChild(th);
+    });
+    const tb = tbl.createTBody(), me = (testerName || '').trim().toLowerCase();
+    list.slice(0, 20).forEach(p => {
+      const tr = tb.insertRow(); if (p.name.trim().toLowerCase() === me) tr.className = 'me';
+      const who = el('td', p.name, 'who');   // names come from the sheet: textContent only, never innerHTML
+      who.appendChild(el('small', (p.devices || []).map(d => DEVICE_TXT[d] || 'other').join(', ')));
+      tr.appendChild(who);
+      FRIEND_COLS.forEach(c => tr.appendChild(el('td', String(c[2](p)))));
+    });
+    body.appendChild(tbl);
+    note.textContent = `Ranked by ${col[1]}. Tap a heading to re-rank. Runs with god mode don't count.`;
+  }
+  function friendsLoad() {
+    friends.state = 'loading';
+    const ctl = window.AbortController ? new AbortController() : null;
+    const timer = setTimeout(() => ctl && ctl.abort(), 15000);
+    // Wait for this run's POST first, so the board includes it. The POST is no-cors (reply unreadable),
+    // but this GET is a plain "simple" request, which Apps Script answers with a readable JSON reply.
+    Promise.resolve(sheet.sending).catch(() => {})
+      .then(() => fetch(SHEET_URL + '?board=1&t=' + Date.now(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(j => {
+        if (!j || !Array.isArray(j.players)) throw new Error('bad reply');
+        friends.players = j.players.filter(p => p && typeof p.name === 'string').map(p => ({
+          name: p.name.slice(0, 24), devices: Array.isArray(p.devices) ? p.devices.slice(0, 4).map(String) : [],
+          dodges: +p.dodges || 0, speed: +p.speed || 0, streak: +p.streak || 0, acc: p.acc == null ? null : +p.acc, ot: +p.ot || 0, eggs: +p.eggs || 0 }));
+        friends.state = 'ok';
+      })
+      .catch(e => { friends.state = 'error'; friends.err = e && e.name === 'AbortError' ? 'timed out' : String((e && e.message) || e).slice(0, 40); })
+      .then(() => { clearTimeout(timer); if (mode === 'result') boardRender(); });
+  }
+  boardLoad();   // at page load, before any eggs are earned, so a first-time egg seed can't count this run twice
 
   // Fun signals: a rating the player gives, and what they chose to do next.
   function teleUpdate(fields) {
@@ -2284,6 +2459,7 @@
     mode = 'result';
     teleEnd(how);
     noteSave();
+    boardShow();   // v44
     buildFun();
     const L = st.level, next = LEVELS[levelIdx + 1];
     $('rCleared').textContent = player.cleared;
@@ -2460,6 +2636,7 @@
     }
     if (e.code === 'KeyY' && !e.repeat) {
       godMode = !godMode; if (godMode && mode === 'play') st.godUsed = true;
+      if (godMode) boardTaint();   // v44: any god mode in this session keeps the whole session off the scoreboard
       $('god').style.display = godMode ? '' : 'none';
       toast(godMode ? 'Invincible: on' : 'Invincible: off', godMode ? '#a8f58f' : '#ffe2a8');
       return;
