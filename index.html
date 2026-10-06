@@ -255,11 +255,14 @@
   .board th button { font: inherit; color: inherit; background: none; border: 0; padding: 2px 0; cursor: pointer; }
   .board th.on button { color: var(--butter); text-decoration: underline; text-underline-offset: 3px; }
   .board td { text-align: right; padding: 5px 4px; border-top: 1px solid rgba(255,226,168,.14); white-space: nowrap; }
-  .board td.who { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
-  .board td.who small { display: block; font-size: 11px; color: var(--ink-dim); }
+  .board td.who { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }   /* v45: device moved to its own column */
   .board tr.me td { color: var(--butter); font-weight: 600; }
   .board .new { color: var(--jump); font-weight: 600; }
   .board-note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; min-height: 1em; }
+  /* v45 RESULTS: title on one line (JS shrinks it to fit), smaller mascot, card ends above the podium */
+  #resTitle { white-space: nowrap; overflow: hidden; font-size: 30px; line-height: 1.05; margin-bottom: 6px; }
+  #result .mascot.small { flex: 0 0 48px; width: 48px; margin: -4px 0 0; }
+  #result.overlay { padding-bottom: var(--podium-clear, calc(env(safe-area-inset-bottom, 0px) + 16px)); }
   .fun { margin-top: 16px; text-align: center; }
   .fun .small { margin: 0 0 8px; }
   .fun-row { display: flex; gap: 6px; justify-content: center; }
@@ -451,13 +454,13 @@
       <div><b id="rSpeed">0</b><span>top ft/s</span></div>
       <div><b id="rStumbles">0</b><span id="rThird">stumbles</span></div>
     </div>
-    <button class="btn" id="resPrimary">Next level</button>
+    <button class="btn hidden" id="resPrimary" disabled>Next level</button>   <!-- v45: removed for now; Choose a level is the way on -->
     <button class="btn ghost" id="resSecondary">Choose a level</button>
     <!-- v44 SCOREBOARD: My bests (this browser) and Friends (Google Sheet, github.io copy only) -->
     <section class="board" id="board" aria-label="Scoreboard">
       <div class="board-tabs hidden" id="boardTabs" role="tablist">
         <button role="tab" id="tabFriends" aria-selected="true">Friends</button>
-        <button role="tab" id="tabMine" aria-selected="false">My bests</button>
+        <button role="tab" id="tabMine" aria-selected="false">My stats</button>
       </div>
       <div class="board-body" id="boardBody"></div>
       <p class="board-note" id="boardNote"></p>
@@ -1744,7 +1747,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v44-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v46-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1865,7 +1868,7 @@
   function sheetSend(doc) {
     if (!sheet.on) return;
     const ua = navigator.userAgent;
-    const device = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
+    const device = (/iPhone|iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
     let details = JSON.stringify(doc);
     if (details.length > 45000) { const d = Object.assign({}, doc, { events: doc.events.slice(0, 150), eventsTrimmed: true }); details = JSON.stringify(d).slice(0, 45000); }
     const row = {
@@ -1928,7 +1931,7 @@
   //  Session = one page load (tele.session).
   // =====================================================================
   const BOARD_KEY = 'jdf-board', ACC_MIN = 20;   // accuracy shows once 20+ obstacles are counted
-  let board = null, boardTab = 'friends', friends = { state: 'idle', players: [], sort: 'dodges', err: '' }, lastRun = null;
+  let board = null, boardTab = 'friends', friends = { state: 'idle', players: [], sort: 'streak', err: '' }, lastRun = null;
   function boardLoad() {
     if (board) return board;
     try { board = JSON.parse(localStorage.getItem(BOARD_KEY) || 'null'); } catch (e) { board = null; }
@@ -1941,7 +1944,6 @@
       if (board.cur && !board.cur.tainted) board.cur.runs.forEach(r => boardFold(board.done, r));   // last session counts
       board.cur = { session: tele.session, tainted: false, runs: [] };
     }
-    try { boardTab = localStorage.getItem('jdf-boardtab') === 'mine' ? 'mine' : 'friends'; } catch (e) {}
     boardSave(); return board;
   }
   function boardSave() { try { localStorage.setItem(BOARD_KEY, JSON.stringify(board)); } catch (e) {} }
@@ -1967,15 +1969,15 @@
   function boardShow() {
     boardLoad();
     const tabs = $('boardTabs');
-    tabs.classList.toggle('hidden', !sheet.on);
-    if (!sheet.on) boardTab = 'mine';
+    tabs.classList.remove('hidden');   // v45b: tabs on every copy (preview copies show sample friends)
+    boardTab = 'friends';   // v45: Friends is always the first view; "My stats" is a tap away
     if (!tabs.dataset.wired) {
       tabs.dataset.wired = '1';
-      const pick = t => { boardTab = t; try { localStorage.setItem('jdf-boardtab', t); } catch (e) {} boardRender(); };
+      const pick = t => { boardTab = t; boardRender(); };
       $('tabFriends').addEventListener('click', () => pick('friends'));
       $('tabMine').addEventListener('click', () => pick('mine'));
     }
-    if (sheet.on) friendsLoad();
+    friendsLoad();
     boardRender();
   }
   function boardRender() {
@@ -2009,54 +2011,74 @@
     $('boardNote').textContent = (L && !L.counts) ? 'God mode or a test toggle was on this session, so these runs don\'t count toward the board.'
       : (L && rows.some(x => x[3])) ? 'Yellow = new personal best.' : `Bests from ${t.runs} counted run${t.runs === 1 ? '' : 's'} in this browser.`;
   }
-  const FRIEND_COLS = [ ['dodges', 'Dodges', p => p.dodges], ['speed', 'ft/s', p => p.speed.toFixed(1)], ['streak', 'Streak', p => p.streak],
-                        ['acc', 'Acc', p => p.acc == null ? '–' : p.acc + '%'], ['ot', 'OT', p => p.ot ? p.ot.toFixed(0) : '–'], ['eggs', 'Eggs', p => p.eggs.toLocaleString()] ];
-  const DEVICE_TXT = { iOS: 'iPhone/iPad', Android: 'Android', Windows: 'Windows PC', Mac: 'Mac', other: 'other' };
+  // v45 columns: Name | Max streak | Top ft/s | Accuracy | Device. The three stats are tap-to-rank.
+  const FRIEND_COLS = [ ['streak', 'Max streak', p => p.streak], ['speed', 'Top ft/s', p => p.speed.toFixed(1)],
+                        ['acc', 'Accuracy', p => p.acc == null ? '–' : p.acc + '%'] ];
+  // Device: the player's most recent device, shown as just PC or Mobile.
+  const deviceKind = p => /^(iOS|Android)$/.test((p.devices || [])[0] || '') ? 'Mobile' : 'PC';
   function renderFriends(body) {
     const f = friends, note = $('boardNote');
     if (f.state !== 'ok') {
-      note.textContent = f.state === 'error' ? 'Couldn\'t load the friends board (' + f.err + '). Check your connection and finish another race.' : 'Loading the friends board…';
+      note.textContent = f.state === 'error' ? 'Couldn\'t load the friends board: ' + f.err + '. Finish another race to try again.' : 'Loading the friends board…';
       return;
     }
     if (!f.players.length) { note.textContent = 'No counted runs yet. Finish a race to start the board.'; return; }
     const key = f.sort, col = FRIEND_COLS.find(c => c[0] === key);
-    const list = f.players.slice().sort((a, b) => ((b[key] ?? -1) - (a[key] ?? -1)) || (b.dodges - a.dodges));
+    const list = f.players.slice().sort((a, b) => ((b[key] ?? -1) - (a[key] ?? -1)) || (b.streak - a.streak) || (b.speed - a.speed));
     const tbl = el('table'), head = tbl.createTHead().insertRow();
-    head.appendChild(el('th', 'Duck'));
+    head.appendChild(el('th', 'Name'));
     FRIEND_COLS.forEach(([k, lab]) => {
       const th = el('th', null, k === key ? 'on' : ''), b = el('button', lab);
       b.setAttribute('aria-label', 'Rank by ' + lab);
       b.addEventListener('click', () => { friends.sort = k; boardRender(); });
       th.appendChild(b); head.appendChild(th);
     });
+    head.appendChild(el('th', 'Device'));
     const tb = tbl.createTBody(), me = (testerName || '').trim().toLowerCase();
-    list.slice(0, 20).forEach(p => {
-      const tr = tb.insertRow(); if (p.name.trim().toLowerCase() === me) tr.className = 'me';
-      const who = el('td', p.name, 'who');   // names come from the sheet: textContent only, never innerHTML
-      who.appendChild(el('small', (p.devices || []).map(d => DEVICE_TXT[d] || 'other').join(', ')));
-      tr.appendChild(who);
+    list.forEach(p => {   // v45: every player, no cap
+      const tr = tb.insertRow(); if (p.me || p.name.trim().toLowerCase() === me) tr.className = 'me';
+      tr.appendChild(el('td', p.name, 'who'));   // names come from the sheet: textContent only, never innerHTML
       FRIEND_COLS.forEach(c => tr.appendChild(el('td', String(c[2](p)))));
+      tr.appendChild(el('td', deviceKind(p)));
     });
     body.appendChild(tbl);
-    note.textContent = `Ranked by ${col[1]}. Tap a heading to re-rank. Runs with god mode don't count.`;
+    note.textContent = friends.sample ? 'Preview: sample players plus your own stats from this browser. The live board shows on the GitHub copy.'
+      : `Ranked by ${col[1].toLowerCase()}. Tap a heading to re-rank. Sessions with god mode don't count.`;
+  }
+  // v45b PREVIEW (any copy not on github.io: Claude's chat preview, the artifact, a local file):
+  // runs are never SENT from here. It still tries to READ the live board; if that's blocked
+  // (the published artifact only allows a few script hosts), it shows made-up sample players
+  // plus a "You" row built from this browser's own stats, so the layout can be checked here.
+  function previewPlayers() {
+    const t = boardTotals();
+    return [
+      { name: 'You (preview)', me: true, devices: ['Windows'], streak: t.st, speed: t.sp, acc: (t.td + t.ts) >= ACC_MIN ? Math.round(100 * t.td / (t.td + t.ts)) : null },
+      { name: 'Sample Quacky', devices: ['iOS'], streak: 31, speed: 58.2, acc: 86 },
+      { name: 'Sample Puddles', devices: ['Android'], streak: 18, speed: 49.6, acc: 79 },
+      { name: 'Sample Waddle', devices: ['Mac'], streak: 9, speed: 41.0, acc: null },
+    ];
   }
   function friendsLoad() {
-    friends.state = 'loading';
+    friends.state = 'loading'; friends.sample = false;
     const ctl = window.AbortController ? new AbortController() : null;
     const timer = setTimeout(() => ctl && ctl.abort(), 15000);
     // Wait for this run's POST first, so the board includes it. The POST is no-cors (reply unreadable),
     // but this GET is a plain "simple" request, which Apps Script answers with a readable JSON reply.
     Promise.resolve(sheet.sending).catch(() => {})
       .then(() => fetch(SHEET_URL + '?board=1&t=' + Date.now(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined }))
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(j => {
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(txt => {
+        let j; try { j = JSON.parse(txt); }
+        catch (e) { throw new Error(/receiver is running/.test(txt) ? 'the scoreboard script needs redeploying' : 'the reply wasn\'t scoreboard data'); }
         if (!j || !Array.isArray(j.players)) throw new Error('bad reply');
         friends.players = j.players.filter(p => p && typeof p.name === 'string').map(p => ({
           name: p.name.slice(0, 24), devices: Array.isArray(p.devices) ? p.devices.slice(0, 4).map(String) : [],
           dodges: +p.dodges || 0, speed: +p.speed || 0, streak: +p.streak || 0, acc: p.acc == null ? null : +p.acc, ot: +p.ot || 0, eggs: +p.eggs || 0 }));
         friends.state = 'ok';
       })
-      .catch(e => { friends.state = 'error'; friends.err = e && e.name === 'AbortError' ? 'timed out' : String((e && e.message) || e).slice(0, 40); })
+      .catch(e => {
+        if (!sheet.on) { friends.players = previewPlayers(); friends.state = 'ok'; friends.sample = true; return; }   // v45b
+        friends.state = 'error'; friends.err = e && e.name === 'AbortError' ? 'it timed out' : String((e && e.message) || e).slice(0, 80); })
       .then(() => { clearTimeout(timer); if (mode === 'result') boardRender(); });
   }
   boardLoad();   // at page load, before any eggs are earned, so a first-time egg seed can't count this run twice
@@ -2158,6 +2180,25 @@
     if (firstBtn) setTimeout(() => firstBtn.focus({ preventScroll: true }), 30);
   }
   const levelName = L => L.boss ? `Boss ${L.chapter}` : `Level ${L.id}`;
+  // v45: results title on ONE line: start at 30px and step down until the text fits beside the mascot.
+  function fitOneLine(el, max, min) {
+    let size = max; el.style.fontSize = size + 'px';
+    while (el.scrollWidth > el.clientWidth + 1 && size > min) { size -= 1; el.style.fontSize = size + 'px'; }
+  }
+  // v45: the podium ducks draw on top of the results card (v38). So the card ends above the tallest
+  // podium piece: measure the highest point of the steps, ducks and name tags, and pad the overlay to it.
+  function resultLayout() {
+    if (mode !== 'result') return;
+    fitOneLine($('resTitle'), 30, 16);
+    let top = Infinity;
+    document.querySelectorAll('#podium .stand, #podium img, #podium .nm, #podium svg').forEach(e => {
+      const r = e.getBoundingClientRect(); if (r.height > 0 && r.top < top) top = r.top;
+    });
+    const ov = $('result');
+    if (top === Infinity) { ov.style.removeProperty('--podium-clear'); return; }
+    ov.style.setProperty('--podium-clear', Math.max(16, Math.round(window.innerHeight - top + 8)) + 'px');
+  }
+  window.addEventListener('resize', () => resultLayout());
   // Finish podium: a front-facing duck in the racer's color swims into its place slot.
   const duckSVG = c => `<svg viewBox="0 0 40 40" aria-hidden="true">
     <path d="M3 36 q4 -3 8 0 t8 0 t8 0 t8 0" fill="none" stroke="#6fd3ff" stroke-width="2" stroke-linecap="round"/>
@@ -2500,6 +2541,8 @@
     // v39 mascot reacts: cheers when you advance (or survive overtime), droops when you have to retry
     setMascot('mascotResult', (how === 'won' || (how === 'overtime' && st.finishOk)) ? 'cheer' : 'sad');
     showOverlay('result');
+    resultLayout();   // v45
+    setTimeout(resultLayout, 400);   // again once the champion picture has loaded and settled
   }
   function buildFun() {
     const row = $('funRow'); row.innerHTML = '';
