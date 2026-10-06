@@ -158,6 +158,15 @@
   @keyframes swimIn { 0% { opacity: 0; transform: translateY(14px) scale(.75); } 40% { opacity: 1; transform: translateY(-5px) scale(1.05) rotate(-6deg); }
     70% { transform: translateY(1px) rotate(4deg); } 100% { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .seat.swim > * { animation: none; } }
+  /* v50 FADE: podium ducks go 50% see-through so the results card shows through them. 2nd-4th fade once
+     they've climbed onto the step (after the .7 s swim-in); 1st fades 2 s after the results appear.
+     Only the duck picture fades: the step and name tag stay solid. The fade is on the inner picture
+     because the swim-in animation holds the outer element at full opacity. */
+  .seat .d3 img, .seat .champ3d img { transition: opacity .5s ease; }
+  .seat.faded .d3 img, .seat.faded .champ3d img { opacity: .5; }
+  .seat.faded:not(.champ) .d3 img { transition-delay: .7s; }
+  .seat > svg { transition: filter .5s ease; }
+  .seat.faded > svg { filter: opacity(.5); transition-delay: .7s; }
   /* Phone held sideways: little height, so the tracker sits between the level info and the place instead of under them. */
   @container stage (orientation: landscape) and (max-height: 520px) {
     .hud { flex-wrap: nowrap; }
@@ -281,7 +290,9 @@
   /* v45 RESULTS: title on one line (JS shrinks it to fit), smaller mascot, card ends above the podium */
   #resTitle { white-space: nowrap; overflow: hidden; font-size: 30px; line-height: 1.05; margin-bottom: 6px; }
   #result .mascot.small { flex: 0 0 48px; width: 48px; margin: -4px 0 0; }
-  #result.overlay { padding-bottom: var(--podium-clear, calc(env(safe-area-inset-bottom, 0px) + 16px)); }
+  /* v50: the results card runs down to just above the version label; the podium ducks overlap it (and fade, below) */
+  #result.overlay { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); }
+  #result .card { align-self: stretch; }
   .fun { margin-top: 16px; text-align: center; }
   .fun .small { margin: 0 0 8px; }
   .fun-row { display: flex; gap: 6px; justify-content: center; }
@@ -1780,7 +1791,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v49-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v50-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1967,7 +1978,7 @@
   //  Session = one page load (tele.session).
   // =====================================================================
   const BOARD_KEY = 'jdf-board', ACC_MIN = 20;   // accuracy shows once 20+ obstacles are counted
-  let board = null, boardTab = 'friends', friends = { state: 'idle', players: [], sort: 'streak', err: '' }, lastRun = null;
+  let board = null, boardTab = 'friends', friends = { state: 'idle', runs: [], sort: 'streak', err: '' }, lastRun = null;
   let boardCtx = 'result', friendsReq = 0;   // v47: 'result' (after a race) or 'title' (Leaderboard button)
   function boardLoad() {
     if (board) return board;
@@ -1999,7 +2010,7 @@
     const b = boardLoad(), counts = !(doc.godMode || doc.botMinus || b.cur.tainted);
     const before = boardTotals();
     if (counts) { b.cur.runs.push(run); if (b.cur.runs.length > 2000) b.cur.runs.shift(); boardSave(); }
-    if (doc.result !== 'abandoned') lastRun = { run, counts, before, at: Date.now() };   // v49: at = when it finished
+    if (doc.result !== 'abandoned') lastRun = { run, counts, before, at: Date.now(), id: doc.session + '#' + doc.runInSession };   // v49: at = when it finished; v50: id matches the sheet's run id
   }
   const accTxt = (d, s) => (d + s) >= ACC_MIN ? Math.round(100 * d / (d + s)) + '%' : '–';
   function el(tag, text, cls) { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
@@ -2054,10 +2065,22 @@
       : (L && rows.some(x => x[3])) ? 'Yellow = new personal best.' : `Bests from ${t.runs} counted run${t.runs === 1 ? '' : 's'} in this browser.`;
   }
   // v45 columns: Name | Max streak | Top ft/s | Accuracy | Device. The three stats are tap-to-rank.
+  // v50: the friends board is the TOP 10 RUNS (all levels mixed), one row per run, so a player can
+  // hold several spots or none. Accuracy is that run's own dodges / (dodges + stumbles), 20+ obstacles.
+  const FRIEND_TOP = 10;
   const FRIEND_COLS = [ ['streak', 'Max streak', p => p.streak], ['speed', 'Top ft/s', p => p.speed.toFixed(1)],
                         ['acc', 'Accuracy', p => p.acc == null ? '–' : p.acc + '%'] ];
-  // Device: the player's most recent device, shown as just PC or Mobile.
-  const deviceKind = p => /^(iOS|Android)$/.test((p.devices || [])[0] || '') ? 'Mobile' : 'PC';
+  // Same ranking rules as the Apps Script (SORTS there). Ties: the other stat, then the earlier run.
+  const RUN_SORTS = {
+    streak: (a, b) => (b.streak - a.streak) || (b.speed - a.speed) || (a.when - b.when),
+    speed:  (a, b) => (b.speed - a.speed) || (b.streak - a.streak) || (a.when - b.when),
+    acc:    (a, b) => (b.acc - a.acc) || (b.streak - a.streak) || (a.when - b.when),
+  };
+  function topRuns(runs, key) {
+    return runs.filter(r => key !== 'acc' || r.acc != null).sort(RUN_SORTS[key]).slice(0, FRIEND_TOP);
+  }
+  // Device: shown as just PC or Mobile.
+  const deviceKind = r => /^(iOS|Android)$/.test(r.device || '') ? 'Mobile' : 'PC';
   function renderFriends(body) {
     const f = friends, note = $('boardNote');
     if (f.state !== 'ok') {
@@ -2070,9 +2093,9 @@
         + (f.slow ? ' The sheet is slow to answer; still waiting.' : '');
       return;
     }
-    if (!f.players.length) { note.textContent = f.stale ? 'Updating the board…' : 'No counted runs yet. Finish a race to start the board.'; return; }
+    if (!f.runs.length) { note.textContent = f.stale ? 'Updating the board…' : 'No counted runs yet. Finish a race to start the board.'; return; }
     const key = f.sort, col = FRIEND_COLS.find(c => c[0] === key);
-    const list = f.players.slice().sort((a, b) => ((b[key] ?? -1) - (a[key] ?? -1)) || (b.streak - a.streak) || (b.speed - a.speed));
+    const list = topRuns(f.runs, key);
     const tbl = el('table'), head = tbl.createTHead().insertRow();
     head.appendChild(el('th', 'Name'));
     FRIEND_COLS.forEach(([k, lab]) => {
@@ -2083,13 +2106,14 @@
     });
     head.appendChild(el('th', 'Device'));
     const tb = tbl.createTBody(), me = (testerName || '').trim().toLowerCase();
-    list.forEach(p => {   // v45: every player, no cap
-      const tr = tb.insertRow(); if (p.me || p.name.trim().toLowerCase() === me) tr.className = 'me';
-      tr.appendChild(el('td', p.name, 'who'));   // names come from the sheet: textContent only, never innerHTML
-      FRIEND_COLS.forEach(c => tr.appendChild(el('td', String(c[2](p)))));
-      tr.appendChild(el('td', deviceKind(p)));
+    list.forEach(r => {
+      const tr = tb.insertRow(); if (r.me || r.name.trim().toLowerCase() === me) tr.className = 'me';
+      tr.appendChild(el('td', r.name, 'who'));   // names come from the sheet: textContent only, never innerHTML
+      FRIEND_COLS.forEach(c => tr.appendChild(el('td', String(c[2](r)))));
+      tr.appendChild(el('td', deviceKind(r)));
     });
     body.appendChild(tbl);
+    if (!list.length) { note.textContent = 'No run has 20+ obstacles yet, so nothing ranks by accuracy. Tap another heading.'; return; }
     if (f.stale && f.refreshErr) {   // v49: cached board stays up; offer a retry instead of an error screen
       const mins = Math.max(1, Math.round((Date.now() - f.cachedAt) / 60000));
       note.textContent = `Showing the board from ${mins} min ago; the sheet didn't answer. `;
@@ -2097,21 +2121,22 @@
       b.addEventListener('click', () => { friendsLoad(); boardRender(); });
       note.appendChild(b); return;
     }
-    note.textContent = friends.sample ? 'Preview: sample players plus your own stats from this browser. The live board shows on the GitHub copy.'
+    note.textContent = friends.sample ? 'Preview: sample runs plus your own best run from this browser. The live board shows on the GitHub copy.'
       : f.stale ? 'Updating the board…'
-      : `Ranked by ${col[1].toLowerCase()}. Tap a heading to re-rank. Sessions with god mode don't count.`;
+      : `Top ${FRIEND_TOP} runs, ranked by ${col[1].toLowerCase()}. Tap a heading to re-rank. Sessions with god mode don't count.`;
   }
   // v45b PREVIEW (any copy not on github.io: Claude's chat preview, the artifact, a local file):
   // runs are never SENT from here. It still tries to READ the live board; if that's blocked
   // (the published artifact only allows a few script hosts), it shows made-up sample players
   // plus a "You" row built from this browser's own stats, so the layout can be checked here.
-  function previewPlayers() {
+  function previewPlayers() {   // v50: sample RUNS (same name can appear more than once)
     const t = boardTotals();
     return [
-      { name: 'You (preview)', me: true, devices: ['Windows'], streak: t.st, speed: t.sp, acc: (t.td + t.ts) >= ACC_MIN ? Math.round(100 * t.td / (t.td + t.ts)) : null },
-      { name: 'Sample Quacky', devices: ['iOS'], streak: 31, speed: 58.2, acc: 86 },
-      { name: 'Sample Puddles', devices: ['Android'], streak: 18, speed: 49.6, acc: 79 },
-      { name: 'Sample Waddle', devices: ['Mac'], streak: 9, speed: 41.0, acc: null },
+      { id: 'p0', name: 'You (preview)', me: true, device: 'Windows', streak: t.st, speed: t.sp, acc: (t.td + t.ts) >= ACC_MIN ? Math.round(100 * t.td / (t.td + t.ts)) : null, when: 1 },
+      { id: 'p1', name: 'Sample Quacky', device: 'iOS', streak: 31, speed: 58.2, acc: 86, when: 2 },
+      { id: 'p2', name: 'Sample Quacky', device: 'iOS', streak: 24, speed: 61.0, acc: 81, when: 3 },
+      { id: 'p3', name: 'Sample Puddles', device: 'Android', streak: 18, speed: 49.6, acc: 79, when: 4 },
+      { id: 'p4', name: 'Sample Waddle', device: 'Mac', streak: 9, speed: 41.0, acc: null, when: 5 },
     ];
   }
   // v47: (1) wait for this run's upload at most 8 s, then give the board request its OWN 20 s
@@ -2120,31 +2145,27 @@
   // v49 FAST BOARD: the last board this browser received is kept in localStorage ('jdf-friends') and
   // shown INSTANTLY, with this browser's latest counted run folded in. The sheet is asked in the
   // background and the table quietly updates when it answers. Nobody waits on Apps Script any more.
-  const FRIENDS_KEY = 'jdf-friends';
+  const FRIENDS_KEY = 'jdf-friends-runs';   // v50: new key (v49's 'jdf-friends' held per-player totals)
+  try { localStorage.removeItem('jdf-friends'); } catch (e) {}
   function friendsCacheGet() {
-    try { const c = JSON.parse(localStorage.getItem(FRIENDS_KEY) || 'null'); return c && Array.isArray(c.players) ? c : null; } catch (e) { return null; }
+    try { const c = JSON.parse(localStorage.getItem(FRIENDS_KEY) || 'null'); return c && Array.isArray(c.runs) ? c : null; } catch (e) { return null; }
   }
-  function friendsCachePut(players) { try { localStorage.setItem(FRIENDS_KEY, JSON.stringify({ at: Date.now(), players })); } catch (e) {} }
-  // Fold the latest counted run into a copy of the board. Bests (max) are safe to fold twice.
-  // Totals (eggs, accuracy) are only added when the board copy is older than the run.
-  function mergeMine(players, addTotals) {
-    const L = lastRun; if (!L || !L.counts || !testerName) return players;
-    const me = testerName.trim().toLowerCase(), r = L.run, list = players.map(p => Object.assign({}, p));
-    let p = list.find(x => x.name.trim().toLowerCase() === me);
-    if (!p) { p = { name: testerName, devices: [myDevice()], dodges: 0, speed: 0, streak: 0, acc: null, ot: 0, eggs: 0, td: 0, ts: 0 }; list.push(p); addTotals = true; }
-    p.dodges = Math.max(p.dodges, r.d); p.speed = Math.max(p.speed, r.sp); p.streak = Math.max(p.streak, r.st); p.ot = Math.max(p.ot, r.ot);
-    if (addTotals) {
-      p.eggs += r.eg;
-      if (p.td != null && p.ts != null) { p.td += r.d; p.ts += r.s; p.acc = (p.td + p.ts) >= ACC_MIN ? Math.round(100 * p.td / (p.td + p.ts)) : null; }
-    }
-    return list;
+  function friendsCachePut(runs) { try { localStorage.setItem(FRIENDS_KEY, JSON.stringify({ at: Date.now(), runs })); } catch (e) {} }
+  // v50: add the just-finished counted run to a copy of the board, unless the sheet already has it
+  // (same id = session#runInSession). topRuns() then decides whether it makes the top 10.
+  function mergeMine(runs) {
+    const L = lastRun; if (!L || !L.counts || !testerName) return runs;
+    if (runs.some(x => x.id === L.id)) return runs;
+    const r = L.run;
+    return runs.concat([{ id: L.id, name: testerName, device: myDevice(), streak: r.st, speed: Math.round(r.sp * 10) / 10,
+      d: r.d, s: r.s, acc: (r.d + r.s) >= ACC_MIN ? Math.round(100 * r.d / (r.d + r.s)) : null, when: L.at }]);
   }
   function friendsLoad(retrying) {
     const req = ++friendsReq;
     const cached = sheet.on ? friendsCacheGet() : null;
     friends.sample = false; friends.slow = false; friends.retrying = !!retrying; friends.refreshErr = '';
     if (cached) {   // v49: show the saved board right away
-      friends.players = mergeMine(cached.players, !!lastRun && cached.at < lastRun.at);
+      friends.runs = mergeMine(cached.runs);
       friends.state = 'ok'; friends.stale = true; friends.cachedAt = cached.at;
     } else { friends.state = 'loading'; friends.stale = false; }
     const ctl = window.AbortController ? new AbortController() : null;
@@ -2162,19 +2183,18 @@
       .then(txt => {
         let j; try { j = JSON.parse(txt); }
         catch (e) { throw new Error(/receiver is running/.test(txt) ? 'the scoreboard script needs redeploying' : 'the reply wasn\'t scoreboard data'); }
-        if (!j || !Array.isArray(j.players)) throw new Error('bad reply');
+        if (!j || !Array.isArray(j.runs)) throw new Error(Array.isArray(j && j.players) ? 'the scoreboard script needs the v50 update' : 'bad reply');
         if (req !== friendsReq) return;
-        const fresh = j.players.filter(p => p && typeof p.name === 'string').map(p => ({
-          name: p.name.slice(0, 24), devices: Array.isArray(p.devices) ? p.devices.slice(0, 4).map(String) : [],
-          dodges: +p.dodges || 0, speed: +p.speed || 0, streak: +p.streak || 0, acc: p.acc == null ? null : +p.acc, ot: +p.ot || 0, eggs: +p.eggs || 0,
-          td: p.td == null ? null : +p.td, ts: p.ts == null ? null : +p.ts }));   // v49: td/ts let the merge update accuracy
+        const fresh = j.runs.filter(r => r && typeof r.name === 'string').map(r => ({
+          id: String(r.id), name: r.name.slice(0, 24), device: String(r.device || ''), streak: +r.streak || 0, speed: +r.speed || 0,
+          acc: r.acc == null ? null : +r.acc, when: +r.when || 0 }));
         friendsCachePut(fresh);
-        friends.players = mergeMine(fresh, false);   // bests only, in case the upload hadn't landed yet
+        friends.runs = mergeMine(fresh);   // in case the upload hadn't landed yet
         friends.state = 'ok'; friends.stale = false;
       })
       .catch(e => {
         if (req !== friendsReq) return;
-        if (!sheet.on) { friends.players = previewPlayers(); friends.state = 'ok'; friends.sample = true; return; }   // v45b
+        if (!sheet.on) { friends.runs = previewPlayers(); friends.state = 'ok'; friends.sample = true; return; }   // v45b
         const timedOut = e && e.name === 'AbortError';
         if (!retrying && (timedOut || e instanceof TypeError)) {   // TypeError = the connection failed
           setTimeout(() => { if (req === friendsReq) friendsLoad(true); }, 1000);
@@ -2299,19 +2319,12 @@
     let size = max; el.style.fontSize = size + 'px';
     while (el.scrollWidth > el.clientWidth + 1 && size > min) { size -= 1; el.style.fontSize = size + 'px'; }
   }
-  // v45: the podium ducks draw on top of the results card (v38). So the card ends above the tallest
-  // podium piece: measure the highest point of the steps, ducks and name tags, and pad the overlay to it.
+  // v45-v49 measured the podium so the card ended above it. v50: the card runs to the bottom instead.
   function resultLayout() {
     if (mode === 'boards') return fitCard(boardCard());   // v47
     if (mode !== 'result') return;
     fitOneLine($('resTitle'), 30, 16);
-    let top = Infinity;
-    document.querySelectorAll('#podium .stand, #podium img, #podium .nm, #podium svg').forEach(e => {
-      const r = e.getBoundingClientRect(); if (r.height > 0 && r.top < top) top = r.top;
-    });
-    const ov = $('result');
-    if (top === Infinity) ov.style.removeProperty('--podium-clear');
-    else ov.style.setProperty('--podium-clear', Math.max(16, Math.round(window.innerHeight - top + 8)) + 'px');
+    const ov = $('result');   // v50: no podium measuring; the card now runs to the bottom (podium ducks fade over it)
     fitCard(ov.querySelector('.card'));   // v47
   }
   // v47 FIT: if the results card is taller than its space, switch to tighter spacing (it stays tight
@@ -2336,7 +2349,7 @@
     <circle cx="17.3" cy="12.2" r=".5" fill="#fff"/><circle cx="23.7" cy="12.2" r=".5" fill="#fff"/>
     <ellipse cx="20" cy="18" rx="4.2" ry="2.3" fill="#ff9a1f" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`;
   function podiumReset() {
-    document.querySelectorAll('#podium .seat').forEach(el => { el.innerHTML = ''; el.classList.remove('swim'); el.dataset.who = ''; });
+    document.querySelectorAll('#podium .seat').forEach(el => { el.innerHTML = ''; el.classList.remove('swim', 'faded', 'champ'); el.dataset.who = ''; });
     racers.forEach(r => { r.podium = 0; r.seated = false; });
     podiumLive(true);
   }
@@ -2358,7 +2371,7 @@
       if (!seat || w === 'keep') continue;
       const key = w ? 'live:' + w.name : '';
       if (seat.dataset.who === key) continue;
-      seat.dataset.who = key; seat.classList.remove('swim');
+      seat.dataset.who = key; seat.classList.remove('swim', 'faded', 'champ');
       if (!w) { seat.innerHTML = ''; continue; }
       seat.innerHTML = duckSVG(w.isPlayer ? '#ffd23f' : (w.tagColor || '#fff4e0')) + '<span class="nm"></span>';
       const nm = seat.querySelector('.nm'); nm.textContent = w.name; nm.style.color = w.isPlayer ? '#ffd23f' : (w.tagColor || 'var(--ink)');
@@ -2451,7 +2464,8 @@
         nm.textContent = r.name; nm.style.color = nameColor;
         nm.style.left = 'calc(50% - 150px)'; nm.style.bottom = ((big.feet - big.top) * W / big.aspect + 4) + 'px';
         seat.dataset.who = '3d:' + r.name;
-        seat.classList.remove('swim'); void seat.offsetWidth; seat.classList.add('swim');
+        seat.classList.remove('swim', 'faded'); seat.classList.add('champ');   // v50: champ fades later (showResult)
+        void seat.offsetWidth; seat.classList.add('swim');
         return;
       }
     }
@@ -2459,7 +2473,9 @@
     seat.innerHTML = (img ? `<div class="d3"><img class="duck3d" alt="" src="${img.url}"></div>` : duckSVG(r.isPlayer ? '#ffd23f' : (r.tagColor || '#fff4e0'))) + '<span class="nm"></span>';
     seat.dataset.who = '3d:' + r.name;
     const nm = seat.querySelector('.nm'); nm.textContent = r.name; nm.style.color = nameColor;
-    seat.classList.remove('swim'); void seat.offsetWidth; seat.classList.add('swim');
+    seat.classList.remove('swim', 'faded', 'champ'); void seat.offsetWidth; seat.classList.add('swim');
+    if (place === 1) seat.classList.add('champ');   // fallback small picture for 1st: fades with the champ timer
+    else requestAnimationFrame(() => seat.classList.add('faded'));   // v50: 2nd-4th fade as they land (CSS waits out the swim-in)
   }
 
   function hud() {
@@ -2630,6 +2646,9 @@
     const rc = $('result').querySelector('.card'); rc.classList.remove('tight'); rc.scrollTop = 0;   // v47
     $('resSecondary').after($('board'));   // v47: the scoreboard lives under Choose a level on results
     boardShow('result');   // v44
+    const fadeRun = runId;   // v50: 1st-place duck fades 2 s after the results appear
+    setTimeout(() => { if (runId !== fadeRun || mode !== 'result') return;
+      const s1 = document.querySelector('#podium .slot[data-place="1"] .seat'); if (s1) s1.classList.add('faded'); }, 2000);
     buildFun();
     const L = st.level, next = LEVELS[levelIdx + 1];
     $('rCleared').textContent = player.cleared;
