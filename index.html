@@ -259,6 +259,25 @@
   .board tr.me td { color: var(--butter); font-weight: 600; }
   .board .new { color: var(--jump); font-weight: 600; }
   .board-note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; min-height: 1em; }
+  .board-note .retry { font: inherit; font-weight: 600; color: var(--butter); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+  /* v47 TITLE: Choose a level + Leaderboard share one row, smaller than Play */
+  .btn-row { display: flex; gap: 8px; }
+  #title .btn-row .btn { flex: 1 1 0; min-width: 0; font-size: 15px; padding: 10px 8px; }
+  /* v47 RESULTS FIT: tighter spacing when the card is too tall for the space above the podium */
+  #result .card.tight { padding: 16px 18px; }
+  #result .card.tight .sub { font-size: 14px; margin-bottom: 4px; }
+  #result .card.tight .stats { margin: 2px 0 8px; }
+  #result .card.tight .stats b { font-size: 22px; }
+  #result .card.tight .btn { padding: 10px 16px; font-size: 17px; margin-top: 6px; }
+  #result .card.tight .board { margin-top: 10px; }
+  #result .card.tight .board td { padding: 3px 4px; }
+  #result .card.tight .fun { margin-top: 10px; }
+  /* v47 "More below" hint: zero-height sticky strip at the bottom of a scrolling card; its label draws upward */
+  .more-hint { position: sticky; bottom: -24px; height: 0; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .more-hint span { position: absolute; left: -30px; right: -30px; bottom: 0; padding: 26px 0 8px; text-align: center;
+    font-size: 12px; font-weight: 600; color: var(--butter); background: linear-gradient(rgba(20,16,58,0), rgba(20,16,58,.97) 65%); }
+  .card.has-more .more-hint { opacity: 1; }
+  #result .card.tight .more-hint { bottom: -16px; }   /* tight padding is 16px */
   /* v45 RESULTS: title on one line (JS shrinks it to fit), smaller mascot, card ends above the podium */
   #resTitle { white-space: nowrap; overflow: hidden; font-size: 30px; line-height: 1.05; margin-bottom: 6px; }
   #result .mascot.small { flex: 0 0 48px; width: 48px; margin: -4px 0 0; }
@@ -390,7 +409,10 @@
       <p class="tester-err hidden" id="testerErr">Enter a name first, so your runs show up under it.</p>
     </div>
     <button class="btn" id="playBtn">Play</button>
-    <button class="btn ghost" id="levelsBtn">Choose a level</button>
+    <div class="btn-row">   <!-- v47: Leaderboard beside a smaller Choose a level -->
+      <button class="btn ghost" id="levelsBtn">Choose a level</button>
+      <button class="btn ghost" id="boardBtn">Leaderboard</button>
+    </div>
     <button class="linkish botMinus">Bots: 1 fewer miss (testing): OFF</button>
   </div>
 </div>
@@ -403,6 +425,16 @@
     <button class="btn ghost" id="selectBack">Back</button>
     <button class="linkish" id="unlockAll">Unlock all levels (for testing)</button>
     <button class="linkish botMinus">Bots: 1 fewer miss (testing): OFF</button>
+  </div>
+</div>
+
+<!-- v47 LEADERBOARD from the title screen. The #board section moves here while it's open. -->
+<div class="overlay hidden" id="boards">
+  <div class="card">
+    <h1>Leaderboard</h1>
+    <div id="boardsSlot"></div>
+    <button class="btn ghost" id="boardsBack">Back</button>
+    <div class="more-hint" aria-hidden="true"><span>More below ▾</span></div>
   </div>
 </div>
 
@@ -470,6 +502,7 @@
       <div class="fun-row" id="funRow"></div>
     </div>
     <p class="small" id="saveNote" style="text-align:center;margin-top:12px"></p>
+    <div class="more-hint" aria-hidden="true"><span>More below ▾</span></div>   <!-- v47 -->
   </div>
 </div>
 
@@ -1747,7 +1780,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v46-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v47-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1763,7 +1796,7 @@
         const res = await fetch(location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' });
         const m = (await res.text()).match(/const BUILD = '([^']+)'/);
         if (m && m[1] !== BUILD) {
-          if (mode === 'title' || mode === 'select' || mode === 'result') {
+          if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'result') {
             if (sessionStorage.getItem('jdf-reloaded') === m[1]) return;   // already tried this build: no reload loop
             sessionStorage.setItem('jdf-reloaded', m[1]);
             location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]));
@@ -1932,6 +1965,7 @@
   // =====================================================================
   const BOARD_KEY = 'jdf-board', ACC_MIN = 20;   // accuracy shows once 20+ obstacles are counted
   let board = null, boardTab = 'friends', friends = { state: 'idle', players: [], sort: 'streak', err: '' }, lastRun = null;
+  let boardCtx = 'result', friendsReq = 0;   // v47: 'result' (after a race) or 'title' (Leaderboard button)
   function boardLoad() {
     if (board) return board;
     try { board = JSON.parse(localStorage.getItem(BOARD_KEY) || 'null'); } catch (e) { board = null; }
@@ -1966,7 +2000,8 @@
   }
   const accTxt = (d, s) => (d + s) >= ACC_MIN ? Math.round(100 * d / (d + s)) + '%' : '–';
   function el(tag, text, cls) { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
-  function boardShow() {
+  function boardShow(ctx) {
+    boardCtx = ctx || 'result';   // v47
     boardLoad();
     const tabs = $('boardTabs');
     tabs.classList.remove('hidden');   // v45b: tabs on every copy (preview copies show sample friends)
@@ -1984,13 +2019,17 @@
     $('tabFriends').setAttribute('aria-selected', String(boardTab === 'friends'));
     $('tabMine').setAttribute('aria-selected', String(boardTab === 'mine'));
     const body = $('boardBody'); body.textContent = '';
-    if (boardTab === 'mine') return renderMine(body);
-    renderFriends(body);
+    if (boardTab === 'mine') renderMine(body); else renderFriends(body);
+    fitCard(boardCard());   // v47: content height changed
   }
+  // v47: redraw only while a scoreboard is on screen
+  function boardRefresh() { if (mode === 'result' || mode === 'boards') boardRender(); }
+  const boardCard = () => $(mode === 'boards' ? 'boards' : 'result').querySelector('.card');
   function renderMine(body) {
-    const t = boardTotals(), L = lastRun, r = L ? L.run : null, pb = L ? L.before : null;
+    const t = boardTotals(), showRun = boardCtx === 'result';   // v47: the title-screen board has no "this run"
+    const L = showRun ? lastRun : null, r = L ? L.run : null, pb = L ? L.before : null;
     const tbl = el('table'), head = tbl.createTHead().insertRow();
-    ['', 'This run', 'Best'].forEach(h => head.appendChild(el('th', h)));
+    (showRun ? ['', 'This run', 'Best'] : ['', 'Best']).forEach(h => head.appendChild(el('th', h)));
     const tb = tbl.createTBody();
     // [label, this run, best, beat previous best?]
     const rows = [
@@ -2004,7 +2043,7 @@
     rows.forEach(([lab, now, best, isNew]) => {
       const tr = tb.insertRow();
       tr.appendChild(el('td', lab));
-      tr.appendChild(el('td', now == null ? '–' : String(now), isNew && L.counts ? 'new' : ''));
+      if (showRun) tr.appendChild(el('td', now == null ? '–' : String(now), isNew && L.counts ? 'new' : ''));
       tr.appendChild(el('td', String(best)));
     });
     body.appendChild(tbl);
@@ -2019,7 +2058,13 @@
   function renderFriends(body) {
     const f = friends, note = $('boardNote');
     if (f.state !== 'ok') {
-      note.textContent = f.state === 'error' ? 'Couldn\'t load the friends board: ' + f.err + '. Finish another race to try again.' : 'Loading the friends board…';
+      if (f.state === 'error') {   // v47: a Try again link instead of "finish another race"
+        note.textContent = 'Couldn\'t load the friends board: ' + f.err + '. ';
+        const b = el('button', 'Try again', 'retry');
+        b.addEventListener('click', () => { friendsLoad(); boardRender(); });
+        note.appendChild(b);
+      } else note.textContent = 'Loading the friends board…' + (f.retrying ? ' Trying again.' : '')
+        + (f.slow ? ' The sheet is slow to answer; still waiting.' : '');
       return;
     }
     if (!f.players.length) { note.textContent = 'No counted runs yet. Finish a race to start the board.'; return; }
@@ -2058,28 +2103,46 @@
       { name: 'Sample Waddle', devices: ['Mac'], streak: 9, speed: 41.0, acc: null },
     ];
   }
-  function friendsLoad() {
-    friends.state = 'loading'; friends.sample = false;
+  // v47: (1) wait for this run's upload at most 8 s, then give the board request its OWN 20 s
+  // (v44-v46 shared one 15 s budget between both); (2) one automatic retry on a timeout or a
+  // dropped connection; (3) a request that's been replaced (newer load) is ignored.
+  function friendsLoad(retrying) {
+    const req = ++friendsReq;
+    friends.state = 'loading'; friends.sample = false; friends.slow = false; friends.retrying = !!retrying;
     const ctl = window.AbortController ? new AbortController() : null;
-    const timer = setTimeout(() => ctl && ctl.abort(), 15000);
+    let timer = 0;
+    const slow = setTimeout(() => { if (req === friendsReq && friends.state === 'loading') { friends.slow = true; boardRefresh(); } }, 6000);
     // Wait for this run's POST first, so the board includes it. The POST is no-cors (reply unreadable),
     // but this GET is a plain "simple" request, which Apps Script answers with a readable JSON reply.
-    Promise.resolve(sheet.sending).catch(() => {})
-      .then(() => fetch(SHEET_URL + '?board=1&t=' + Date.now(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined }))
+    const upload = Promise.race([Promise.resolve(sheet.sending).catch(() => {}), new Promise(ok => setTimeout(ok, 8000))]);
+    upload
+      .then(() => {
+        timer = setTimeout(() => ctl && ctl.abort(), 20000);
+        return fetch(SHEET_URL + '?board=1&t=' + Date.now(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined });
+      })
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
       .then(txt => {
         let j; try { j = JSON.parse(txt); }
         catch (e) { throw new Error(/receiver is running/.test(txt) ? 'the scoreboard script needs redeploying' : 'the reply wasn\'t scoreboard data'); }
         if (!j || !Array.isArray(j.players)) throw new Error('bad reply');
+        if (req !== friendsReq) return;
         friends.players = j.players.filter(p => p && typeof p.name === 'string').map(p => ({
           name: p.name.slice(0, 24), devices: Array.isArray(p.devices) ? p.devices.slice(0, 4).map(String) : [],
           dodges: +p.dodges || 0, speed: +p.speed || 0, streak: +p.streak || 0, acc: p.acc == null ? null : +p.acc, ot: +p.ot || 0, eggs: +p.eggs || 0 }));
         friends.state = 'ok';
       })
       .catch(e => {
+        if (req !== friendsReq) return;
         if (!sheet.on) { friends.players = previewPlayers(); friends.state = 'ok'; friends.sample = true; return; }   // v45b
-        friends.state = 'error'; friends.err = e && e.name === 'AbortError' ? 'it timed out' : String((e && e.message) || e).slice(0, 80); })
-      .then(() => { clearTimeout(timer); if (mode === 'result') boardRender(); });
+        const timedOut = e && e.name === 'AbortError';
+        if (!retrying && (timedOut || e instanceof TypeError)) {   // TypeError = the connection failed
+          setTimeout(() => { if (req === friendsReq) friendsLoad(true); }, 1000);
+          return 'retry';
+        }
+        friends.state = 'error';
+        friends.err = timedOut ? 'no reply from the sheet in 20 s' : String((e && e.message) || e).slice(0, 80);
+      })
+      .then(res => { clearTimeout(timer); clearTimeout(slow); if (res !== 'retry' && req === friendsReq) boardRefresh(); });
   }
   boardLoad();   // at page load, before any eggs are earned, so a first-time egg seed can't count this run twice
 
@@ -2115,7 +2178,7 @@
   //  UI
   // =====================================================================
   const $ = id => document.getElementById(id);
-  const overlays = ['title', 'select', 'paused', 'result'];
+  const overlays = ['title', 'select', 'boards', 'paused', 'result'];
   // v39 MASCOT: Sarge, the game's army duck. Original drawing, made from shapes so it stays sharp at any size.
   // Poses: 'salute' (title), 'cheer' (won), 'sad' (lost), 'halt' (paused).
   function mascotSVG(pose) {
@@ -2170,8 +2233,9 @@
 
   function showOverlay(id) {
     overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
-    $('hud').classList.toggle('hidden', id === 'title' || id === 'select');
-    $('tracker').classList.toggle('hidden', id === 'title' || id === 'select');
+    const menu = id === 'title' || id === 'select' || id === 'boards';   // v47: + leaderboard
+    $('hud').classList.toggle('hidden', menu);
+    $('tracker').classList.toggle('hidden', menu);
     $('pads').classList.toggle('hidden', !!id && id !== 'result');   // pads while racing; podium stays up on the results screen
     requestAnimationFrame(() => fitCamera());   // v29: HUD size may have changed
     $('pads').classList.toggle('results', id === 'result');
@@ -2188,6 +2252,7 @@
   // v45: the podium ducks draw on top of the results card (v38). So the card ends above the tallest
   // podium piece: measure the highest point of the steps, ducks and name tags, and pad the overlay to it.
   function resultLayout() {
+    if (mode === 'boards') return fitCard(boardCard());   // v47
     if (mode !== 'result') return;
     fitOneLine($('resTitle'), 30, 16);
     let top = Infinity;
@@ -2195,9 +2260,20 @@
       const r = e.getBoundingClientRect(); if (r.height > 0 && r.top < top) top = r.top;
     });
     const ov = $('result');
-    if (top === Infinity) { ov.style.removeProperty('--podium-clear'); return; }
-    ov.style.setProperty('--podium-clear', Math.max(16, Math.round(window.innerHeight - top + 8)) + 'px');
+    if (top === Infinity) ov.style.removeProperty('--podium-clear');
+    else ov.style.setProperty('--podium-clear', Math.max(16, Math.round(window.innerHeight - top + 8)) + 'px');
+    fitCard(ov.querySelector('.card'));   // v47
   }
+  // v47 FIT: if the results card is taller than its space, switch to tighter spacing (it stays tight
+  // until the next results screen, so flipping tabs doesn't make it jump). Any card that still has
+  // content below the fold shows a "More below" hint at the bottom edge until you scroll down.
+  function fitCard(card) {
+    if (!card) return;
+    if (card.closest('#result') && card.scrollHeight > card.clientHeight + 1) card.classList.add('tight');
+    moreHint(card);
+  }
+  function moreHint(card) { card.classList.toggle('has-more', card.scrollHeight - card.scrollTop - card.clientHeight > 8); }
+  document.querySelectorAll('#result .card, #boards .card').forEach(c => c.addEventListener('scroll', () => moreHint(c), { passive: true }));
   window.addEventListener('resize', () => resultLayout());
   // Finish podium: a front-facing duck in the racer's color swims into its place slot.
   const duckSVG = c => `<svg viewBox="0 0 40 40" aria-hidden="true">
@@ -2500,7 +2576,9 @@
     mode = 'result';
     teleEnd(how);
     noteSave();
-    boardShow();   // v44
+    const rc = $('result').querySelector('.card'); rc.classList.remove('tight'); rc.scrollTop = 0;   // v47
+    $('resSecondary').after($('board'));   // v47: the scoreboard lives under Choose a level on results
+    boardShow('result');   // v44
     buildFun();
     const L = st.level, next = LEVELS[levelIdx + 1];
     $('rCleared').textContent = player.cleared;
@@ -2627,6 +2705,12 @@
   $('levelsBtn').addEventListener('click', () => { if (testerReady()) openSelect(); });
   setupTester();   // v40
   $('selectBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
+  // v47 LEADERBOARD from the title screen: same scoreboard, moved into its own card
+  $('boardBtn').addEventListener('click', () => {
+    mode = 'boards'; $('boardsSlot').appendChild($('board')); $('boards').querySelector('.card').scrollTop = 0;
+    showOverlay('boards'); boardShow('title');
+  });
+  $('boardsBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   $('unlockAll').addEventListener('click', () => { saveUnlocked(LEVELS.length - 1); buildSelect(); });
   document.querySelectorAll('.botMinus').forEach(b => b.addEventListener('click', () => setBotMinus(!botMinus)));
   $('pauseBtn').addEventListener('click', pause);
@@ -2862,7 +2946,7 @@
       if (mode === 'play') hudFrame();
     } else if (mode === 'dying') {
       simStep(simDt, dt);
-    } else if (mode === 'title' || mode === 'select') {
+    } else if (mode === 'title' || mode === 'select' || mode === 'boards') {
       st.theta += 0.3 * dt;
     }
 
