@@ -169,9 +169,22 @@
   .overlay { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 16px;
     padding-top: calc(env(safe-area-inset-top, 0px) + 16px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); box-sizing: border-box; }
   .overlay.hidden { display: none; }
+  .hidden { display: none !important; }   /* v41: name-box parts toggle .hidden; v40 had no rule, so nothing ever hid */
   .card { background: var(--panel); border: 2px solid rgba(255,226,168,.35); border-radius: 22px; padding: 24px 22px; max-width: 410px; width: 100%;
     max-height: 100%; overflow-y: auto; box-sizing: border-box; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
   .card.wide { max-width: 540px; }
+  .overlay .card { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }   /* v41: let a tall card scroll on phones */
+  /* v41 SHORT SCREENS (in-app browsers, Safari with toolbars): shrink the title card so Play fits without scrolling */
+  @container stage (max-height: 760px) {
+    #title .card { padding: 16px 18px; }
+    #title .mascot.big { width: 84px; margin: -4px auto 0; }
+    #title .card .sub { font-size: 14px; margin-bottom: 8px; }
+    #title .card ul { font-size: 14px; line-height: 1.3; margin-bottom: 8px; }
+    #title .card li { padding: 3px 0 3px 24px; }
+    #title .card li::before { top: 7px; }
+    #title .tester { margin-top: 6px; }
+    #title .btn { padding: 11px 16px; }
+  }
   /* v39 MASCOT: the army duck (not a racer). Big on the title card, small beside the heading on results and pause. */
   .mascot { display: block; pointer-events: none; }
   .mascot svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -183,6 +196,10 @@
   @keyframes msBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
   @media (prefers-reduced-motion: reduce) { .mascot .ms-bob { animation: none; } }
   .card h1 { font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: clamp(32px, 9.5cqw, 44px); line-height: .95; margin: 0 0 8px; color: var(--butter); }
+  /* v42: title on ONE line. Bungee caps run ~0.66em per character, so 16 characters ≈ 10.6em; dividing
+     the card's text width by 11 leaves a small margin. Card text width = card width (stage minus 32px of
+     overlay padding, max 410px) minus 48px of card padding and border. */
+  .card h1.title-one { white-space: nowrap; font-size: min(calc((min(100cqw - 32px, 410px) - 48px) / 11), 44px); }
   .card .sub { color: var(--ink-dim); margin: 0 0 16px; font-size: 15px; line-height: 1.4; }
   .card ul { list-style: none; margin: 0 0 18px; padding: 0; font-size: 15px; line-height: 1.4; }
   .card li { padding: 6px 0 6px 26px; position: relative; }
@@ -209,6 +226,7 @@
   .tester input:focus-visible { outline: 3px solid var(--jump); outline-offset: 2px; }
   .btn.tiny { width: auto; margin-top: 0; padding: 8px 14px; font-size: 15px; }
   .tester-who { font-size: 14px; margin: 0; }
+  .tester-who .linkish { display: inline; margin: 0 0 0 6px; }   /* v41: inline beside the name */
   .tester-err { font-size: 13px; color: var(--duck); margin: 6px 0 0; }
   button:focus-visible { outline: 3px solid var(--jump); outline-offset: 3px; }
 
@@ -338,18 +356,16 @@
 <div class="overlay" id="title">
   <div class="card">
     <div class="mascot big" id="mascotTitle" aria-hidden="true"></div>
-    <h1>Jump Duck Faster</h1>
+    <h1 class="title-one">Jump Duck Faster</h1>
     <p class="sub">Race three rival ducks up the water slide to the finish arch. Every level speeds up as you go.</p>
     <ul>
       <li class="j">Yellow hurdles: hop. Quick tap on <b>Jump</b> (bottom right), or tap <kbd>↑</kbd> / <kbd>Space</kbd>.</li>
-      <li class="t">Orange hurdles: big jump. Hold <b>Jump</b> or <kbd>↑</kbd> to keep rising.</li>
       <li class="d">Red bars: duck. Hold <b>Duck</b> (bottom left) or <kbd>↓</kbd>; you stay down while you hold. You can press one while holding the other.</li>
       <li class="e">Each miss and a wave washes you back down the slide. Run out of stumbles and you're in the pool.</li>
     </ul>
     <div class="tester hidden" id="tester">
       <label for="testerName">Your name, so your test runs are labeled</label>
       <div class="tester-row"><input id="testerName" maxlength="24" autocomplete="nickname" enterkeyhint="done" placeholder="e.g. Thot"><button class="btn tiny" id="testerSave">Save</button></div>
-      <p class="tester-who hidden" id="testerWho">Playing as <b id="testerShown"></b>. <button class="linkish" id="testerChange">Change name</button></p>
       <p class="tester-err hidden" id="testerErr">Enter a name first, so your runs show up under it.</p>
     </div>
     <button class="btn" id="playBtn">Play</button>
@@ -1701,7 +1717,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v40-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v42-2026-10-05';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1838,12 +1854,12 @@
   function setupTester() {
     if (!sheet.on) return;   // artifact copy and local files: no name box
     $('tester').classList.remove('hidden');
+    // v42: the name box always stays on screen, filled in with the saved name; the label says it's saved.
+    const label = $('tester').querySelector('label');
     const show = () => {
       const has = !!testerName;
-      $('testerShown').textContent = testerName;
-      $('testerWho').classList.toggle('hidden', !has);
-      $('testerName').closest('.tester-row').classList.toggle('hidden', has);
-      $('tester').querySelector('label').classList.toggle('hidden', has);
+      if (has) $('testerName').value = testerName;
+      label.textContent = has ? 'Playing as ' + testerName + ' (saved). Edit and Save to change.' : 'Your name, so your test runs are labeled';
       if (has) $('testerErr').classList.add('hidden');
     };
     const save = () => {
@@ -1854,12 +1870,13 @@
     };
     $('testerSave').addEventListener('click', save);
     $('testerName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
-    $('testerChange').addEventListener('click', () => { $('testerName').value = testerName; testerName = ''; show(); $('testerName').focus(); });
     show();
   }
   function testerReady() {
-    if (!sheet.on || testerName) return true;
-    if ($('testerName').value.trim()) return save_tester_from_box();
+    if (!sheet.on) return true;
+    const typed = $('testerName').value.trim();
+    if (typed && typed !== testerName) return save_tester_from_box();   // v42: unsaved edit → save it first
+    if (testerName) return true;
     $('testerErr').classList.remove('hidden'); $('testerName').focus(); return false;
   }
   function save_tester_from_box() { $('testerSave').click(); return !!testerName; }
@@ -2478,9 +2495,22 @@
     el.addEventListener('pointercancel', up);
     el.addEventListener('lostpointercapture', up);
     el.addEventListener('contextmenu', e => e.preventDefault());   // long-press menus on Android/iOS
+    // v41: Safari decides double-tap zoom from touch events, not pointer events. Cancelling the touch
+    // itself stops the zoom; pointerdown/pointerup above still fire, so Jump/Duck work the same.
+    el.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+    el.addEventListener('touchend', e => e.preventDefault(), { passive: false });
     const clear = () => { if (fingers.size) { fingers.clear(); el.classList.remove('down'); release(); } };
     pads.push(clear);
   }
+  // v41: backup zoom guard. During a race, a second tap within 350 ms anywhere is cancelled so Safari
+  // can't read it as double-tap zoom. Menus are left alone so fast taps on their buttons still work.
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (mode === 'play' && now - lastTouchEnd < 350) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+  ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));   // Safari pinch
   makePad($('jumpPad'), () => player.pressUp(), () => player.releaseUp());
   makePad($('duckPad'), () => player.pressDown(), () => player.releaseDown());
   const releasePads = () => pads.forEach(c => c());
