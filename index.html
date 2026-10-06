@@ -171,7 +171,7 @@
   .overlay.hidden { display: none; }
   .hidden { display: none !important; }   /* v41: name-box parts toggle .hidden; v40 had no rule, so nothing ever hid */
   .card { background: var(--panel); border: 2px solid rgba(255,226,168,.35); border-radius: 22px; padding: 24px 22px; max-width: 410px; width: 100%;
-    max-height: 100%; overflow-y: auto; box-sizing: border-box; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+    max-height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
   .card.wide { max-width: 540px; }
   .overlay .card { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }   /* v41: let a tall card scroll on phones */
   /* v41 SHORT SCREENS (in-app browsers, Safari with toolbars): shrink the title card so Play fits without scrolling */
@@ -1780,7 +1780,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v47-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v49-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1898,10 +1898,13 @@
   const sheet = { on: location.hostname.endsWith('github.io') && SHEET_URL.startsWith('https://script.google.com/'), note: '' };
   let testerName = '';
   try { testerName = (localStorage.getItem('jdf-tester') || '').slice(0, 24); } catch (e) {}
+  function myDevice() {   // v49: shared by sheetSend and the friends-board merge
+    const ua = navigator.userAgent;
+    return (/iPhone|iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
+  }
   function sheetSend(doc) {
     if (!sheet.on) return;
-    const ua = navigator.userAgent;
-    const device = (/iPhone|iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
+    const device = myDevice();
     let details = JSON.stringify(doc);
     if (details.length > 45000) { const d = Object.assign({}, doc, { events: doc.events.slice(0, 150), eventsTrimmed: true }); details = JSON.stringify(d).slice(0, 45000); }
     const row = {
@@ -1996,7 +1999,7 @@
     const b = boardLoad(), counts = !(doc.godMode || doc.botMinus || b.cur.tainted);
     const before = boardTotals();
     if (counts) { b.cur.runs.push(run); if (b.cur.runs.length > 2000) b.cur.runs.shift(); boardSave(); }
-    if (doc.result !== 'abandoned') lastRun = { run, counts, before };
+    if (doc.result !== 'abandoned') lastRun = { run, counts, before, at: Date.now() };   // v49: at = when it finished
   }
   const accTxt = (d, s) => (d + s) >= ACC_MIN ? Math.round(100 * d / (d + s)) + '%' : '–';
   function el(tag, text, cls) { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
@@ -2067,7 +2070,7 @@
         + (f.slow ? ' The sheet is slow to answer; still waiting.' : '');
       return;
     }
-    if (!f.players.length) { note.textContent = 'No counted runs yet. Finish a race to start the board.'; return; }
+    if (!f.players.length) { note.textContent = f.stale ? 'Updating the board…' : 'No counted runs yet. Finish a race to start the board.'; return; }
     const key = f.sort, col = FRIEND_COLS.find(c => c[0] === key);
     const list = f.players.slice().sort((a, b) => ((b[key] ?? -1) - (a[key] ?? -1)) || (b.streak - a.streak) || (b.speed - a.speed));
     const tbl = el('table'), head = tbl.createTHead().insertRow();
@@ -2087,7 +2090,15 @@
       tr.appendChild(el('td', deviceKind(p)));
     });
     body.appendChild(tbl);
+    if (f.stale && f.refreshErr) {   // v49: cached board stays up; offer a retry instead of an error screen
+      const mins = Math.max(1, Math.round((Date.now() - f.cachedAt) / 60000));
+      note.textContent = `Showing the board from ${mins} min ago; the sheet didn't answer. `;
+      const b = el('button', 'Try again', 'retry');
+      b.addEventListener('click', () => { friendsLoad(); boardRender(); });
+      note.appendChild(b); return;
+    }
     note.textContent = friends.sample ? 'Preview: sample players plus your own stats from this browser. The live board shows on the GitHub copy.'
+      : f.stale ? 'Updating the board…'
       : `Ranked by ${col[1].toLowerCase()}. Tap a heading to re-rank. Sessions with god mode don't count.`;
   }
   // v45b PREVIEW (any copy not on github.io: Claude's chat preview, the artifact, a local file):
@@ -2106,9 +2117,36 @@
   // v47: (1) wait for this run's upload at most 8 s, then give the board request its OWN 20 s
   // (v44-v46 shared one 15 s budget between both); (2) one automatic retry on a timeout or a
   // dropped connection; (3) a request that's been replaced (newer load) is ignored.
+  // v49 FAST BOARD: the last board this browser received is kept in localStorage ('jdf-friends') and
+  // shown INSTANTLY, with this browser's latest counted run folded in. The sheet is asked in the
+  // background and the table quietly updates when it answers. Nobody waits on Apps Script any more.
+  const FRIENDS_KEY = 'jdf-friends';
+  function friendsCacheGet() {
+    try { const c = JSON.parse(localStorage.getItem(FRIENDS_KEY) || 'null'); return c && Array.isArray(c.players) ? c : null; } catch (e) { return null; }
+  }
+  function friendsCachePut(players) { try { localStorage.setItem(FRIENDS_KEY, JSON.stringify({ at: Date.now(), players })); } catch (e) {} }
+  // Fold the latest counted run into a copy of the board. Bests (max) are safe to fold twice.
+  // Totals (eggs, accuracy) are only added when the board copy is older than the run.
+  function mergeMine(players, addTotals) {
+    const L = lastRun; if (!L || !L.counts || !testerName) return players;
+    const me = testerName.trim().toLowerCase(), r = L.run, list = players.map(p => Object.assign({}, p));
+    let p = list.find(x => x.name.trim().toLowerCase() === me);
+    if (!p) { p = { name: testerName, devices: [myDevice()], dodges: 0, speed: 0, streak: 0, acc: null, ot: 0, eggs: 0, td: 0, ts: 0 }; list.push(p); addTotals = true; }
+    p.dodges = Math.max(p.dodges, r.d); p.speed = Math.max(p.speed, r.sp); p.streak = Math.max(p.streak, r.st); p.ot = Math.max(p.ot, r.ot);
+    if (addTotals) {
+      p.eggs += r.eg;
+      if (p.td != null && p.ts != null) { p.td += r.d; p.ts += r.s; p.acc = (p.td + p.ts) >= ACC_MIN ? Math.round(100 * p.td / (p.td + p.ts)) : null; }
+    }
+    return list;
+  }
   function friendsLoad(retrying) {
     const req = ++friendsReq;
-    friends.state = 'loading'; friends.sample = false; friends.slow = false; friends.retrying = !!retrying;
+    const cached = sheet.on ? friendsCacheGet() : null;
+    friends.sample = false; friends.slow = false; friends.retrying = !!retrying; friends.refreshErr = '';
+    if (cached) {   // v49: show the saved board right away
+      friends.players = mergeMine(cached.players, !!lastRun && cached.at < lastRun.at);
+      friends.state = 'ok'; friends.stale = true; friends.cachedAt = cached.at;
+    } else { friends.state = 'loading'; friends.stale = false; }
     const ctl = window.AbortController ? new AbortController() : null;
     let timer = 0;
     const slow = setTimeout(() => { if (req === friendsReq && friends.state === 'loading') { friends.slow = true; boardRefresh(); } }, 6000);
@@ -2126,10 +2164,13 @@
         catch (e) { throw new Error(/receiver is running/.test(txt) ? 'the scoreboard script needs redeploying' : 'the reply wasn\'t scoreboard data'); }
         if (!j || !Array.isArray(j.players)) throw new Error('bad reply');
         if (req !== friendsReq) return;
-        friends.players = j.players.filter(p => p && typeof p.name === 'string').map(p => ({
+        const fresh = j.players.filter(p => p && typeof p.name === 'string').map(p => ({
           name: p.name.slice(0, 24), devices: Array.isArray(p.devices) ? p.devices.slice(0, 4).map(String) : [],
-          dodges: +p.dodges || 0, speed: +p.speed || 0, streak: +p.streak || 0, acc: p.acc == null ? null : +p.acc, ot: +p.ot || 0, eggs: +p.eggs || 0 }));
-        friends.state = 'ok';
+          dodges: +p.dodges || 0, speed: +p.speed || 0, streak: +p.streak || 0, acc: p.acc == null ? null : +p.acc, ot: +p.ot || 0, eggs: +p.eggs || 0,
+          td: p.td == null ? null : +p.td, ts: p.ts == null ? null : +p.ts }));   // v49: td/ts let the merge update accuracy
+        friendsCachePut(fresh);
+        friends.players = mergeMine(fresh, false);   // bests only, in case the upload hadn't landed yet
+        friends.state = 'ok'; friends.stale = false;
       })
       .catch(e => {
         if (req !== friendsReq) return;
@@ -2139,12 +2180,21 @@
           setTimeout(() => { if (req === friendsReq) friendsLoad(true); }, 1000);
           return 'retry';
         }
+        if (friends.stale) { friends.refreshErr = String((e && e.message) || e).slice(0, 80); return; }   // v49: keep the saved board up
         friends.state = 'error';
         friends.err = timedOut ? 'no reply from the sheet in 20 s' : String((e && e.message) || e).slice(0, 80);
       })
       .then(res => { clearTimeout(timer); clearTimeout(slow); if (res !== 'retry' && req === friendsReq) boardRefresh(); });
   }
   boardLoad();   // at page load, before any eggs are earned, so a first-time egg seed can't count this run twice
+  // v49: fetch the board in the background at page load and at each race start, so the saved copy
+  // stays fresh and the Apps Script is already awake when the race ends.
+  let friendsPrefetchAt = 0;
+  function friendsPrefetch() {
+    if (!sheet.on || mode === 'result' || mode === 'boards' || Date.now() - friendsPrefetchAt < 60000) return;
+    friendsPrefetchAt = Date.now(); friendsLoad();
+  }
+  friendsPrefetch();   // page load
 
   // Fun signals: a rating the player gives, and what they chose to do next.
   function teleUpdate(fields) {
@@ -2547,6 +2597,7 @@
     resetFor(L);
     podiumReset();
     mode = 'countdown';
+    friendsPrefetch();   // v49
     teleStart(L);
     showOverlay(null);
     hud();
