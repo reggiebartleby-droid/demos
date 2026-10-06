@@ -123,6 +123,39 @@
     font-family: "Bungee", "Impact", sans-serif; font-size: clamp(24px, 7cqw, 50px); opacity: 0; text-align: center;
     width: 92cqw; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
   .toast.show { animation: pop 1.5s ease-out forwards; }
+  /* v68/v69 LAST DUCK STANDING: both texts pop in (small + see-through -> full size + solid in .35 s), drift upward
+     the whole time like firework smoke, stay solid 1 s, then fade out slowly over 3 s.
+     "Last duck standing!" glows while solid; when it starts to fade, a gold ring + sparks burst out (the explosion),
+     and .35 s later the green "BONUS: 2x Gold!" pops in with its own green burst (the next firework shell).
+     All CSS animations (no timers), so the paused-body class can freeze them mid-show. */
+  .lds { position: fixed; left: 50%; top: 30%; width: 0; height: 0; z-index: 3; pointer-events: none; }
+  .lds-t, .lds-b { position: absolute; left: -46cqw; width: 92cqw; text-align: center; font-family: "Bungee", "Impact", sans-serif;
+    line-height: 1.05; opacity: 0; transform-origin: 50% 50%; }
+  .lds-t { top: -.55em; font-size: clamp(26px, 8cqw, 54px); color: #fff3c4; text-shadow: 0 0 10px rgba(255,200,61,.8), 0 4px 0 rgba(0,0,0,.4);
+    animation: ldsGrow .35s cubic-bezier(.25,1.4,.5,1) forwards, ldsShow .35s ease-out forwards, ldsRise 4.35s cubic-bezier(.3,.5,.6,1) forwards,
+      ldsGlow .33s ease-in-out .35s 3 alternate, ldsFade 3s linear 1.35s forwards; }
+  .lds-b { top: .6em; font-size: clamp(30px, 10cqw, 62px); color: #8cff5a; -webkit-text-stroke: 1px #0a4d17;
+    text-shadow: 0 0 10px #c8ffb0, 0 0 26px #5dff3a, 0 0 50px rgba(57,255,60,.75), 0 3px 0 #063d14;
+    animation: ldsGrow .35s cubic-bezier(.25,1.4,.5,1) 1.7s both, ldsShow .35s ease-out 1.7s forwards, ldsRise 4.35s cubic-bezier(.3,.5,.6,1) 1.7s forwards,
+      ldsFade 3s linear 3.05s forwards; }
+  .lds-ring { position: absolute; left: -40px; top: -40px; width: 80px; height: 80px; border-radius: 50%; opacity: 0;
+    border: 6px solid #ffe27a; box-shadow: 0 0 24px #ffc83d, inset 0 0 18px #fff3c4; animation: ldsRing .55s ease-out 1.35s forwards; }
+  .lds-ring.g { border-color: #5dff7a; box-shadow: 0 0 24px #39ff6a, inset 0 0 18px #d9ffe0; animation-delay: 1.7s; }
+  .lds i { position: absolute; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%; opacity: 0; background: currentColor; box-shadow: 0 0 8px currentColor;
+    animation: fw 1s cubic-bezier(.15,.75,.35,1) 1.35s forwards; }
+  .lds i.g { animation-delay: 1.7s; }
+  @keyframes ldsGrow { from { scale: .35; } to { scale: 1; } }   /* size: quick, with a tiny overshoot */
+  @keyframes ldsShow { from { opacity: 0; } to { opacity: 1; } }  /* see-through -> solid over the same .35 s */
+  @keyframes ldsRise { from { translate: 0 0; } to { translate: 0 -64px; } }
+  @keyframes ldsFade { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes ldsGlow { from { text-shadow: 0 0 10px rgba(255,200,61,.8), 0 0 22px rgba(255,159,28,.5), 0 4px 0 rgba(0,0,0,.4); }
+    to { text-shadow: 0 0 14px #fff3c4, 0 0 32px #ffc83d, 0 0 64px #ff9f1c, 0 4px 0 rgba(0,0,0,.4); color: #ffffff; } }
+  @keyframes ldsRing { 0% { opacity: 1; transform: scale(.3); } 100% { opacity: 0; transform: scale(3.6); } }
+  body.is-paused .lds, body.is-paused .lds * { animation-play-state: paused !important; }
+  @media (prefers-reduced-motion: reduce) { .lds-t { animation: ldsFade .3s reverse forwards, ldsFade 3s linear 1.35s forwards; }
+    .lds-b { animation: ldsFade .3s 1.7s reverse forwards, ldsFade 3s linear 3.05s forwards; } .lds i, .lds-ring { display: none; } }
+  /* v68: "2x" tag on the egg counter while the bonus is on */
+  .gold.x2::after { content: "2x"; margin-left: 2px; padding: 1px 4px; border-radius: 6px; font-size: 11px; color: #062b0e; background: #5dff7a; box-shadow: 0 0 8px rgba(93,255,122,.8); text-shadow: none; }
   @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.8); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -65%) scale(1); } }
   /* v35: version number in the bottom-right corner (always shown, never blocks taps) */
   .ver { position: fixed; right: 5px; bottom: calc(env(safe-area-inset-bottom, 0px) + 3px); z-index: 6; pointer-events: none;
@@ -480,7 +513,6 @@
       <button class="btn ghost" id="levelsBtn">Choose a level</button>
       <button class="btn ghost" id="boardBtn">Leaderboard</button>
     </div>
-    <button class="linkish botMinus">Bots: 1 fewer miss (testing): OFF</button>
   </div>
 </div>
 
@@ -491,7 +523,6 @@
     <div id="chapters"></div>
     <button class="btn ghost" id="selectBack">Back</button>
     <button class="linkish" id="unlockAll">Unlock all levels (for testing)</button>
-    <button class="linkish botMinus">Bots: 1 fewer miss (testing): OFF</button>
   </div>
 </div>
 
@@ -1264,13 +1295,9 @@
   const st = { obs: [], theta: 0 };
   let rivalHeat = 0;   // adaptive rival difficulty: -0.5 (go easy) .. +0.3 (push harder)
   let mode = 'title', time = 0, levelIdx = 0, runId = 0;
-  // v38 TESTING: rival ducks wash out after one fewer miss (never below 1). Not saved: a reload turns it off.
-  // Toggle on the title or level screen, or the B key. Takes effect when the next level starts.
-  let botMinus = false;
-  function setBotMinus(on) {
-    botMinus = on;
-    document.querySelectorAll('.botMinus').forEach(b => b.textContent = 'Bots: 1 fewer miss (testing): ' + (on ? 'ON' : 'OFF'));
-  }
+  // v38 TESTING: rival ducks wash out after one fewer miss. v69: the toggle (buttons + B key) is removed;
+  // botMinus stays as an always-off constant so saved runs still carry botMinus: false and the checks below stay valid.
+  const botMinus = false;
   const botMisses = (r, n) => (botMinus && !r.isPlayer) ? Math.max(1, n - 1) : n;
   let godMode = false;   // Y key: the player's duck can't be hit (testing / fun). Runs played with it are tagged.
   const ease3 = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
@@ -1695,6 +1722,7 @@
       countdown: 3.2, countShown: 4, levelTime: 0,
       overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, otStart: 0, speedAtFinish: null,
     });
+    $('gold').classList.remove('x2'); document.querySelectorAll('.lds').forEach(e => e.remove());   // v68
     bots.forEach((b, i) => b.setActive(i < L.rivals));
     racers = [player, ...bots.filter(b => b.active)];
     racers.forEach((r, i) => { r.slot = i; r.reset(L); r.elimAt = undefined; r.elimOrder = 0; r.survivor = false; });
@@ -1886,7 +1914,7 @@
     // v34: the player is the only duck left: keep racing (and speeding up faster) until washed out.
     // The player's own wash-out then ends the race through the normal overtime path.
     if (alive.length === 1 && alive[0].isPlayer) {
-      if (!st.solo) { st.solo = true; player.survivor = true; st.stepTimer = 0; toast('Last duck standing! Keep going', '#ffe2a8'); }
+      if (!st.solo) { st.solo = true; player.survivor = true; st.stepTimer = 0; lastDuckPop(); $('gold').classList.add('x2'); }   // v68: glow + explode + 2x bonus
       return;
     }
     st.ending = true;
@@ -1904,7 +1932,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v67-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v69-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -2677,6 +2705,9 @@
   }
   // n = eggs earned. drop = how the loot looks: { count, big } (default: n normal eggs).
   function addGold(n, pos, drop) {
+    // v68 BONUS: while you're the last duck standing every reward is doubled, and twice as many eggs fall
+    // (1 dodge = 2 eggs; award drops double their egg count, capped at 30 so the screen doesn't flood)
+    if (st.solo) { n *= 2; if (drop) drop = Object.assign({}, drop, { count: Math.min(30, drop.count * 2) }); }
     gold += n;
     probe.mark('eggs');   // v59
     if (OFF.has('save')) { if (!saveGoldT) saveGoldT = setTimeout(saveGold, 1000); }   // v59 A/B: batch the save
@@ -3128,6 +3159,30 @@
   window.__jdfPile = pile;   // lets showOverlay (defined earlier) clear it without touching the const before it exists
   showGold();
 
+  // v68/v69 LAST DUCK STANDING show (timings live in the .lds CSS): text pops in and glows for 1 s, then starts its
+  // 3 s fade as a gold ring + sparks burst out; .35 s later the green "BONUS: 2x Gold!" pops in with a green burst.
+  function lastDuckPop() {
+    probe.mark('toast');
+    document.querySelectorAll('.lds').forEach(e => e.remove());
+    $('toast').classList.remove('show');   // don't stack an older toast under it
+    const w = document.createElement('div'); w.className = 'lds'; w.setAttribute('aria-live', 'polite');
+    w.innerHTML = '<div class="lds-t">Last duck standing!</div><div class="lds-ring"></div><div class="lds-ring g"></div><div class="lds-b">BONUS: 2x Gold!</div>';
+    $('toast').parentNode.appendChild(w);
+    const b = w.querySelector('.lds-b'), gy = Math.round(b.offsetTop + b.offsetHeight / 2);   // green burst centred on the bonus text
+    w.querySelector('.lds-ring.g').style.top = (gy - 40) + 'px';
+    const vw = Math.min(innerWidth, 520), frag = document.createDocumentFragment();
+    const spark = (k, i, n, rx, ry, y0, cols) => {
+      const a = (i / n) * Math.PI * 2 + Math.random() * .3, d = .65 + Math.random() * .5, s = document.createElement('i');
+      if (k) s.className = k;
+      s.style.cssText = `top:${y0}px;color:${cols[i % cols.length]};--dx:${(Math.cos(a) * rx * d).toFixed(0)}px;--dy:${(Math.sin(a) * ry * d).toFixed(0)}px`;
+      frag.appendChild(s);
+    };
+    for (let i = 0; i < 30; i++) spark('', i, 30, vw * .5, 130, 0, ['#ffd23f', '#fff3c4', '#ff9f1c', '#ffffff']);
+    for (let i = 0; i < 22; i++) spark('g', i, 22, vw * .42, 110, gy, ['#5dff7a', '#d9ffe0', '#39ff6a']);
+    w.appendChild(frag);
+    b.addEventListener('animationend', e => { if (e.animationName === 'ldsFade') w.remove(); });   // gone once the bonus has faded
+  }
+
   let toastTimer;
   function toast(text, color) {
     probe.mark('toast');   // v59
@@ -3355,7 +3410,6 @@
   });
   $('boardsBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   $('unlockAll').addEventListener('click', () => { saveUnlocked(LEVELS.length - 1); buildSelect(); });
-  document.querySelectorAll('.botMinus').forEach(b => b.addEventListener('click', () => setBotMinus(!botMinus)));
   $('pauseBtn').addEventListener('click', pause);
   $('resumeBtn').addEventListener('click', resume);
   $('restartBtn').addEventListener('click', () => startLevel(levelIdx));
@@ -3402,11 +3456,6 @@
     if (gameKey && (mode === 'play' || mode === 'dying')) e.preventDefault();
     if (e.code === 'Escape' || e.code === 'KeyP') { if (mode === 'paused') resume(); else pause(); return; }
     if (e.code === 'KeyO' && PLAY_AREA_KEY && !e.repeat) { playAreaOn = !playAreaOn; drawPlayArea(); return; }   // v55: off for now
-    if (e.code === 'KeyB' && !e.repeat) {
-      setBotMinus(!botMinus);
-      toast(botMinus ? 'Bots: 1 fewer miss (next level)' : 'Bots: normal misses (next level)', '#ffe2a8');
-      return;
-    }
     if (e.code === 'KeyY' && !e.repeat) {
       godMode = !godMode; if (godMode && mode === 'play') st.godUsed = true;
       if (godMode) boardTaint();   // v44: any god mode in this session keeps the whole session off the scoreboard
@@ -3602,6 +3651,7 @@
     frameDt = dt;
     time += dt;
     const running = mode !== 'paused';
+    if (document.body.classList.contains('is-paused') === running) document.body.classList.toggle('is-paused', !running);   // v68
     const simDt = running && !(st.hitstop > 0) ? dt : 0;
     pile.step(running ? dt : 0);   // v51: loot pile (keeps settling on the results screen; frozen while paused)
     if (running) st.hitstop = Math.max(0, (st.hitstop || 0) - dt);
