@@ -1807,7 +1807,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v54-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v55-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3101,7 +3101,8 @@
   // ---------- v26: PLAY AREA outline ----------
   // The play area = from the bottom of the duck tracker to the top of the Duck/Jump pads, edge to edge.
   // SHOW_PLAY_AREA: set to false for the GitHub copy. The O key toggles it while playing.
-  const SHOW_PLAY_AREA = false;
+  // v55: PLAY_AREA_KEY = false turns the O key off too, so the outline can't appear at all during testing.
+  const SHOW_PLAY_AREA = false, PLAY_AREA_KEY = false;
   let playAreaOn = SHOW_PLAY_AREA;
   function playAreaRect() {
     const trk = $('tracker').classList.contains('hidden') ? $('hud') : $('tracker');
@@ -3124,10 +3125,12 @@
   drawPlayArea();
 
   window.addEventListener('keydown', e => {
+    // v55: typing in a text box (the tester name) must never trigger game shortcuts (O, B, Y, P...)
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
     const gameKey = UP_KEYS.includes(e.code) || DOWN_KEYS.includes(e.code);
     if (gameKey && (mode === 'play' || mode === 'dying')) e.preventDefault();
     if (e.code === 'Escape' || e.code === 'KeyP') { if (mode === 'paused') resume(); else pause(); return; }
-    if (e.code === 'KeyO' && !e.repeat) { playAreaOn = !playAreaOn; drawPlayArea(); return; }
+    if (e.code === 'KeyO' && PLAY_AREA_KEY && !e.repeat) { playAreaOn = !playAreaOn; drawPlayArea(); return; }   // v55: off for now
     if (e.code === 'KeyB' && !e.repeat) {
       setBotMinus(!botMinus);
       toast(botMinus ? 'Bots: 1 fewer miss (next level)' : 'Bots: normal misses (next level)', '#ffe2a8');
@@ -3147,6 +3150,7 @@
     if (DOWN_KEYS.includes(e.code)) player.pressDown();
   });
   window.addEventListener('keyup', e => {
+    if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;   // v55
     if (UP_KEYS.includes(e.code)) player.releaseUp();
     if (DOWN_KEYS.includes(e.code)) player.releaseDown();
   });
