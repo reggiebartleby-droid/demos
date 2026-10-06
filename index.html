@@ -73,6 +73,22 @@
     70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -170%) scale(1); } }
   @keyframes goldShine { from { background-position: 100% 0; } to { background-position: 0 0; } }
   @media (prefers-reduced-motion: reduce) { .goldpop { animation: goldUp .9s linear forwards; } .gold.bump { animation: none; } }
+  /* v51 LOOT PILE: golden eggs fall from the duck and stack at the bottom of the screen.
+     Drawn in front of the 3D scene (and the touch layer) but behind the Duck/Jump buttons and podium (.pads, z 3). */
+  #eggPile, #eggPileBase { position: fixed; inset: 0; z-index: 2; pointer-events: none; }   /* v54: Base = the treasure hoard picture */
+  /* v51 AWARDS: speed = small, personal best = sparkly, streak = banner, top 10 = big */
+  .goldpop.award { font-size: 17px; animation-duration: 1.4s, 1.4s; }
+  .goldpop.award.speed { font-size: 24px; background-image: linear-gradient(100deg, #1d7a34 0%, #b8ff9a 32%, #f4fff0 46%, #4fd16a 60%, #1d7a34 100%);
+    filter: drop-shadow(0 0 8px rgba(79,209,106,.9)) drop-shadow(0 2px 0 rgba(0,0,0,.55)); }
+  .goldpop.award.pb { font-size: 22px; }
+  .goldpop.award.top10 { font-size: 30px; animation-duration: 2.2s, 1.1s; animation-iteration-count: 1, 2; }
+  .award-banner { position: fixed; left: 0; right: 0; top: 38%; z-index: 3; pointer-events: none; text-align: center; padding: 8px 0;
+    font: 400 30px/1 "Bungee", "Impact", sans-serif; color: #2a1660; letter-spacing: .02em;   /* v53: bigger, orange-gold */
+    background: linear-gradient(90deg, rgba(255,159,28,0), #ff9f1c 18%, #ffd27a 50%, #ff9f1c 82%, rgba(255,159,28,0));
+    box-shadow: 0 0 30px rgba(255,159,28,.6); animation: bannerIn 1.5s ease-out forwards; }
+  @keyframes bannerIn { 0% { opacity: 0; transform: scaleX(.2); } 12% { opacity: 1; transform: scaleX(1.04); } 20% { transform: none; }
+    80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+  @media (prefers-reduced-motion: reduce) { .award-banner { animation: bannerIn 1.5s linear forwards; } }
   .coil { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--butter); box-sizing: border-box; }
   .coil.on { background: var(--butter); }
   .coil.off { opacity: .3; }
@@ -1325,7 +1341,7 @@
     }
     dodged() {
       this.cleared++; this.streak++; this.bestStreak = Math.max(this.bestStreak, this.streak);
-      if (this.isPlayer) addGold(10, this.model.base.position);
+      if (this.isPlayer) { addGold(1, this.model.base.position); awardsOnDodge(this); }   // v51: +1 egg per dodge, plus award checks
       if (this.streak % RECOVER_STREAK === 0) this.gain(STREAK_GAIN, 'streak');
       if (this.isPlayer) hud();
     }
@@ -1791,7 +1807,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v50-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v54-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -2304,6 +2320,7 @@
   function showOverlay(id) {
     overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
     const menu = id === 'title' || id === 'select' || id === 'boards';   // v47: + leaderboard
+    if (menu && window.__jdfPile) window.__jdfPile.reset();   // v51: the loot pile stays through the results, gone on the menus
     $('hud').classList.toggle('hidden', menu);
     $('tracker').classList.toggle('hidden', menu);
     $('pads').classList.toggle('hidden', !!id && id !== 'result');   // pads while racing; podium stays up on the results screen
@@ -2541,25 +2558,309 @@
       st.lastPlace = place;
     } else $('place').textContent = '';
   }
-  // v31 GOLD: +10 for every obstacle the player dodges. Saved on this device between runs.
+  // v31 GOLD, v51: +1 golden egg for every obstacle the player dodges (awards add more). Saved on this device.
   let gold = 0;
   try { gold = Math.max(0, parseInt(localStorage.getItem('jdf-gold') || '0', 10) || 0); } catch (e) {}
   const showGold = () => { $('goldAmt').textContent = gold.toLocaleString(); };
   const goldV = new THREE.Vector3();
-  function addGold(n, pos) {
+  // Screen position (stage px) of a point in the 3D scene, optionally lifted by `up` world units.
+  function toScreen(pos, up) {
+    goldV.copy(pos); goldV.y += up || 0; goldV.project(camera);
+    return { x: (goldV.x + 1) / 2 * viewW(), y: (1 - goldV.y) / 2 * viewH() };
+  }
+  // n = eggs earned. drop = how the loot looks: { count, big } (default: n normal eggs).
+  function addGold(n, pos, drop) {
     gold += n;
     try { localStorage.setItem('jdf-gold', String(gold)); } catch (e) {}
     showGold();
     const g = $('gold'); g.classList.remove('bump'); void g.offsetWidth; g.classList.add('bump');
     if (tele.run) tele.run.gold = (tele.run.gold || 0) + n;
-    // Shiny pop-up just above the duck's head
-    goldV.copy(pos); goldV.y += 2.2 * DS + P / 2; goldV.project(camera);   // v32: +half a lap higher, out of the player's view
-    const el = document.createElement('div');
-    el.className = 'goldpop'; el.textContent = `+${n} Eggs`;   // v33: currency is golden eggs
-    el.style.left = ((goldV.x + 1) / 2 * viewW()) + 'px'; el.style.top = ((1 - goldV.y) / 2 * viewH()) + 'px';
-    stageEl.appendChild(el);
-    setTimeout(() => el.remove(), 950);
+    // v51: the "+10 Eggs" text is gone; the egg itself pops out behind the duck and falls to the pile
+    // v53: drop = { count, kind: 'gold' | 'streak' | 'speed', scale }. Special drops also flash a burst ring.
+    const d = drop || { count: n }, at = toScreen(pos, 0.9 * DS), kind = d.kind || 'gold';
+    for (let i = 0; i < d.count; i++) pile.drop(at.x, at.y, d.scale || (d.big ? 2.2 : 1), i, kind, d.count, n / d.count);   // v54: each egg's worth goes into the hoard
+    if (kind !== 'gold' || d.big) pile.burst(at.x, at.y, kind);
   }
+  // v51: award text, shown above the duck (same spot the old egg pop-up used, out of the player's way)
+  function awardPop(text, kind, pos) {
+    const at = toScreen(pos, 2.2 * DS + P / 2), el = document.createElement('div');
+    el.className = 'goldpop award ' + kind; el.textContent = text;
+    el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
+    stageEl.appendChild(el); setTimeout(() => el.remove(), 2300);
+  }
+  function awardBanner(text) {
+    document.querySelectorAll('.award-banner').forEach(e => e.remove());
+    const el = document.createElement('div'); el.className = 'award-banner'; el.textContent = text;
+    stageEl.appendChild(el); setTimeout(() => el.remove(), 1550);
+  }
+
+  // =====================================================================
+  //  v51 AWARDS (mid-race, the moment they happen). Eggs earned:
+  //    dodge +1 | speed milestone +3 | streak milestone +5 | new personal best +10 (once per stat per race)
+  //    friends top 10 +25 (one big egg + confetti, once per race)
+  //  Personal bests and top 10 only fire when the run can count (no god mode, test toggle or tainted session),
+  //  and only against a real baseline: no PBs on the first counted run ever, no top 10 until the board has 10 runs.
+  // =====================================================================
+  const MILESTONE_EGG = 1.6;   // v53: streak/speed milestone eggs are 1.6x a normal egg
+  const SPEED_STEP = 10, SPEED_FIRST = 30;          // speed awards at 30, 40, 50 ... ft/s
+  const streakMilestone = n => n === 10 || (n >= 25 && n % 25 === 0);   // 10, 25, 50, 75 ...
+  let aw = null;
+  function awardsReset() {
+    const t = boardTotals();
+    aw = { pbBase: t.runs > 0 ? { st: t.st, sp: t.sp, d: t.d } : null, pbDone: {}, speedNext: SPEED_FIRST, top10Done: false, top10: null };
+    const c = sheet.on ? friendsCacheGet() : null;
+    if (c && c.runs.length >= FRIEND_TOP) {
+      const st10 = topRuns(c.runs, 'streak')[FRIEND_TOP - 1], sp10 = topRuns(c.runs, 'speed')[FRIEND_TOP - 1];
+      aw.top10 = { st: st10 ? st10.streak : Infinity, sp: sp10 ? sp10.speed : Infinity };
+    }
+  }
+  const awardsCount = () => !(godMode || st.godUsed || botMinus || boardLoad().cur.tainted);
+  function awardPB(key, label, value, base, pos) {
+    if (!aw.pbBase || aw.pbDone[key] || !awardsCount() || value <= base) return;
+    aw.pbDone[key] = true;
+    awardPop(label, 'pb', pos); addGold(10, pos);
+  }
+  function awardTop10(pos) {
+    if (!aw.top10 || aw.top10Done || !testerName || !awardsCount()) return;   // unnamed runs never reach the board
+    if (player.bestStreak <= aw.top10.st && st.topSpeed <= aw.top10.sp) return;
+    aw.top10Done = true;
+    awardPop('Friends top 10!', 'top10', pos);
+    const at = toScreen(pos, 0.9 * DS); pile.confetti(at.x, at.y);
+    addGold(25, pos, { count: 1, big: true });
+  }
+  function awardsOnDodge(r) {
+    if (!aw) return;
+    const pos = r.model.base.position;
+    if (streakMilestone(r.streak)) {   // v53: big orange-gold eggs worth 3 each; more at higher streaks (10: 5, 25: 7, 50: 9 ... max 15)
+      const k = r.streak === 10 ? 0 : r.streak / 25, count = Math.min(15, 5 + 2 * k);
+      awardBanner(`Streak ${r.streak}!`); addGold(3 * count, pos, { count, kind: 'streak', scale: MILESTONE_EGG });
+    }
+    if (aw.pbBase) {
+      awardPB('st', 'New best streak!', r.bestStreak, aw.pbBase.st, pos);
+      awardPB('d', 'New best dodges!', r.cleared, aw.pbBase.d, pos);
+    }
+    awardTop10(pos);
+  }
+  function awardsOnSpeed() {
+    if (!aw) return;
+    const pos = player.model.base.position;
+    while (st.topSpeed >= aw.speedNext) {
+      // v53: green eggs, same size as streak eggs, worth 3 each; more at higher speeds (30: 4, 40: 5, 50: 6 ... max 12)
+      const count = Math.min(12, aw.speedNext / 10 + 1);
+      awardPop(`${aw.speedNext} ft/s!`, 'speed', pos); addGold(3 * count, pos, { count, kind: 'speed', scale: MILESTONE_EGG });
+      aw.speedNext += SPEED_STEP;
+    }
+    if (aw.pbBase) awardPB('sp', 'New top speed!', st.topSpeed, aw.pbBase.sp, pos);
+    awardTop10(pos);
+  }
+
+  // =====================================================================
+  //  v54 TREASURE HOARD: each egg still pops out of the duck, grows as it falls, and lands on the pile.
+  //  It rests a moment, slides toward the middle, then sinks in and adds its worth to the hoard.
+  //  The hoard itself is ONE drawn picture (repainted only when it grows), so 50 eggs or 500 cost the same.
+  //  Height = 9 x sqrt(worth) px, capped at 28% of the screen (max 240 px): early eggs show, big runs don't bury the buttons.
+  //  Stages: Nest (first egg) -> Mound 15 -> Heap 60 (sparkles) -> Hoard 160 (crown). Each stage-up flashes its name.
+  //  Award eggs (green speed, orange streak, big gold top 10) leave a gem in the hoard. Resets every race.
+  // =====================================================================
+  const pile = (() => {
+    const cv = document.createElement('canvas'); cv.id = 'eggPile'; cv.setAttribute('aria-hidden', 'true');
+    stageEl.insertBefore(cv, $('pads'));
+    const ctx = cv.getContext('2d');
+    // the hoard picture lives on its own canvas under the main one; the main canvas only draws what moves
+    const bake = document.createElement('canvas'), bctx = bake.getContext('2d');
+    bake.id = 'eggPileBase'; bake.setAttribute('aria-hidden', 'true'); stageEl.insertBefore(bake, cv);
+    const R = 8, G = 1500, GROW_T = 0.8, REST_T = 0.45, SINK_T = 0.3;
+    const STAGES = ['Nest', 'Mound', 'Heap', 'Hoard'];
+    const stageOf = v => v >= 160 ? 3 : v >= 60 ? 2 : v >= 15 ? 1 : 0;
+    let eggs = [], bits = [], rings = [], gems = [], worth = 0, shown = false, flash = null, tw = 0, dirty = false;
+    let W = 0, H = 0, dpr = 1, drewLast = true;
+    const rnd = s => { const x = Math.sin(s * 999.13) * 43758.5; return x - Math.floor(x); };   // same "random" every repaint
+    const pileH = v => Math.min(H * 0.28, 240, 9 * Math.sqrt(v));
+    const pileW = v => Math.min(W * 0.48, 34 + 1.1 * pileH(v) + 2 * Math.sqrt(v));
+    function surf(x) {   // y of the hoard's top edge at screen x (H = the floor)
+      if (worth <= 0) return H;
+      const h = pileH(worth), w = pileW(worth), d = Math.abs(x - W / 2);
+      return d >= w ? H : H - h * 0.5 * (1 + Math.cos(Math.PI * d / w));
+    }
+    // one pre-drawn picture per egg kind (plus a soft glow and a gem for the award kinds)
+    const KINDS = { gold: ['#fff1a8', '#ffc83d', '#b97a12', 'rgba(90,55,0,.55)'],
+                    streak: ['#ffe0a0', '#ff9f1c', '#b4500a', 'rgba(110,40,0,.6)'],       // golden orange
+                    speed: ['#e4ffc8', '#4fd16a', '#1d7a34', 'rgba(10,60,20,.6)'] };      // green
+    const GLOW = { streak: 'rgba(255,159,28,', speed: 'rgba(79,209,106,', gold: 'rgba(255,210,63,' };
+    const spr = {}, glow = {}, gemSpr = {};
+    for (const k in KINDS) {
+      const [hi, mid, lo, edge] = KINDS[k], cv2 = document.createElement('canvas'); cv2.width = 40; cv2.height = 48;
+      const c = cv2.getContext('2d'), g = c.createRadialGradient(15, 15, 2, 20, 26, 24);
+      g.addColorStop(0, hi); g.addColorStop(.45, mid); g.addColorStop(1, lo);
+      c.fillStyle = g; c.strokeStyle = edge; c.lineWidth = 2;
+      c.beginPath(); c.ellipse(20, 26, 17, 21, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.fillStyle = 'rgba(255,255,255,.7)'; c.beginPath(); c.ellipse(14, 17, 4, 6, -.4, 0, Math.PI * 2); c.fill();
+      spr[k] = cv2;
+      const gc = document.createElement('canvas'); gc.width = gc.height = 64;
+      const gx = gc.getContext('2d'), gg = gx.createRadialGradient(32, 32, 4, 32, 32, 32);
+      gg.addColorStop(0, GLOW[k] + '.8)'); gg.addColorStop(1, GLOW[k] + '0)');
+      gx.fillStyle = gg; gx.fillRect(0, 0, 64, 64); glow[k] = gc;
+      const jc = document.createElement('canvas'); jc.width = jc.height = 28;            // faceted gem
+      const j = jc.getContext('2d');
+      j.beginPath(); j.moveTo(14, 2); j.lineTo(25, 11); j.lineTo(14, 26); j.lineTo(3, 11); j.closePath();
+      j.fillStyle = mid; j.fill(); j.lineWidth = 2; j.strokeStyle = lo; j.stroke();
+      j.beginPath(); j.moveTo(3, 11); j.lineTo(25, 11); j.moveTo(14, 2); j.lineTo(9, 11); j.lineTo(14, 26); j.lineTo(19, 11); j.lineTo(14, 2);
+      j.strokeStyle = 'rgba(0,0,0,.25)'; j.lineWidth = 1; j.stroke();
+      j.fillStyle = hi; j.beginPath(); j.moveTo(14, 4); j.lineTo(9, 11); j.lineTo(14, 11); j.closePath(); j.fill();
+      gemSpr[k] = jc;
+    }
+    function size() {
+      dpr = Math.min(2, window.devicePixelRatio || 1); W = viewW(); H = viewH();
+      for (const c of [cv, bake]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); c.style.width = W + 'px'; c.style.height = H + 'px'; }
+      drewLast = true; redraw();
+    }
+    window.addEventListener('resize', size);
+    function egg(c, x, y, r) {   // one resting egg in the hoard (r: 0-1 tilt seed)
+      const w = R * 2 * 0.86, h = R * 2 * 1.06;
+      c.save(); c.translate(x, y); c.rotate((r - .5) * 1.4); c.drawImage(spr.gold, -w / 2, -h / 2, w, h); c.restore();
+    }
+    function nest(c, cx) {   // stage 0: a twig bowl at the bottom middle
+      c.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        c.strokeStyle = i % 2 ? '#6e4119' : '#a8682a'; c.lineWidth = 4;
+        c.beginPath(); c.ellipse(cx + (i - 3) * 2, H - 20, 60 - i * 2, 18 + i, 0, Math.PI * .04, Math.PI * .96); c.stroke();
+      }
+    }
+    function crown(c, x, y) {   // stage 3: crown on top of the hoard
+      c.save(); c.translate(x, y); c.scale(1.5, 1.5);
+      c.fillStyle = '#ffc83d'; c.strokeStyle = '#5a3200'; c.lineWidth = 1.5; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(-16, 0); c.lineTo(-16, -14); c.lineTo(-8, -6); c.lineTo(0, -18); c.lineTo(8, -6); c.lineTo(16, -14); c.lineTo(16, 0); c.closePath();
+      c.fill(); c.stroke();
+      c.fillStyle = '#e8364a'; c.beginPath(); c.arc(0, -6, 2.6, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#4fd16a'; c.beginPath(); c.arc(-9, -3, 1.8, 0, Math.PI * 2); c.arc(9, -3, 1.8, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+    function redraw() {   // repaint the whole hoard picture (only when it grows, or on resize)
+      bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bake.width, bake.height);
+      if (!shown) return;
+      const c = bctx, cx = W / 2, stage = stageOf(worth);
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (stage === 0) nest(c, cx);
+      if (worth <= 0) return;
+      const h = pileH(worth), w = pileW(worth);
+      c.beginPath(); c.moveTo(cx - w, H);
+      for (let x = cx - w; x <= cx + w; x += 3) c.lineTo(x, surf(x));
+      c.lineTo(cx + w, H); c.closePath(); c.fillStyle = '#8a520a'; c.fill();
+      c.save(); c.clip();                                   // eggs packed inside the mound
+      const n = Math.min(320, Math.round(worth * 1.6) + 6);
+      for (let i = 0; i < n; i++) { const x = cx - w + rnd(i + 1) * 2 * w, top = surf(x); egg(c, x, top + rnd(i + 7) * (H - top + 8), rnd(i + 3)); }
+      c.restore();
+      const cols = Math.max(2, Math.round(w / 6));          // a row of eggs along the top edge makes it bumpy
+      for (let i = 0; i < cols; i++) { const x = cx - w + 8 + i * (2 * w - 16) / (cols - 1); egg(c, x, surf(x) + 2, rnd(i + 50)); }
+      for (const g of gems.slice(-60)) {                    // newest 60 gems
+        const x = cx + g.dx * w, top = surf(x), y = top + 8 + g.dy * Math.max(0, H - top - 8), s = g.size;
+        c.drawImage(gemSpr[g.kind], x - 14 * s, y - 14 * s, 28 * s, 28 * s);
+      }
+      if (stage >= 3) crown(c, cx, H - h + 4);
+    }
+    size();
+    const grown = e => { const t = Math.min(1, e.age / GROW_T); return 0.25 + 0.75 * t * t * (3 - 2 * t); };   // smoothstep
+    // worth = eggs this one adds to the hoard (1 normal, 3 milestone, 25 top-10 gold)
+    function drop(x, y, scale, i, kind, of, eggWorth) {
+      const r = R * scale, special = (kind || 'gold') !== 'gold';
+      const fan = special && of > 1 ? (i / (of - 1) - .5) * 360 : 0;
+      const vx = (W / 2 - x) * 0.9 + fan + (Math.random() - .5) * 70;
+      if (!shown) { shown = true; redraw(); }               // first egg of the race: the nest appears
+      eggs.push({ x: x + (Math.random() - .5) * 6, y: y - 4, vx, vy: (special ? -420 : -240) - Math.random() * 100 - (special ? 0 : i * 20),
+                  r, kind: kind || 'gold', special, worth: eggWorth || 1, rot: (Math.random() - .5) * .6, vr: (Math.random() - .5) * 6,
+                  age: 0, st: 0, t: 0 });
+    }
+    function burst(x, y, kind) { rings.push({ x, y, kind, age: 0, life: .6 }); }
+    function confetti(x, y) {
+      const cols = ['#ffd23f', '#ff6a2b', '#6fd3ff', '#a8f58f', '#ff8fd0', '#fff4e0'];
+      for (let i = 0; i < 70; i++) {
+        const a = Math.random() * Math.PI * 2, v = 200 + Math.random() * 380;
+        bits.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 250, life: 1.6 + Math.random(), age: 0,
+                    c: cols[i % cols.length], w: 4 + Math.random() * 4, rot: Math.random() * 6, vr: (Math.random() - .5) * 14 });
+      }
+    }
+    function absorb(e) {   // the egg sinks into the hoard
+      e.done = true;
+      const before = stageOf(worth); worth += e.worth;
+      if (e.special || e.r > R * 1.5) gems.push({ dx: (Math.random() - .5) * 1.3, dy: Math.random() * .6, kind: e.kind, size: e.r > R * 2 ? 1.5 : 1 });
+      const after = stageOf(worth);
+      if (after > before) { flash = { text: STAGES[after] + '!', age: 0 }; rings.push({ x: W / 2, y: H - pileH(worth), kind: 'gold', age: 0, life: .7 }); }
+      dirty = true;   // repainted once at the end of this frame, however many eggs sank in
+    }
+    function reset() {
+      eggs = []; bits = []; rings = []; gems = []; worth = 0; shown = false; flash = null; drewLast = true; dirty = false;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); redraw();
+    }
+    function paint(e) {
+      const grow = grown(e), a = e.st === 2 ? Math.max(0, 1 - e.t / SINK_T) : 1, sink = e.st === 2 ? 1 - .3 * e.t / SINK_T : 1;
+      const w = e.r * 2 * 0.86 * grow * sink, hgt = e.r * 2 * 1.06 * grow * sink;
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(e.x, e.y);
+      if (e.special && e.st === 0) { const gw = w * 2.6; ctx.globalAlpha = 0.55 + 0.35 * Math.sin(e.age * 18); ctx.drawImage(glow[e.kind], -gw / 2, -gw / 2, gw, gw); ctx.globalAlpha = a; }
+      ctx.rotate(e.rot); ctx.drawImage(spr[e.kind], -w / 2, -hgt / 2, w, hgt); ctx.restore();
+    }
+    function step(dt) {
+      if (dt > 0) {
+        tw += dt;
+        for (const e of eggs) {
+          e.age += dt;
+          const er = e.r * grown(e);
+          if (e.st === 0) {                                   // falling
+            e.vy += G * dt; e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.vr * dt;
+            if (e.x < er) { e.x = er; e.vx = Math.abs(e.vx) * .3; }
+            if (e.x > W - er) { e.x = W - er; e.vx = -Math.abs(e.vx) * .3; }
+            const sy = surf(e.x) - er * .7;
+            if (e.vy > 0 && e.y >= sy) { e.y = sy; e.st = 1; e.t = 0; }
+          } else if (e.st === 1) {                            // resting on top, sliding toward the middle
+            e.t += dt; const dx = W / 2 - e.x;
+            e.x += Math.sign(dx) * Math.min(Math.abs(dx), 40 * dt); e.y = surf(e.x) - er * .7; e.rot *= .9;
+            if (e.t > REST_T && e.age > GROW_T) { e.st = 2; e.t = 0; }
+          } else {                                            // sinking in
+            e.t += dt; e.y += 30 * dt;
+            if (e.t >= SINK_T) absorb(e);
+          }
+        }
+        eggs = eggs.filter(e => !e.done);
+        for (const b of bits) { b.age += dt; b.vy += 900 * dt; b.vx *= 0.99; b.x += b.vx * dt; b.y += b.vy * dt; b.rot += b.vr * dt; }
+        bits = bits.filter(b => b.age < b.life);
+        for (const g of rings) g.age += dt;
+        rings = rings.filter(g => g.age < g.life);
+        if (flash && (flash.age += dt) > 1.6) flash = null;
+        if (dirty) { dirty = false; redraw(); }
+      }
+      const stage = stageOf(worth);
+      const busy = eggs.length || rings.length || bits.length || flash || (stage >= 2 && dt > 0);
+      if (!busy && !drewLast) return;                         // nothing moving and already cleared: skip the frame
+      drewLast = !!busy;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const g of rings) {                                // burst ring
+        const t = g.age / g.life;
+        ctx.globalAlpha = 1 - t; ctx.drawImage(glow[g.kind], g.x - 20 - 90 * t, g.y - 20 - 90 * t, 40 + 180 * t, 40 + 180 * t);
+        ctx.strokeStyle = g.kind === 'speed' ? '#b8ff9a' : '#ffd27a'; ctx.lineWidth = 4 * (1 - t) + 1;
+        ctx.beginPath(); ctx.arc(g.x, g.y, 10 + 80 * t, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      if (stage >= 2) {                                       // Heap and up: twinkles on the hoard
+        const w = pileW(worth), cx = W / 2;
+        for (let i = 0; i < 12; i++) {
+          const x = cx - w * .8 + rnd(i + 200) * w * 1.6, y = surf(x) + 4 + rnd(i + 300) * 24, a = .5 + .5 * Math.sin(tw * 5 + i * 1.7);
+          ctx.fillStyle = `rgba(255,248,214,${a.toFixed(2)})`; ctx.fillRect(x - 1, y - 5, 2, 10); ctx.fillRect(x - 5, y - 1, 10, 2);
+        }
+      }
+      for (const e of eggs) paint(e);
+      for (const b of bits) {
+        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - b.age / b.life); ctx.fillStyle = b.c;
+        ctx.translate(b.x, b.y); ctx.rotate(b.rot); ctx.fillRect(-b.w / 2, -b.w / 4, b.w, b.w / 2); ctx.restore();
+      }
+      if (flash) {                                            // stage name pops above the hoard
+        const t = flash.age / 1.6, y = H - pileH(worth) - (stage >= 3 ? 60 : 34) - 24 * t;
+        ctx.globalAlpha = t < .7 ? 1 : (1 - t) / .3; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '30px "Bungee", "Impact", sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(40,20,0,.7)';
+        ctx.strokeText(flash.text, W / 2, y); ctx.fillStyle = '#ffd23f'; ctx.fillText(flash.text, W / 2, y); ctx.globalAlpha = 1;
+      }
+    }
+    return { drop, burst, confetti, reset, step, count: () => worth };
+  })();
+  window.__jdfPile = pile;   // lets showOverlay (defined earlier) clear it without touching the const before it exists
   showGold();
 
   let toastTimer;
@@ -2612,6 +2913,7 @@
     runId++;
     resetFor(L);
     podiumReset();
+    pile.reset(); awardsReset();   // v51: empty loot pile, fresh award baselines
     mode = 'countdown';
     friendsPrefetch();   // v49
     teleStart(L);
@@ -2972,6 +3274,7 @@
           if (quietAroundPlayer(st.overtime ? 0.6 : 1.0, 0.3)) {
             st.stepTimer = 0; st.tier++;
             st.targetSpeed *= stepMult(); st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
+            awardsOnSpeed();   // v51
             // (no on-screen cue: the speed-up is felt, and seen in the chevrons, not announced)
           } else st.stepTimer = stepEvery();   // wait for the gap
         }
@@ -2999,6 +3302,7 @@
     time += dt;
     const running = mode !== 'paused';
     const simDt = running && !(st.hitstop > 0) ? dt : 0;
+    pile.step(running ? dt : 0);   // v51: loot pile (keeps settling on the results screen; frozen while paused)
     if (running) st.hitstop = Math.max(0, (st.hitstop || 0) - dt);
     const racing = mode === 'play' || mode === 'dying' || mode === 'cleared';
 
