@@ -1126,23 +1126,133 @@
   function rippleAt(x, z) { ripple.position.set(x, WATER_Y + 0.15, z); rippleT = 0; }
 
   // ---------- Models ----------
+  // v71 RENDER POLISH: cartoon (toon) shading in 3 bands, a soft light rim around the edges (fresnel), and a
+  // dark ink outline (inside-out copy, slightly bigger) like the obstacles have. Same shapes and parts as before,
+  // just rounder (more segments). Ducks keep their own colors and the streak glow still works (emissive).
+  const TOON_RAMP = (() => {
+    const t = new THREE.DataTexture(new Uint8Array([95, 175, 255]), 3, 1, THREE.LuminanceFormat);
+    t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+    return t;
+  })();
+  const DUCK_INK = new THREE.MeshBasicMaterial({ color: 0x160c24, side: THREE.BackSide });
+  function toonMat(color, emissive, ei, rim) {
+    const m = new THREE.MeshToonMaterial({ color, gradientMap: TOON_RAMP, emissive: emissive || 0x000000, emissiveIntensity: ei || 1 });
+    if (rim) m.onBeforeCompile = sh => {   // light edge: strongest where the surface turns away from the camera
+      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>',
+        '#include <emissivemap_fragment>\n  float duckRim = 1.0 - max(dot(normalize(vViewPosition), normal), 0.0);\n' +
+        '  totalEmissiveRadiance += vec3(0.75, 0.82, 1.0) * ' + rim.toFixed(2) + ' * pow(duckRim, 3.0);');
+    };
+    return m;
+  }
+  // v72 NEW DUCK SHAPE (option 2): egg-shaped body (lathe), a neck, flat two-part bill, glossy eyes (white,
+  // pupil, shine), layered wings, a 3-feather tail flicked up, and webbed feet on little legs.
+  // PERF: all the pieces that share a material are merged into ONE mesh (built once, shared by every duck),
+  // so a duck is ~9 draws, about the same as the old blocky duck. The outline and the streak-aura rim are
+  // merged copies too, each piece grown around its own center.
+  function mergeParts(parts) {   // parts: [geometry, matrix]
+    const pos = [], nor = [], idx = []; let off = 0;
+    for (const [g0, mx] of parts) {
+      const g = g0.clone(); g.applyMatrix4(mx);
+      const P = g.attributes.position, N = g.attributes.normal;
+      for (let i = 0; i < P.count; i++) { pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i)); }
+      if (g.index) for (let i = 0; i < g.index.count; i++) idx.push(g.index.getX(i) + off);
+      else for (let i = 0; i < P.count; i++) idx.push(i + off);
+      off += P.count; g.dispose();
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    out.setIndex(idx); out.computeBoundingSphere();
+    return out;
+  }
+  const _q = new THREE.Quaternion(), _e = new THREE.Euler();
+  const MX = (x, y, z, rx, ry, rz, sx, sy, sz, k = 1) =>
+    new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), new THREE.Vector3(sx * k, sy * k, sz * k));
+  let DUCK_GEO = null;
+  function duckGeo() {
+    if (DUCK_GEO) return DUCK_GEO;
+    const HP = Math.PI / 2;
+    // body profile along the duck's length (rear -0.5 -> chest +0.47), turned on its side so it points +x
+    const prof = [[0, -0.5], [0.1, -0.47], [0.21, -0.39], [0.3, -0.26], [0.355, -0.1], [0.37, 0.06], [0.355, 0.2], [0.31, 0.32], [0.22, 0.41], [0.11, 0.46], [0, 0.475]]
+      .map(([r, y]) => new THREE.Vector2(r, y));
+    const G = {
+      body: new THREE.LatheGeometry(prof, 30),
+      neck: new THREE.CylinderGeometry(0.15, 0.2, 0.32, 18, 1, true),
+      head: new THREE.SphereGeometry(0.25, 28, 20),
+      wing: new THREE.SphereGeometry(0.2, 18, 12),
+      wing2: new THREE.SphereGeometry(0.14, 14, 10),
+      tail: new THREE.ConeGeometry(0.075, 0.26, 10),
+      bill: new THREE.SphereGeometry(0.12, 18, 12),
+      bill2: new THREE.SphereGeometry(0.1, 14, 10),
+      eye: new THREE.SphereGeometry(0.066, 14, 10),
+      pupil: new THREE.SphereGeometry(0.04, 12, 8),
+      shine: new THREE.SphereGeometry(0.015, 8, 6),
+      leg: new THREE.CylinderGeometry(0.028, 0.034, 0.16, 8),
+    };
+    const web = new THREE.Shape();   // webbed foot, toes forward (+x)
+    web.moveTo(-0.05, -0.035); web.lineTo(0.15, -0.085); web.quadraticCurveTo(0.13, -0.04, 0.115, -0.03);
+    web.quadraticCurveTo(0.16, 0, 0.115, 0.03); web.quadraticCurveTo(0.13, 0.04, 0.15, 0.085);
+    web.lineTo(-0.05, 0.035); web.quadraticCurveTo(-0.075, 0, -0.05, -0.035);
+    G.web = new THREE.ExtrudeGeometry(web, { depth: 0.035, bevelEnabled: false, curveSegments: 6 });
+    // [piece, x, y, z, rx, ry, rz, sx, sy, sz, outline grow (0 = none)]
+    const MAT = [
+      ['body', 0, 0.45, 0, 0, 0, -HP, 0.92, 1, 0.97, 1.06],
+      ['neck', 0.17, 0.72, 0, 0, 0, -0.25, 1, 1, 1, 1.08],
+      ['head', 0.22, 0.98, 0, 0, 0, 0, 1.05, 1, 0.95, 1.07],
+      ...[-1, 1].flatMap(s => [
+        ['wing', -0.05, 0.5, s * 0.315, 0, s * -0.1, -0.3, 1.4, 0.6, 0.3, 1.1],
+        ['wing2', -0.2, 0.57, s * 0.33, 0, s * -0.12, -0.45, 1.3, 0.5, 0.28, 1.12],
+      ]),
+      ...[-1, 0, 1].map(s => ['tail', -0.47, 0.62, s * 0.085, s * 0.3, 0, 0.93, 1, 1, 1, 1.2]),
+    ];
+    const ORANGE = [
+      ['bill', 0.47, 0.91, 0, 0, 0, -0.12, 1.55, 0.36, 1.05, 1.15],
+      ['bill2', 0.45, 0.86, 0, 0, 0, -0.05, 1.4, 0.25, 0.85, 1.15],
+    ];
+    const WHITE = [], BLACK = [];
+    for (const s of [-1, 1]) {
+      WHITE.push(['eye', 0.405, 1.04, s * 0.14, 0, 0, 0, 0.85, 1, 1, 0]);
+      BLACK.push(['pupil', 0.435, 1.05, s * 0.165, 0, 0, 0, 0.8, 1, 1, 0]);
+      WHITE.push(['shine', 0.463, 1.072, s * 0.183, 0, 0, 0, 1, 1, 1, 0]);
+    }
+    const FOOT = [['web', 0, -0.02, 0, -HP, 0, 0, 1, 1, 1, 1.15], ['leg', -0.02, 0.09, 0, 0, 0, 0, 1, 1, 1, 1.3]];
+    const build = (list, grow) => mergeParts(list.filter(r => !grow || r[10]).map(([g, x, y, z, rx, ry, rz, sx, sy, sz, k]) =>
+      [G[g], MX(x, y, z, rx, ry, rz, sx, sy, sz, grow === 'rim' ? 1.16 : grow ? k : 1)]));
+    DUCK_GEO = {
+      mat: build(MAT), orange: build(ORANGE), white: build(WHITE), black: build(BLACK), foot: build(FOOT),
+      ink: build([...MAT, ...ORANGE], true), footInk: build(FOOT, true), rim: build(MAT, 'rim'),
+    };
+    for (const k in G) G[k].dispose();
+    return DUCK_GEO;
+  }
+  const EYE_WHITE = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const EYE_BLACK = new THREE.MeshBasicMaterial({ color: 0x0c0818 });
   function makeDuck(bodyColor) {
+    const D = duckGeo();
     const lean = new THREE.Group();
     const tumble = new THREE.Group(); tumble.position.y = 0.55; lean.add(tumble);
     const body = new THREE.Group(); tumble.add(body);
-    const mat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.55, emissive: 0x2a2010, emissiveIntensity: 0.4 });
-    const orange = new THREE.MeshStandardMaterial({ color: 0xff8a1f, roughness: 0.5 });
-    const black = new THREE.MeshBasicMaterial({ color: 0x14103a });
-    const add = (geo, m, x, y, z, setup) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (setup) setup(o); body.add(o); return o; };
-    add(new THREE.SphereGeometry(0.38, 20, 14), mat, 0, 0.45, 0, o => o.scale.set(1.25, 0.9, 0.95));
-    add(new THREE.SphereGeometry(0.26, 20, 14), mat, 0.2, 0.96, 0);
-    add(new THREE.ConeGeometry(0.1, 0.28, 12), orange, 0.5, 0.92, 0, o => { o.rotation.z = -Math.PI / 2; });
-    for (const s of [-1, 1]) add(new THREE.SphereGeometry(0.045, 8, 6), black, 0.38, 1.03, s * 0.13);
-    add(new THREE.ConeGeometry(0.12, 0.28, 10), mat, -0.5, 0.6, 0, o => { o.rotation.z = Math.PI / 2 + 0.5; });
-    const feet = [-1, 1].map(s => add(new THREE.BoxGeometry(0.22, 0.06, 0.14), orange, 0.05, 0.04, s * 0.14));
+    const mat = toonMat(bodyColor, 0x2a2010, 0.4, 0.55);
+    const orange = toonMat(0xff8a1f, 0, 0, 0.35);
+    body.add(new THREE.Mesh(D.mat, mat), new THREE.Mesh(D.orange, orange), new THREE.Mesh(D.ink, DUCK_INK),
+      new THREE.Mesh(D.white, EYE_WHITE), new THREE.Mesh(D.black, EYE_BLACK));
+    const feet = [-1, 1].map(s => {
+      const f = new THREE.Group(); f.position.set(0.05, 0.04, s * 0.14);
+      f.add(new THREE.Mesh(D.foot, orange), new THREE.Mesh(D.footInk, DUCK_INK));
+      body.add(f); return f;
+    });
     const base = new THREE.Group(); base.add(lean);
-    return { base, lean, tumble, body, feet, mat };
+    return { base, lean, tumble, body, feet, mat, rimGeo: D.rim };
   }
+  // v71 blob shadow: a soft dark spot on the track under each racing duck; it stays on the track when the duck
+  // jumps and shrinks/fades the higher the duck goes, so you can read jump height at a glance.
+  const BLOB_TEX = canvasTex(64, 64, (g, w, h) => {
+    const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    gr.addColorStop(0, 'rgba(8,4,20,0.75)'); gr.addColorStop(0.55, 'rgba(8,4,20,0.4)'); gr.addColorStop(1, 'rgba(8,4,20,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
+  BLOB_TEX.wrapS = BLOB_TEX.wrapT = THREE.ClampToEdgeWrapping;
+  const BLOB_GEO = new THREE.PlaneGeometry(1.15, 0.95);
   // v31 streak glow: a soft gold halo (added light) around a duck on a long run
   const haloTex = canvasTex(128, 128, (g, w, h) => {
     const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
@@ -1322,10 +1432,8 @@
       // v32 hero aura (Octopath-style): bright gold rim around the body + light motes rising off the duck
       this.rimMat = new THREE.MeshBasicMaterial({ color: 0xffd86a, transparent: true, opacity: 0, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
       this.rims = [];
-      for (const o of this.model.body.children.slice()) {
-        if (o.material !== this.model.mat) continue;
-        const r = new THREE.Mesh(o.geometry, this.rimMat);
-        r.position.copy(o.position); r.rotation.copy(o.rotation); r.scale.copy(o.scale).multiplyScalar(1.16);
+      {   // v72: the new duck carries a ready-made rim shape (all body pieces, each grown 16%)
+        const r = new THREE.Mesh(this.model.rimGeo, this.rimMat);
         r.visible = false; this.model.body.add(r); this.rims.push(r);
       }
       this.motes = [];
@@ -1335,6 +1443,10 @@
         this.model.lean.add(sp); this.motes.push(sp);
       }
       this.glowLevel = 0; this.baseEmissive = this.model.mat.emissive.clone(); this.baseEI = this.model.mat.emissiveIntensity;
+      this.blob = new THREE.Mesh(BLOB_GEO, new THREE.MeshBasicMaterial({ map: BLOB_TEX, transparent: true, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      this.blob.rotation.x = -Math.PI / 2; this.blob.position.set(0.02, 0.012, 0); this.blob.renderOrder = 1;
+      this.model.lean.add(this.blob);   // v71
       scene.add(this.model.base);
       this.wave = makeWave();
       this.tag = brain ? makeTag(name, tagColor) : null;
@@ -1600,6 +1712,13 @@
       body.rotation.z = this.jumpY > 0 ? Math.max(-0.4, Math.min(0.4, this.jumpV * 0.035)) : 0;
       pb.visible = !(this.invuln > 0 && !f && mode === 'play' && Math.floor(time * 14) % 2 === 0);
       if (this.land > 0) this.land -= dt;
+      {   // v71 blob shadow: pinned to the track (cancels the jump height), smaller and lighter the higher he is
+        const b = this.blob, up = Math.max(0, this.jumpY) / DS;
+        b.visible = !f;
+        b.position.y = 0.012 - up;
+        const k = 1 / (1 + up * 0.9);
+        b.scale.set(k, k, 1); b.material.opacity = 0.35 + 0.65 * k;
+      }
 
       // the wave that pushed this duck
       const w = this.wave;
@@ -1743,6 +1862,16 @@
     let r = Math.random() * Object.values(mix).reduce((a, b) => a + b, 0);
     for (const [k, w] of Object.entries(mix)) { if ((r -= w) <= 0) return k; }
     return 'low';
+  }
+  // v70: the moment an obstacle first shows on THIS screen (inside the camera view and nearer than halfway into
+  // the fog). Screen shape changes how far ahead you can see, so warnMs compares phone vs PC fairly.
+  const seenV = new THREE.Vector3();
+  function markSeen(o) {
+    o.mesh.getWorldPosition(seenV);
+    const far = (scene.fog.near + scene.fog.far) / 2;
+    if (seenV.distanceTo(camera.position) > far) return;
+    seenV.project(camera);
+    if (seenV.z < 1 && Math.abs(seenV.x) <= 1 && Math.abs(seenV.y) <= 1) o.seenAt = st.levelTime;
   }
   function addObstacle(theta, type, hint, combo) {
     const mesh = makeObstacleMesh(type);
@@ -1932,7 +2061,7 @@
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v69-2026-10-06';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v72-2026-10-09';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -1976,12 +2105,19 @@
                  passes: 0, passedBy: 0, secondsInFirst: 0, maxStreak: 0 };
     tele.runsThisSession++;
   }
+  const TELE_MAX_EVENTS = 700;   // v70 (was 400, and the 401st obstacle onward was never logged)
   function teleLaunch() { const r = tele.run; if (!r) return null; const l = { t: st.levelTime, peak: 0, hold: 0 }; r.launches.push(l); return l; }
   // Called the moment an obstacle is decided for the player (cleared or hit), before any reset.
   function teleObstacle(o, hit, phi, spared) {
-    const r = tele.run; if (!r || r.events.length > 400) return;
+    const r = tele.run; if (!r) return;
     const w = st.speed / RP, arrive = st.levelTime + phi / w;   // when the obstacle's center reaches the duck
     const ev = { t: +arrive.toFixed(2), type: o.type, speed: +st.speed.toFixed(2), hit };
+    // v70 DIFFICULTY DATA: seconds since the previous obstacle reached the duck, how far through the level
+    // (0 = start, 1 = finish arch, over 1 = overtime), and how long the obstacle was on screen before it arrived.
+    if (r.lastArrive != null) ev.gap = +(arrive - r.lastArrive).toFixed(2);
+    r.lastArrive = arrive;
+    ev.along = +(o.theta / st.finishTheta).toFixed(3);
+    if (o.seenAt != null) ev.warnMs = Math.round((arrive - o.seenAt) * 1000);
     if (st.overtime) ev.ot = true;
     if (o.combo) ev.combo = true;
     if (spared) ev.spared = true;
@@ -2002,6 +2138,13 @@
       if (hit) ev.cause = p.jumpY > 0 ? 'jumped into bar' : p.lag > 0 ? 'still landing' : press !== undefined ? 'ducked late' : 'no duck';
     }
     r.events.push(ev);
+    // v70: was "stop logging after 400", which threw away the late, fast part of long runs (the part that
+    // matters for difficulty). Now the cap drops the OLDEST cleared obstacle instead; hits are always kept.
+    if (r.events.length > TELE_MAX_EVENTS) {
+      const i = r.events.findIndex(e => !e.hit);
+      r.events.splice(i < 0 ? 0 : i, 1);
+      r.eventsDropped = (r.eventsDropped || 0) + 1;
+    }
   }
   function teleEnd(result) {
     const r = tele.run; if (!r || r.ended) return;
@@ -2028,7 +2171,7 @@
       dodges: player.cleared, bestStreak: player.bestStreak, eggs: r.gold || 0, godSession: !!tele.godSession,
       rivals: racers.filter(x => !x.isPlayer).map(x => ({ name: x.name, stumbles: x.stumbles, place: x.place || null, out: x.out, survivor: !!x.survivor, stumbleLog: x.stumbleLog, comebacks: x.gains })),
       playerStumbleLog: player.stumbleLog, comebacks: player.gains,
-      events: r.events,
+      events: r.events, eventsDropped: r.eventsDropped || 0,
     };
     boardRecord(doc);   // v44: personal bests on this browser (skips god-mode sessions)
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
@@ -2054,11 +2197,44 @@
     const ua = navigator.userAgent;
     return (/iPhone|iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
   }
+  // v70: the events go to the Sheet as compact rows (one short array per obstacle, column names listed once in
+  // eventCols). Old v69 behavior cut everything after the first 150 events, i.e. the fast end of long runs.
+  // Size: the details text gets escaped again inside the POST body (every " becomes \"), so the limit here is
+  // 40,000, which keeps the whole body under Apps Script's 60,000 MAX_BODY.
+  const EVENT_COLS = ['t', 'type', 'speed', 'hit', 'ot', 'combo', 'spared', 'shield', 'gap', 'along', 'warnMs', 'jumpErrMs', 'holdMs', 'peak', 'duckLeadMs', 'cause'];
+  const DETAILS_MAX = 40000;
+  function packEvents(events) {
+    const b = v => v ? 1 : 0;
+    return events.map(e => {
+      const row = EVENT_COLS.map(c =>
+        c === 'type' ? e.type[0] : (c === 'hit' || c === 'ot' || c === 'combo' || c === 'spared' || c === 'shield') ? b(e[c]) : (e[c] ?? null));
+      while (row.length && row[row.length - 1] === null) row.pop();   // missing trailing values = null
+      return row;
+    });
+  }
+  function sheetDetails(doc) {
+    const base = Object.assign({}, doc, { eventCols: EVENT_COLS, events: packEvents(doc.events) });
+    let out = JSON.stringify(base);
+    if (out.length <= DETAILS_MAX) return out;
+    // Still too big: drop the rivals' per-stumble logs (keep their counts and places)...
+    base.rivals = doc.rivals.map(x => Object.assign({}, x, { stumbleLog: undefined }));
+    base.trimmed = 'rivalLogs';
+    out = JSON.stringify(base);
+    // ...then keep every hit plus the NEWEST cleared obstacles that fit.
+    let keep = doc.events.length;
+    while (out.length > DETAILS_MAX && keep > 0) {
+      keep = Math.floor(keep * 0.95);
+      const cut = doc.events.length - keep;
+      const ev = doc.events.filter((e, i) => e.hit || i >= cut);
+      base.events = packEvents(ev); base.trimmed = 'rivalLogs+oldClears'; base.eventsKept = ev.length;
+      out = JSON.stringify(base);
+    }
+    return out.length <= DETAILS_MAX ? out : out.slice(0, DETAILS_MAX);   // last resort (should never happen)
+  }
   function sheetSend(doc) {
     if (!sheet.on) return;
     const device = myDevice();
-    let details = JSON.stringify(doc);
-    if (details.length > 45000) { const d = Object.assign({}, doc, { events: doc.events.slice(0, 150), eventsTrimmed: true }); details = JSON.stringify(d).slice(0, 45000); }
+    const details = sheetDetails(doc);
     const row = {
       name: testerName || '(no name)', build: doc.build, level: doc.level, chapter: doc.chapter, boss: !!doc.boss,
       result: doc.result, place: doc.place, finishPlace: doc.finishPlace, stumbles: doc.stumbles, seconds: doc.seconds,
@@ -2538,7 +2714,7 @@
     const key = color + '@' + px;
     if (key in duckImgCache) return duckImgCache[key];
     try {
-      if (!snapR) { snapR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); snapR.setPixelRatio(1); snapR.setClearColor(0x000000, 0); }
+      if (!snapR) { snapR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); snapR.setPixelRatio(2);   /* v71: 2x = sharp on phones */ snapR.setClearColor(0x000000, 0); }
       const ph = Math.round(px / SNAP_ASPECT);
       snapR.setSize(px, ph);
       const sc = new THREE.Scene();
@@ -2554,7 +2730,7 @@
       let feet = 1, top = 0;
       try {
         const cv = document.createElement('canvas'); cv.width = px; cv.height = ph;
-        const g2 = cv.getContext('2d'); g2.drawImage(snapR.domElement, 0, 0);
+        const g2 = cv.getContext('2d'); g2.drawImage(snapR.domElement, 0, 0, px, ph);   // v71: scale the 2x picture down for the scan
         const a = g2.getImageData(0, 0, px, ph).data;
         let lo = -1, hi = -1;
         for (let y = 0; y < ph; y++) for (let x = 0; x < px; x++) if (a[(y * px + x) * 4 + 3] > 40) { if (hi < 0) hi = y; lo = y; break; }
@@ -3690,6 +3866,7 @@
       const phi = o.theta - theta;
       o.mesh.position.set(RT * Math.sin(phi), K * phi, RT * Math.cos(phi));
       o.mesh.rotation.y = phi;
+      if (o.seenAt == null && mode === 'play') markSeen(o);   // v70
       if (o.hint && !o.hinted && phi < 1.15 && mode === 'play') { o.hinted = true; toast(st.level.intro.hint, '#ffb020'); }
       if (phi < LEFT_EDGE - 0.7) { obsGroup.remove(o.mesh); st.obs.splice(i, 1); }
     }
