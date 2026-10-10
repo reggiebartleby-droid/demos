@@ -152,6 +152,20 @@
     to { text-shadow: 0 0 14px #fff3c4, 0 0 32px #ffc83d, 0 0 64px #ff9f1c, 0 4px 0 rgba(0,0,0,.4); color: #ffffff; } }
   @keyframes ldsRing { 0% { opacity: 1; transform: scale(.3); } 100% { opacity: 0; transform: scale(3.6); } }
   body.is-paused .lds, body.is-paused .lds * { animation-play-state: paused !important; }
+  /* v83 TOP 10 MILESTONE: huge neon-orange glowing bubble text, 50% see-through, over the play area.
+     Pops in, pulses its glow, holds, then floats up and fades (about 3.2 s). */
+  .dnuts { position: fixed; left: 50%; top: 42%; z-index: 4; pointer-events: none; width: 96vw; max-width: 520px;
+    transform: translate(-50%, -50%); text-align: center; opacity: .5; }
+  .dnuts span { display: block; font-family: "Bungee", "Impact", sans-serif; font-size: clamp(40px, 15vw, 84px); line-height: .95;   /* Bungee is wide: 15vw keeps DRAGON on one line */
+    color: #ff8a00; -webkit-text-stroke: 2px #ffe0a8; letter-spacing: .01em;
+    text-shadow: 0 0 4px #fff, 0 0 12px #ffb347, 0 0 24px #ff7a00, 0 0 48px #ff5e00, 0 0 90px #ff4500, 0 0 140px #ff4500;
+    animation: dnIn .45s cubic-bezier(.2,1.6,.45,1) both, dnGlow .4s ease-in-out .45s 4 alternate, dnOut .9s ease-in 2.3s forwards; }
+  .dnuts span + span { animation-delay: .12s, .57s, 2.3s; }
+  @keyframes dnIn { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes dnGlow { to { text-shadow: 0 0 8px #fff, 0 0 20px #ffd08a, 0 0 40px #ff8c1a, 0 0 80px #ff5e00, 0 0 130px #ff4500, 0 0 180px #ff4500; } }
+  @keyframes dnOut { to { transform: translateY(-40px) scale(1.1); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .dnuts span { animation: dnOut .9s linear 2.3s forwards; } }
+  body.is-paused .dnuts, body.is-paused .dnuts * { animation-play-state: paused !important; }
   @media (prefers-reduced-motion: reduce) { .lds-t { animation: ldsFade .3s reverse forwards, ldsFade 3s linear 1.35s forwards; }
     .lds-b { animation: ldsFade .3s 1.7s reverse forwards, ldsFade 3s linear 3.05s forwards; } .lds i, .lds-ring { display: none; } }
   /* v68: "2x" tag on the egg counter while the bonus is on */
@@ -2733,7 +2747,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v82-2026-10-09';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v83-2026-10-09';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3617,8 +3631,17 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (player.bestStreak <= aw.top10.st && st.topSpeed <= aw.top10.sp) return;
     aw.top10Done = true;
     awardPop('Friends top 10!', 'top10', pos);
+    dragonNutsPop();   // v83: huge milestone bubble text
     const at = toScreen(pos, 0.9 * DS); if (!OFF.has('hoard')) pile.confetti(at.x, at.y);
     addGold(25, pos, { count: 1, big: true });
+  }
+  // v83 TOP 10 MILESTONE text (styles in .dnuts). Removed after its 3.2 s show.
+  function dragonNutsPop() {
+    document.querySelectorAll('.dnuts').forEach(e => e.remove());
+    const w = document.createElement('div'); w.className = 'dnuts'; w.setAttribute('aria-live', 'polite');
+    w.innerHTML = '<span>DRAGON</span><span>DEEZ</span><span>NUTS</span>';
+    $('toast').parentNode.appendChild(w);
+    w.lastElementChild.addEventListener('animationend', e => { if (e.animationName === 'dnOut') w.remove(); });
   }
   function awardsOnDodge(r) {
     if (!aw) return;
