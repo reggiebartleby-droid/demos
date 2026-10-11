@@ -223,6 +223,10 @@
   .seat .nm.champnm { position: absolute; width: 300px; text-align: center; font-size: 16px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
   @media (prefers-reduced-motion: reduce) { .seat img.duck3d, .seat .champ3d img { animation: none; } }
   .seat .nm { font-size: 14px; line-height: 1.1; white-space: nowrap; overflow: hidden; max-width: 100%; }
+  /* v92: stamp on the podium step of a duck that left the race (dropped connection), this race only */
+  .seat .quitter { position: absolute; left: 50%; top: 28%; transform: translateX(-50%) rotate(-12deg); z-index: 3; pointer-events: none;
+    background: #d62828; color: #fff; border: 2px solid #fff; border-radius: 4px; padding: 1px 5px;
+    font-size: 12px; font-weight: 900; letter-spacing: 1px; white-space: nowrap; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
   .stand { width: 100%; box-sizing: border-box; border: 2px solid rgba(255,226,168,.4); border-bottom: 0; border-radius: 7px 7px 0 0;
     background: rgba(20,16,58,.55); color: var(--butter); font: 400 18px "Bungee", "Impact", sans-serif; text-align: center; padding-top: 6px; }
   .slot[data-place="1"] .stand { height: 92px; border-color: #ffd23f; background: rgba(255,210,63,.22); }
@@ -3367,6 +3371,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
     function dropOut(r, quiet) {   // a human left mid-race: their duck leaves the race
       if (eliminated(r)) return;
+      r.quitter = true;   // v92: QUITTER stamp on their podium step
       if (m.heard && m.heard[r.seat] != null) r.elimT = m.heard[r.seat];   // v89: out from when they were last heard, not when the server noticed
       noteElimination(r);
       r.elimT = null;
@@ -3385,6 +3390,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       adoptBots();
       const p = player;
       if (!eliminated(p)) {
+        p.quitter = true;   // v92: QUITTER stamp on your own step too, same as the other screens show
         p.elimT = Math.min(stepNow(), m.rxStep || 0);
         noteElimination(p);
         p.elimT = null;
@@ -3802,7 +3808,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v91-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v92-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3917,9 +3923,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     boardRecord(doc);   // v44: personal bests on this browser (skips god-mode sessions)
     // v91: Discord build: send the result to the saved player on the race server (signed-in players only;
     // JDF_DISCORD.report queues it and resends if it fails). Skipped: god-mode runs, and runs quit before a single dodge or egg.
+    // v92: a duck that didn't reach the arch (washed out, or lost the connection) counts as its podium step, the same place
+    // the race screen shows, so dropping out of a losing race still counts as the loss.
     if (window.JDF_DISCORD && window.JDF_DISCORD.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
       const lv = String(r.level).split('-').map(Number);   // '2-3' -> 13 (chapter 2, level 3) so the server can keep the best one
-      window.JDF_DISCORD.report({ level: lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0, place: result === 'abandoned' ? 0 : (doc.place || 0), dodges: doc.dodges || 0,
+      window.JDF_DISCORD.report({ level: lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0, place: result === 'abandoned' ? 0 : (doc.place || player.podium || 0), dodges: doc.dodges || 0,
         stumbles: doc.stumbles || 0, streak: doc.bestStreak || 0, speed: doc.topSpeed || 0, eggs: doc.eggs || 0, credits: 0 });
     }
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
@@ -4423,7 +4431,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     <ellipse cx="20" cy="18" rx="4.2" ry="2.3" fill="#ff9a1f" stroke="rgba(0,0,0,.3)" stroke-width=".8"/></svg>`;
   function podiumReset() {
     document.querySelectorAll('#podium .seat').forEach(el => { el.innerHTML = ''; el.classList.remove('swim', 'faded', 'champ'); el.dataset.who = ''; });
-    racers.forEach(r => { r.podium = 0; r.seated = false; });
+    racers.forEach(r => { r.podium = 0; r.seated = false; r.quitter = false; });   // v92: quitter = left the race (this race only)
     $('podium').classList.remove('gone'); $('pads').classList.remove('champ-seq', 'under');   // v63: undo the champion jump; v66: podium back on top
     podiumLive(true);
   }
@@ -4542,6 +4550,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         nm.style.left = 'calc(50% - 150px)'; nm.style.bottom = ((big.feet - big.top) * W / big.aspect + 4) + 'px';
         seat.dataset.who = '3d:' + r.name;
         seat.classList.remove('swim', 'faded'); seat.classList.add('champ');   // v50: champ fades later (showResult)
+        if (r.quitter) seat.insertAdjacentHTML('beforeend', '<span class="quitter">QUITTER</span>');   // v92
         void seat.offsetWidth; seat.classList.add('swim');
         return;
       }
@@ -4550,6 +4559,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     seat.innerHTML = (img ? `<div class="d3"><img class="duck3d" alt="" src="${img.url}"></div>` : duckSVG(r.isPlayer ? '#ffd23f' : (r.tagColor || '#fff4e0'))) + '<span class="nm"></span>';
     seat.dataset.who = '3d:' + r.name;
     const nm = seat.querySelector('.nm'); nm.textContent = r.name; nm.style.color = nameColor;
+    if (r.quitter) seat.insertAdjacentHTML('beforeend', '<span class="quitter">QUITTER</span>');   // v92
     seat.classList.remove('swim', 'faded', 'champ'); void seat.offsetWidth; seat.classList.add('swim');
     if (place === 1) seat.classList.add('champ');   // fallback small picture for 1st: fades with the champ timer
     else requestAnimationFrame(() => seat.classList.add('faded'));   // v50: 2nd-4th fade as they land (CSS waits out the swim-in)
