@@ -1249,6 +1249,43 @@ window.JDF_DISCORD = (function () {
     m.visible = false; m.userData.v = new THREE.Vector3(); scene.add(m); return m;
   });
   let pNext = 0;
+  // v86 FEATHER PUFF: a hit knocks loose feathers that pop out, then drift down with a sway and fade.
+  // Reads as a deliberate hit effect (continuous motion, nothing flickers) instead of a network hiccup.
+  const featherGeo = (() => { const g = new THREE.PlaneGeometry(0.07, 0.2); g.translate(0, 0.1, 0); return g; })();
+  const feathers = Array.from({ length: 48 }, () => {
+    const m = new THREE.Mesh(featherGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }));
+    m.visible = false; m.userData = { v: new THREE.Vector3(), t: 0, life: 1, ph: 0, spin: 0 }; scene.add(m); return m;
+  });
+  let fNext = 0;
+  function featherPuff(at, color) {
+    const cols = [color, 0xffffff, color];
+    for (let i = 0; i < 10; i++) {
+      const m = feathers[fNext++ % feathers.length], u = m.userData;
+      m.position.set(at.x, at.y + 0.7 * DS, at.z);
+      m.material.color.set(cols[i % cols.length]); m.material.opacity = 1;
+      const a = Math.random() * TAU, out = rand(1.2, 2.6);
+      u.v.set(Math.cos(a) * out, rand(1.5, 3.2), Math.sin(a) * out);
+      u.t = 0; u.life = rand(0.8, 1.15); u.ph = Math.random() * TAU; u.spin = rand(-7, 7);
+      m.rotation.set(Math.random() * TAU, Math.random() * TAU, Math.random() * TAU);
+      m.scale.setScalar(DS * rand(0.8, 1.2));
+      m.visible = true;
+    }
+  }
+  function updateFeathers(dt) {
+    for (const m of feathers) {
+      if (!m.visible) continue;
+      const u = m.userData; u.t += dt;
+      if (u.t >= u.life) { m.visible = false; continue; }
+      const drag = Math.exp(-5 * dt);                 // air catches them fast: a pop, then a slow drift
+      u.v.x *= drag; u.v.z *= drag;
+      u.v.y = Math.max(-1.1, u.v.y * drag - 6 * dt);  // light, so they fall slowly
+      m.position.addScaledVector(u.v, dt);
+      m.position.x += Math.sin(u.t * 9 + u.ph) * 0.6 * dt;   // side-to-side flutter
+      m.rotation.z = Math.sin(u.t * 7 + u.ph) * 0.9; m.rotation.y += u.spin * dt;
+      const k = u.t / u.life; m.material.opacity = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+    }
+  }
+  const HIT_RED = new THREE.Color(1, 0.16, 0.1), HIT_TINT_TIME = 0.45;   // v86: red tint on a hit, fades out smoothly
   function burst(pos, colors, up, count, spread = 2.4) {
     for (let i = 0; i < count; i++) {
       const m = particles[pNext++ % particles.length];
@@ -1914,7 +1951,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // drawn duck's height, so every pose/jump/squash animation works unchanged (its feet don't paddle: they're
   // part of the model). Same toon shading + rim light + ink outline as the other ducks, plus its own texture.
   // v79: false = the player is the new detailed duck like everyone else. true = back to the Meshy model.
-  const USE_MESHY_PLAYER = true;   // v80: true = the player is the Meshy dragon
+  const USE_MESHY_PLAYER = false;  // v86: false = player is the drawn duck like the AI ducks (gold), for testing. v80: true = the Meshy dragon
   const DRAGON_RIG = true;         // v81: animate the dragon's wings, legs and tail (false = holds still like v80)
   let MESHY_DUCK = null;
   const meshyWaiters = [];
@@ -2204,6 +2241,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   let godMode = false;   // Y key: the player's duck can't be hit (testing / fun). Runs played with it are tagged.
   const ease3 = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
   const easeOut = x => 1 - Math.pow(1 - x, 3);
+  // v86 knockback slide: half smoothstep + half ease-out. Starts moving right away but without the jolt of a
+  // cubic ease-out (start speed 1x the average instead of 3x), then glides to a stop.
+  const slideEase = x => 0.5 * (x * x * (3 - 2 * x)) + 0.5 * (1 - (1 - x) * (1 - x));
 
   // =====================================================================
   //  RACER: one class for every duck. The player and the bots run the exact
@@ -2265,7 +2305,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         phi: 0, jumpY: 0, jumpV: 0, boost: -1, upHeld: false, upBuffer: 0, lag: 0, jumpPower: 0, peak: 0, takeoff: 0,
         duckHeld: false, ducking: false, pos: 0, maxStumbles: botMisses(this, L.stumblesAllowed),
         stumbleBack: -LEFT_EDGE / botMisses(this, L.stumblesAllowed), pending: 0, streak: 0, bestStreak: 0, cleared: 0, stumbles: 0, gains: { clutch: 0, shared: 0, streak: 0 },
-        fall: null, fallOff: 0, tilt: 0, land: 0, invuln: 0, out: false, finished: false, place: 0, stumbleLog: [],
+        fall: null, fallOff: 0, tilt: 0, land: 0, invuln: 0, hitTint: 0, out: false, finished: false, place: 0, stumbleLog: [],
       });
       this.wave.t = -1; this.wave.group.visible = false;
       if (this.brain) this.brain.reset(L);
@@ -2403,6 +2443,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (!out) this.invuln = st.overtime ? 0.15 : 0.6;   // less grace in overtime so it doesn't drag on
       const p = this.model.base.position.clone(); p.y += 0.3;
       burst(p, SPRAY, 4.5, 10, 1.4);
+      featherPuff(this.model.base.position, this.model.mat.color.getHex());   // v86: feather puff + red tint replace the blink
+      this.hitTint = 1;
       if (this.isPlayer) {
         st.shake = 0.4; st.hitstop = 0.09; flash();
         if (out) {
@@ -2431,7 +2473,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const k = Math.min(1, f.t / f.dur);
       if (!f.swim) {
         // Pushed hard at first, then the wave runs out of energy (ease-out)
-        this.phi = f.from + (f.to - f.from) * easeOut(Math.min(1, k * 1.15));
+        this.phi = f.from + (f.to - f.from) * (f.out ? easeOut(Math.min(1, k * 1.15)) : slideEase(Math.min(1, k * 1.15)));   // v86: eased slide
         const wobble = 0.14 * Math.sin(k * 26) * (1 - k);
         this.tilt = (f.out ? 0.6 : 0.55 * Math.sin(Math.PI * k)) + wobble;  // rocked back, nose up
         this.fallOff = 0.26 * Math.sin(Math.PI * Math.min(1, k * 1.3));       // lifted on the wave
@@ -2529,7 +2571,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           tailYaw: runAnim ? Math.sin(stride * 0.5) * 0.3 : swim ? Math.sin(time * 5) * 0.4 : 0,
           tailLift: R.lift });
       }
-      pb.visible = !(this.invuln > 0 && !f && mode === 'play' && Math.floor(time * 14) % 2 === 0);
+      pb.visible = true;   // v86: no more blink while invulnerable (flicker + knockback looked like lag); the hit shows as feathers + red tint
       if (this.land > 0) this.land -= dt;
       {   // v71 blob shadow: pinned to the track (cancels the jump height), smaller and lighter the higher he is
         const b = this.blob, up = Math.max(0, this.jumpY) / DS;
@@ -2579,7 +2621,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         sp.scale.setScalar(0.1 + 0.12 * (1 - u.t));
       });
       const dm = m.mat;
-      if (lvl) { dm.emissive.copy(GLOW_GOLD); dm.emissiveIntensity = (0.6 + 0.1 * lvl) * pulse; }
+      if (this.hitTint > 0) {   // v86: hit tint; holds briefly, then eases back to the duck's own color
+        this.hitTint = Math.max(0, this.hitTint - dt / HIT_TINT_TIME);
+        const k = Math.min(1, this.hitTint * 1.25), e = k * k * (3 - 2 * k);
+        dm.emissive.copy(this.baseEmissive).lerp(HIT_RED, e); dm.emissiveIntensity = this.baseEI + (0.9 - this.baseEI) * e;
+        if (!this.hitTint) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
+      } else if (lvl) { dm.emissive.copy(GLOW_GOLD); dm.emissiveIntensity = (0.6 + 0.1 * lvl) * pulse; }
       else if (dm.emissiveIntensity !== this.baseEI) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
     }
   }
@@ -3163,7 +3210,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v85d-2026-10-10';   // Discord build of v85-2026-10-10 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v86d-2026-10-11';   // Discord build of v86-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -5009,6 +5056,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     animateWater(time);
     waterLight.position.set(-4, WATER_Y + 1.8, RP);
     waterLight.intensity = 1.5 + Math.sin(time * 2) * 0.25;
+    updateFeathers(dt);   // v86
     for (const p of particles) {
       if (!p.visible) continue;
       p.userData.v.y -= 18 * dt;
