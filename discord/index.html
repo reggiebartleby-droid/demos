@@ -2760,10 +2760,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         m.setState(m.on && mode === 'play' ? 'race' : 'idle');
         ui();
       };
-      ws.onmessage = e => { lastRx = performance.now(); let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };
+      ws.onmessage = e => { lastRx = performance.now(); if (m.on && m.race && mode === 'play') m.rxStep = stepNow(); let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };   // v89: rxStep = race step of the last thing heard
       ws.onclose = ev => {
         const wasOpen = opened; ws = null; m.linked = false;
-        if (wasOpen) goSolo();   // v89: lost the race server mid-race: finish this race on your own
+        if (wasOpen) goSolo();   // v89: lost the race server mid-race: you're out of this race
         if (!wasOpen) tries++;
         if (ev.code === 4001) m.full = true;
         ui();
@@ -2818,7 +2818,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       m.race = { seed: d.seed, level: Math.min(d.level | 0, LEVELS.length - 1), at: d.at,
                  roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
       m.rng = mulberry32(d.seed);
-      m.on = true; m.solo = false;
+      m.on = true; m.solo = false; m.rxStep = 0; m.heard = {};
       startLevelNow(m.race.level);
     }
     function onEv(d) {
@@ -2828,6 +2828,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const r = racers.find(x => x.seat === d.s);
       if (!r || !r.remote || r.out) return;   // v89: a duck that already left/washed out takes no more reports (e.g. a late 'fin')
       if (r.human ? d.from !== d.s : d.from !== m.host) return;   // a human moves only their own duck; the host moves the bots
+      if (r.human) m.heard[r.seat] = stepNow();   // v89: last time this player was heard from (their wash-out time if they drop)
       const o = d.o != null ? st.obs.find(x => x.id === d.o) : null;
       if (d.k === 'b') {
         if (d.b === 'U') {
@@ -2863,21 +2864,34 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
     function dropOut(r, quiet) {   // a human left mid-race: their duck leaves the race
       if (eliminated(r)) return;
+      if (m.heard && m.heard[r.seat] != null) r.elimT = m.heard[r.seat];   // v89: out from when they were last heard, not when the server noticed
       noteElimination(r);
+      r.elimT = null;
       r.fall = null; r.out = true;
       podiumSeat(r, r.podium);
       r.model.base.visible = false; if (r.tag) r.tag.visible = false;
       if (!quiet) toast(`${r.name} left the race`, '#6fd3ff');
     }
-    // v89: this device lost the race server mid-race. The others already count it as gone, so it finishes
-    // on its own: the other humans leave its race, and it runs the bots itself. Back to normal next race.
+    // v89: this device lost the race server mid-race. The other screens count it as out from the moment they last
+    // heard from it, so do the same here: your duck is out as of the last thing heard from the server, and your
+    // results come up. Ducks still racing then take the steps above you (same as on the other screens; their order
+    // among themselves is this screen's best guess). Back to normal next race.
     function goSolo() {
-      if (!m.on || !m.race || m.solo || mode !== 'play') return;
+      if (!m.on || !m.race || m.solo || mode !== 'play' || st.ending) return;
       m.solo = true;
-      for (const r of racers) if (r.human && r.remote) dropOut(r, true);
       adoptBots();
-      toast('Connection lost: finishing this race on your own', '#ffb020');
-      m.checkEnd();
+      const p = player;
+      if (!eliminated(p)) {
+        p.elimT = Math.min(stepNow(), m.rxStep || 0);
+        noteElimination(p);
+        p.elimT = null;
+        p.fall = null; p.out = true;
+        podiumSeat(p, p.podium);
+        p.model.base.visible = false; if (p.tag) p.tag.visible = false;
+      }
+      toast('Connection lost: you\'re out of this race', '#ffb020');
+      st.ending = true;
+      resultsAfterSeat(st.overtime ? 'overtime' : 'splash');
     }
     function adoptBots() {   // this device just became the host: it runs the bots from here on
       for (const r of racers) if (!r.human && r.remote) { r.remote = false; r.brain = new BotBrain(r.prof); r.brain.reset(st.level); }
@@ -4731,6 +4745,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       }
       $('resPrimary').textContent = 'Try again';
       $('resPrimary').onclick = () => startLevel(levelIdx);
+    }
+    if (MP.solo) {   // v89: this device lost the race server mid-race
+      $('resTitle').textContent = 'Connection lost';
+      $('resMsg').textContent = how === 'overtime' ? 'Lost the race server, so you\'re out from that moment. ' + $('resMsg').textContent
+        : `Lost the race server ${Math.round(100 * Math.max(0, Math.min(1, player.progress / st.finishTheta)))}% of the way to the arch, so you're out from that moment.`;
     }
     $('resSecondary').onclick = openSelect;
     // v39 mascot reacts: cheers when you advance (or survive overtime), droops when you have to retry
