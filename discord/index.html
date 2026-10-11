@@ -2836,12 +2836,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (o) { o.res[r.slot] = true; o.hit[r.slot] = true; }
         r.stumbles = Math.max(0, (d.stu | 0) - 1);
         r.pos = Math.max(-3, Math.min(3, +d.pos)) + r.stumbleBack;   // stumble() takes one step back from here
-        if (Number.isFinite(+d.et)) r.elimT = +d.et;   // v87: if this washes it out, use the owner's time for the order
+        if (Number.isInteger(+d.es)) r.elimT = +d.es;   // v87: if this washes it out, use the owner's time for the order (v88: step number)
         r.stumble();
         r.elimT = null;
       } else if (d.k === 'fin') {   // v87: the owner's device says when this duck crossed the arch
-        if (!Number.isFinite(+d.ft)) return;
-        r.finTime = +d.ft; r.finished = true; rankFinish();
+        if (!Number.isInteger(+d.fs)) return;
+        r.finTime = +d.fs; r.finished = true; rankFinish();
       } else if (d.k === 'dodge') {
         if (o && !o.res[r.slot]) { o.res[r.slot] = true; o.hit[r.slot] = false; r.dodged(); }
       } else if (d.k === 'spare') {
@@ -2897,9 +2897,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const mine = r => m.on && m.race && !r.remote && r.seat != null && mode === 'play';
     m.btn = (r, b) => { if (mine(r)) send({ t: 'ev', k: 'b', s: r.seat, b, lt: +st.levelTime.toFixed(4), r: m.race.seed }); };
     m.res = (r, k, o) => { if (mine(r)) send({ t: 'ev', k, s: r.seat, o: o.id, r: m.race.seed }); };
-    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, et: +st.levelTime.toFixed(4), r: m.race.seed }); };
+    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, es: Math.round(st.levelTime / FIX), r: m.race.seed }); };   // v88: wash-out step (whole 1/240 s steps)
     // v87: this device's duck crossed the arch at race time t (shared clock): everyone ranks finishes by these times
-    m.fin = (r, t) => { if (mine(r)) send({ t: 'ev', k: 'fin', s: r.seat, ft: +t.toFixed(4), r: m.race.seed }); };
+    m.fin = (r, step) => { if (mine(r)) send({ t: 'ev', k: 'fin', s: r.seat, fs: step | 0, r: m.race.seed }); };   // v88: step number, exact on every device
     m.tick = () => {
       if (!m.on || mode !== 'play' || performance.now() < syncAt) return;
       syncAt = performance.now() + 500;
@@ -3090,8 +3090,18 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const FIN_WAIT = 0.6;
   const finKey = r => r.finTime != null ? r.finTime : r.finLocal;
   const seatOf = r => r.seat != null ? r.seat : 10 + r.slot;
+  // v88: times are whole sim steps (1/240 s), so equal really means equal on every device. Every human runs lane 4
+  // on their own screen, so exact ties are common: break them with a coin flip seeded by the race + step + seat
+  // (integer hash, identical on every device) instead of always favoring the lower seat.
+  const stepNow = () => Math.round(st.levelTime * 240);
+  function tieKey(r, step) {
+    let h = ((MP.race && MP.race.seed) | 0) ^ Math.imul(step | 0, 0x9E3779B1) ^ Math.imul(seatOf(r) + 1, 0x85EBCA77);
+    h = Math.imul(h ^ (h >>> 16), 0x7FEB352D); h = Math.imul(h ^ (h >>> 15), 0x846CA68B);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+  const byStep = (ka, kb, a, b) => ka - kb || tieKey(a, ka) - tieKey(b, kb) || seatOf(a) - seatOf(b);
   function rankFinish() {
-    const done = racers.filter(r => finKey(r) != null).sort((a, b) => finKey(a) - finKey(b) || seatOf(a) - seatOf(b));
+    const done = racers.filter(r => finKey(r) != null).sort((a, b) => byStep(finKey(a), finKey(b), a, b));
     done.forEach((r, i) => { r.place = i + 1; });
     st.finishCount = done.length;
     if (st.finishPlace != null && player.place !== st.finishPlace) {   // a late report changed your place: fix the results
@@ -3102,8 +3112,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     for (const r of racers) {
       if (r.finished || r.out || r.fall || r.progress < st.finishTheta) continue;
       r.finished = true;
-      if (r.remote) r.finLocal = st.levelTime;
-      else { r.finTime = st.levelTime; MP.fin(r, r.finTime); if (r.isPlayer) st.finWaitAt = st.levelTime + FIN_WAIT; }
+      if (r.remote) r.finLocal = stepNow();
+      else { r.finTime = stepNow(); MP.fin(r, r.finTime); if (r.isPlayer) st.finWaitAt = st.levelTime + FIN_WAIT; }
       rankFinish();
     }
     if (st.finWaitAt != null && st.levelTime >= st.finWaitAt) { st.finWaitAt = null; rankFinish(); playerFinished(); }
@@ -3212,7 +3222,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const eliminated = r => r.out || (r.fall && r.fall.out);
   function noteElimination(r) {
     if (r.elimAt !== undefined) return;
-    r.elimAt = MP.on && r.elimT != null ? r.elimT : st.levelTime;   // v87: remote wash-outs use the owner's race time
+    r.elimAt = MP.on && r.elimT != null ? r.elimT / 240 : st.levelTime;   // v87: remote wash-outs use the owner's race time
+    r.elimStep = r.elimT != null ? r.elimT : stepNow();                  // v88: whole step, used for the order
     r.elimSpeed = st.speed; r.elimOrder = ++st.elimCount;
     podiumElim(r);
     reorderElims();
@@ -3223,7 +3234,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // (equal times: lower seat first) and move podium steps that nobody is standing on yet.
   function reorderElims() {
     if (!MP.on) return;
-    const el = racers.filter(r => r.elimAt !== undefined).sort((a, b) => a.elimAt - b.elimAt || seatOf(a) - seatOf(b));
+    const el = racers.filter(r => r.elimAt !== undefined).sort((a, b) => byStep(a.elimStep, b.elimStep, a, b));
     el.forEach((r, i) => {
       r.elimOrder = i + 1;
       const p = racers.length - i;
@@ -3256,7 +3267,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v87d-2026-10-11';   // Discord build of v87-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v88d-2026-10-11';   // Discord build of v88-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
