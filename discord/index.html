@@ -2732,7 +2732,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (!instance || !/^[\w.-]{1,120}$/.test(instance) || (!inDiscord && !testUrl)) return m;
 
     const el = id => document.getElementById(id);
-    let ws = null, tries = 0, syncAt = 0;
+    let ws = null, tries = 0, syncAt = 0, lastRx = 0;   // v89: lastRx = when anything last came in from the server
     const now = () => Date.now() + m.offset;
     m.now = now;
     const mulberry32 = a => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
@@ -2760,9 +2760,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         m.setState(m.on && mode === 'play' ? 'race' : 'idle');
         ui();
       };
-      ws.onmessage = e => { let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };
+      ws.onmessage = e => { lastRx = performance.now(); let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };
       ws.onclose = ev => {
         const wasOpen = opened; ws = null; m.linked = false;
+        if (wasOpen) goSolo();   // v89: lost the race server mid-race: finish this race on your own
         if (!wasOpen) tries++;
         if (ev.code === 4001) m.full = true;
         ui();
@@ -2771,7 +2772,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       };
     }
     function ping() { send({ t: 'ping', c: Date.now() }); }
-    setInterval(ping, 5000);
+    // v89: ping every 2 s (the server drops anyone silent for 7 s). If nothing comes back for 6 s, this device
+    // has lost the connection (phone lost signal: the socket may never close by itself), so close it here.
+    setInterval(() => {
+      ping();
+      if (ws && ws.readyState === 1 && lastRx && performance.now() - lastRx > 6000) { try { ws.close(); } catch (e) {} }
+    }, 2000);
     // Wait for Discord sign-in (so we join with the Discord user id and name), but not forever
     let waited = 0;
     setTimeout(function waitAuth() {   // starts after the page script has finished loading
@@ -2786,7 +2792,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (rtt >= 0 && rtt <= m.bestRtt * 1.25 + 5) { m.bestRtt = Math.min(m.bestRtt, rtt); m.offset = d.s - (d.c + rtt / 2); }
         return;
       }
-      if (d.t === 'hello') { m.seat = d.seat; setRoster(d.roster); return; }
+      if (d.t === 'hello') { m.seat = d.seat; setRoster(d.roster, d.host); return; }   // v89: server sends the host (longest connected)
       if (d.t === 'roster') { setRoster(d.roster, d.host); return; }
       if (d.t === 'full') { m.full = true; ui(); return; }
       if (d.t === 'err') { toast(d.why === 'only the host can start' ? 'Only the host can start the race' : 'Race server: ' + d.why, '#ffb020'); return; }
@@ -2799,9 +2805,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       m.host = host != null ? host : (m.roster.length ? m.roster[0].seat : -1);
       const live = new Set(m.roster.map(p => p.seat));
       for (const s of Object.keys(m.states)) if (!live.has(+s)) delete m.states[s];
-      if (m.on && m.race) {
+      if (m.on && m.race && !m.solo) {
         for (const r of racers) if (r.human && r.remote && !live.has(r.seat)) dropOut(r);
         if (m.host === m.seat) adoptBots();
+        else for (const r of racers) if (!r.human && !r.remote) { r.remote = true; r.brain = null; }   // v89: not host any more: hand the bots back
       }
       ui();
     }
@@ -2811,15 +2818,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       m.race = { seed: d.seed, level: Math.min(d.level | 0, LEVELS.length - 1), at: d.at,
                  roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
       m.rng = mulberry32(d.seed);
-      m.on = true;
+      m.on = true; m.solo = false;
       startLevelNow(m.race.level);
     }
     function onEv(d) {
       if (d.k === 'state') { if (d.from >= 0 && d.from < 4) { m.states[d.from] = d.st === 'race' ? 'race' : 'idle'; ui(); } return; }
       const R = m.race;
-      if (!m.on || !R || d.r !== R.seed || mode !== 'play') return;
+      if (!m.on || !R || m.solo || d.r !== R.seed || mode !== 'play') return;   // v89: solo = cut off from this race
       const r = racers.find(x => x.seat === d.s);
-      if (!r || !r.remote) return;
+      if (!r || !r.remote || r.out) return;   // v89: a duck that already left/washed out takes no more reports (e.g. a late 'fin')
       if (r.human ? d.from !== d.s : d.from !== m.host) return;   // a human moves only their own duck; the host moves the bots
       const o = d.o != null ? st.obs.find(x => x.id === d.o) : null;
       if (d.k === 'b') {
@@ -2854,13 +2861,23 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         r.stumbles = d.stu | 0; r.streak = d.str | 0; r.bestStreak = Math.max(r.bestStreak, d.best | 0); r.cleared = d.clr | 0;
       }
     }
-    function dropOut(r) {   // a human left mid-race: their duck leaves the race
+    function dropOut(r, quiet) {   // a human left mid-race: their duck leaves the race
       if (eliminated(r)) return;
       noteElimination(r);
       r.fall = null; r.out = true;
       podiumSeat(r, r.podium);
       r.model.base.visible = false; if (r.tag) r.tag.visible = false;
-      toast(`${r.name} left the race`, '#6fd3ff');
+      if (!quiet) toast(`${r.name} left the race`, '#6fd3ff');
+    }
+    // v89: this device lost the race server mid-race. The others already count it as gone, so it finishes
+    // on its own: the other humans leave its race, and it runs the bots itself. Back to normal next race.
+    function goSolo() {
+      if (!m.on || !m.race || m.solo || mode !== 'play') return;
+      m.solo = true;
+      for (const r of racers) if (r.human && r.remote) dropOut(r, true);
+      adoptBots();
+      toast('Connection lost: finishing this race on your own', '#ffb020');
+      m.checkEnd();
     }
     function adoptBots() {   // this device just became the host: it runs the bots from here on
       for (const r of racers) if (!r.human && r.remote) { r.remote = false; r.brain = new BotBrain(r.prof); r.brain.reset(st.level); }
@@ -2901,6 +2918,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v87: this device's duck crossed the arch at race time t (shared clock): everyone ranks finishes by these times
     m.fin = (r, step) => { if (mine(r)) send({ t: 'ev', k: 'fin', s: r.seat, fs: step | 0, r: m.race.seed }); };   // v88: step number, exact on every device
     m.tick = () => {
+      if (m.on && mode === 'play' && !m.linked && !m.solo) goSolo();   // v89: connection dropped during the countdown
       if (!m.on || mode !== 'play' || performance.now() < syncAt) return;
       syncAt = performance.now() + 500;
       for (const r of racers) if (!r.remote && r.seat != null && !eliminated(r))
@@ -3267,7 +3285,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v88d-2026-10-11';   // Discord build of v88-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v89d-2026-10-11';   // Discord build of v89-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -4674,7 +4692,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     $('resSecondary').after($('board'));   // v47: the scoreboard lives under Choose a level on results
     boardShow('result');   // v44
     $('board').classList.toggle('quack', player.podium === 4);   // v65: 4th place -> General Quackers instead of the stats
-    $('pads').classList.toggle('under', player.podium === 4);    // v66: ...and the results card goes in front of the podium
+    // v89: 4th place keeps the podium in front too (ducks fade to see-through, same as every other place); v66 'under' dropped
     const fadeRun = runId;   // v50: 1st-place duck fades 2 s after the results appear
     setTimeout(() => { if (runId !== fadeRun || mode !== 'result') return;
       const s1 = document.querySelector('#podium .slot[data-place="1"] .seat'); if (s1) s1.classList.add('faded'); }, 2000);
