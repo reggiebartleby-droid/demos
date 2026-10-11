@@ -2727,7 +2727,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const SEAT_COLORS = [[0xff7eb6, '#ffb3d4'], [0xffa94d, '#ffd2a1'], [0xc58fff, '#e0c4ff'], [0xff6b6b, '#ffb0b0']];   // human ducks on other screens
     const m = { on: false, linked: false, full: false, seat: -1, host: -1, roster: [], states: {}, race: null,
                 rng: Math.random, offset: 0, bestRtt: 1e9, dressed: false, FIX,
-                now: () => Date.now(), ui() {}, btn() {}, res() {}, hit() {}, tick() {}, checkEnd() {}, setState() {},
+                now: () => Date.now(), ui() {}, btn() {}, res() {}, hit() {}, fin() {}, tick() {}, checkEnd() {}, setState() {},
                 restore() {}, requestStart() {} };
     if (!instance || !/^[\w.-]{1,120}$/.test(instance) || (!inDiscord && !testUrl)) return m;
 
@@ -2836,7 +2836,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (o) { o.res[r.slot] = true; o.hit[r.slot] = true; }
         r.stumbles = Math.max(0, (d.stu | 0) - 1);
         r.pos = Math.max(-3, Math.min(3, +d.pos)) + r.stumbleBack;   // stumble() takes one step back from here
+        if (Number.isFinite(+d.et)) r.elimT = +d.et;   // v87: if this washes it out, use the owner's time for the order
         r.stumble();
+        r.elimT = null;
+      } else if (d.k === 'fin') {   // v87: the owner's device says when this duck crossed the arch
+        if (!Number.isFinite(+d.ft)) return;
+        r.finTime = +d.ft; r.finished = true; rankFinish();
       } else if (d.k === 'dodge') {
         if (o && !o.res[r.slot]) { o.res[r.slot] = true; o.hit[r.slot] = false; r.dodged(); }
       } else if (d.k === 'spare') {
@@ -2892,7 +2897,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const mine = r => m.on && m.race && !r.remote && r.seat != null && mode === 'play';
     m.btn = (r, b) => { if (mine(r)) send({ t: 'ev', k: 'b', s: r.seat, b, lt: +st.levelTime.toFixed(4), r: m.race.seed }); };
     m.res = (r, k, o) => { if (mine(r)) send({ t: 'ev', k, s: r.seat, o: o.id, r: m.race.seed }); };
-    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, r: m.race.seed }); };
+    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, et: +st.levelTime.toFixed(4), r: m.race.seed }); };
+    // v87: this device's duck crossed the arch at race time t (shared clock): everyone ranks finishes by these times
+    m.fin = (r, t) => { if (mine(r)) send({ t: 'ev', k: 'fin', s: r.seat, ft: +t.toFixed(4), r: m.race.seed }); };
     m.tick = () => {
       if (!m.on || mode !== 'play' || performance.now() < syncAt) return;
       syncAt = performance.now() + 500;
@@ -2983,13 +2990,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1,
       nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
       countdown: 3.2, countShown: 4, levelTime: 0,
-      overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, otStart: 0, speedAtFinish: null,
+      overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, finWaitAt: null, otStart: 0, speedAtFinish: null,
     });
     $('gold').classList.remove('x2'); document.querySelectorAll('.lds').forEach(e => e.remove());   // v68
     bots.forEach((b, i) => b.setActive(i < L.rivals));
     racers = [player, ...bots.filter(b => b.active)];
     if (MP.on) racers = MP.buildRacers();   // v85
-    racers.forEach((r, i) => { r.slot = i; r.reset(L); r.elimAt = undefined; r.elimOrder = 0; r.survivor = false; });
+    racers.forEach((r, i) => { r.slot = i; r.reset(L); r.elimAt = undefined; r.elimOrder = 0; r.survivor = false; r.finTime = r.finLocal = r.elimT = null; });   // v87: finish/wash-out times
     recolor(0);
   }
 
@@ -3076,7 +3083,33 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const key = r => eliminated(r) ? 1e6 - (r.elimOrder || 0) : -r.progress;
     return racers.slice().sort((a, b) => key(a) - key(b));
   }
+  // v87 MULTIPLAYER FINISH ORDER: each duck's crossing is judged on its owner's device (no lag there) and sent
+  // as a shared-clock race time. Every device ranks by those times (equal times: lower seat first), so all screens
+  // agree. Your place is announced FIN_WAIT s after you cross, giving a closer finisher's report time to arrive.
+  // A remote duck seen crossing here with no report yet is ranked by when this device saw it (fallback).
+  const FIN_WAIT = 0.6;
+  const finKey = r => r.finTime != null ? r.finTime : r.finLocal;
+  const seatOf = r => r.seat != null ? r.seat : 10 + r.slot;
+  function rankFinish() {
+    const done = racers.filter(r => finKey(r) != null).sort((a, b) => finKey(a) - finKey(b) || seatOf(a) - seatOf(b));
+    done.forEach((r, i) => { r.place = i + 1; });
+    st.finishCount = done.length;
+    if (st.finishPlace != null && player.place !== st.finishPlace) {   // a late report changed your place: fix the results
+      st.finishPlace = player.place; st.finishOk = player.place <= st.level.mustPlace;
+    }
+  }
+  function checkFinishesMP() {
+    for (const r of racers) {
+      if (r.finished || r.out || r.fall || r.progress < st.finishTheta) continue;
+      r.finished = true;
+      if (r.remote) r.finLocal = st.levelTime;
+      else { r.finTime = st.levelTime; MP.fin(r, r.finTime); if (r.isPlayer) st.finWaitAt = st.levelTime + FIN_WAIT; }
+      rankFinish();
+    }
+    if (st.finWaitAt != null && st.levelTime >= st.finWaitAt) { st.finWaitAt = null; rankFinish(); playerFinished(); }
+  }
   function checkFinishes() {
+    if (MP.on) return checkFinishesMP();   // v87
     for (const r of racers) {   // the player is checked first, so ties go to the player
       if (!r.finished && !r.out && !r.fall && r.progress >= st.finishTheta) {
         r.finished = true; r.place = ++st.finishCount;
@@ -3179,10 +3212,23 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const eliminated = r => r.out || (r.fall && r.fall.out);
   function noteElimination(r) {
     if (r.elimAt !== undefined) return;
-    r.elimAt = st.levelTime; r.elimSpeed = st.speed; r.elimOrder = ++st.elimCount;
+    r.elimAt = MP.on && r.elimT != null ? r.elimT : st.levelTime;   // v87: remote wash-outs use the owner's race time
+    r.elimSpeed = st.speed; r.elimOrder = ++st.elimCount;
     podiumElim(r);
+    reorderElims();
     st.elims.push({ name: r.name, atSec: +st.levelTime.toFixed(1), speed: +st.speed.toFixed(2), afterFinish: !!st.overtime });
     if (!r.isPlayer && st.overtime) toast(`${r.name} washed out!`, '#6fd3ff');
+  }
+  // v87: in multiplayer a wash-out report can arrive after a later one, so re-sort the wash-out order by race time
+  // (equal times: lower seat first) and move podium steps that nobody is standing on yet.
+  function reorderElims() {
+    if (!MP.on) return;
+    const el = racers.filter(r => r.elimAt !== undefined).sort((a, b) => a.elimAt - b.elimAt || seatOf(a) - seatOf(b));
+    el.forEach((r, i) => {
+      r.elimOrder = i + 1;
+      const p = racers.length - i;
+      if (r.podium !== p && !r.seated && !racers.some(x => x !== r && x.seated && x.podium === p)) r.podium = p;
+    });
   }
   function checkOvertimeEnd() {
     if (!st.overtime || st.ending) return;
@@ -3210,7 +3256,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v86d-2026-10-11';   // Discord build of v86-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v87d-2026-10-11';   // Discord build of v87-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3918,7 +3964,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     r.podium = racers.length + 1 - r.elimOrder;
     const myRun = runId, place = r.podium;
     // Safety net: if the swim never finishes (sim stopped, results already up), seat it anyway.
-    const late = () => { if (runId !== myRun || r.seated) return; if (mode === 'paused') return void setTimeout(late, 500); podiumSeat(r, place); };
+    const late = () => { if (runId !== myRun || r.seated) return; if (mode === 'paused') return void setTimeout(late, 500); podiumSeat(r, r.podium || place); };   // v87: step may have moved
     setTimeout(late, (SWIM_MAX + 1.5) * 1000);
   }
   // Game over: everyone not yet on the podium swims to the top steps left, best standing on top.
