@@ -3802,7 +3802,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v90-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v91-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3915,6 +3915,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       events: r.events, eventsDropped: r.eventsDropped || 0,
     };
     boardRecord(doc);   // v44: personal bests on this browser (skips god-mode sessions)
+    // v91: Discord build: send the result to the saved player on the race server (signed-in players only;
+    // JDF_DISCORD.report queues it and resends if it fails). Skipped: god-mode runs, and runs quit before a single dodge or egg.
+    if (window.JDF_DISCORD && window.JDF_DISCORD.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
+      const lv = String(r.level).split('-').map(Number);   // '2-3' -> 13 (chapter 2, level 3) so the server can keep the best one
+      window.JDF_DISCORD.report({ level: lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0, place: result === 'abandoned' ? 0 : (doc.place || 0), dodges: doc.dodges || 0,
+        stumbles: doc.stumbles || 0, streak: doc.bestStreak || 0, speed: doc.topSpeed || 0, eggs: doc.eggs || 0, credits: 0 });
+    }
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
     if (!tele.db) { tele.lastSave = 'off'; return; }
     tele.lastSave = 'saving';
@@ -4617,6 +4624,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const showGold = () => { $('goldAmt').textContent = gold.toLocaleString(); };
   let saveGoldT = 0;   // v59
   function saveGold() { saveGoldT = 0; try { localStorage.setItem('jdf-gold', String(gold)); } catch (e) {} }
+  // v91: Discord build: the saved player on the race server is the real egg count; this device's count is only
+  // a cache for when the server can't be reached. Eggs from a run still in progress aren't on the server yet: keep them.
+  const serverGold = p => {
+    if (!p || !Number.isFinite(p.eggs)) return;
+    const live = (tele.run && !tele.run.ended && tele.run.gold) || 0;
+    gold = Math.max(0, p.eggs + live); saveGold(); showGold();
+  };
+  window.addEventListener('jdf-player', e => serverGold(e.detail));
+  { const D = window.JDF_DISCORD; if (D && D.player && D.save === 'saved') serverGold(D.player); }   // loaded before this ran
   const goldV = new THREE.Vector3();
   // Screen position (stage px) of a point in the 3D scene, optionally lifted by `up` world units.
   function toScreen(pos, up) {
