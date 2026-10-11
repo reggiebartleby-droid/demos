@@ -3808,7 +3808,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v92-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v93-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3893,6 +3893,24 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       r.eventsDropped = (r.eventsDropped || 0) + 1;
     }
   }
+  // v91: '2-3' -> 13 (chapter 2, level 3) so the server can keep the best one
+  const lvCode = s => { const lv = String(s).split('-').map(Number); return lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0; };
+  // v93: Discord multiplayer race: while racing, keep an up-to-date "unfinished race" report on this device
+  // (JDF_DISCORD.raceOpen, every 2 s). teleEnd clears it when the race ends here. If the Activity is closed
+  // mid-race, it is sent at the next sign-in, so leaving a race counts as the place you'd have taken
+  // (the bottom step still free, same as the other screens give you). Solo races don't do this.
+  let openAt = 0, openRun = -1;
+  function raceOpenTick() {
+    const D = window.JDF_DISCORD;
+    if (!D || !D.raceOpen || !MP.on || MP.solo || mode !== 'play' || st.godUsed || !tele.run || tele.run.ended) return;
+    const t = performance.now();
+    if (openRun === runId && t - openAt < 2000) return;
+    const fresh = openRun !== runId; openRun = runId; openAt = t;
+    const place = eliminated(player) ? (player.podium || racers.length) : player.finished ? (player.place || 1)
+      : Math.max(1, racers.length - st.elimCount);
+    D.raceOpen({ level: lvCode(tele.run.level), place, dodges: player.cleared || 0, stumbles: player.stumbles || 0,
+      streak: player.bestStreak || 0, speed: +st.topSpeed.toFixed(2) || 0, eggs: tele.run.gold || 0, credits: 0 }, fresh);
+  }
   function teleEnd(result) {
     const r = tele.run; if (!r || r.ended) return;
     r.ended = true;
@@ -3925,9 +3943,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // JDF_DISCORD.report queues it and resends if it fails). Skipped: god-mode runs, and runs quit before a single dodge or egg.
     // v92: a duck that didn't reach the arch (washed out, or lost the connection) counts as its podium step, the same place
     // the race screen shows, so dropping out of a losing race still counts as the loss.
+    if (window.JDF_DISCORD && window.JDF_DISCORD.raceClose) window.JDF_DISCORD.raceClose();   // v93: race ended here, so drop the unfinished-race copy
     if (window.JDF_DISCORD && window.JDF_DISCORD.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
-      const lv = String(r.level).split('-').map(Number);   // '2-3' -> 13 (chapter 2, level 3) so the server can keep the best one
-      window.JDF_DISCORD.report({ level: lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0, place: result === 'abandoned' ? 0 : (doc.place || player.podium || 0), dodges: doc.dodges || 0,
+      window.JDF_DISCORD.report({ level: lvCode(r.level), place: result === 'abandoned' ? 0 : (doc.place || player.podium || 0), dodges: doc.dodges || 0,
         stumbles: doc.stumbles || 0, streak: doc.bestStreak || 0, speed: doc.topSpeed || 0, eggs: doc.eggs || 0, credits: 0 });
     }
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
@@ -5797,6 +5815,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       hudFrame();
     } else if (MP.on && mode === 'play') {
       MP.run();   // v85: fixed 1/240 s steps on the shared clock (no hit-stop)
+      raceOpenTick();   // v93
       hudFrame();
     } else if (mode === 'play' || mode === 'cleared') {
       // Substeps: at high speed one frame could carry a duck past an obstacle's whole hit window
