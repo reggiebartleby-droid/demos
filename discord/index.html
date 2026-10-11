@@ -21,12 +21,18 @@
 //  If sign-in fails or is declined, the game plays as a guest, same as before.
 //  Result: window.JDF_DISCORD.user = { id, name, username } and a 'jdf-discord-user' event.
 //  Outside Discord (no frame_id) this does nothing and the page plays exactly like the normal copy.
+//  v91 SAVED PLAYER: the access token stays inside this function (never on window). After sign-in it sends
+//  any queued race reports, then loads the saved player from the race Worker (/race/player/load). The
+//  server copy is the real one: window.JDF_DISCORD.player + a 'jdf-player' event (the game sets its egg
+//  count from it). JDF_DISCORD.report(r) queues a race result (random rid, kept in localStorage until the
+//  server says ok) and sends it; on failure it retries every 30 s and when the device comes back online.
 // =====================================================================
 window.JDF_DISCORD = (function () {
   const q = new URLSearchParams(location.search);
   const frameId = q.get('frame_id');
   const d = { inDiscord: !!frameId && location.hostname.endsWith('.discordsays.com'), ready: false,
-              platform: q.get('platform') || '', user: null, auth: 'off' };
+              platform: q.get('platform') || '', user: null, auth: 'off', player: null, save: 'off' };
+  d.report = () => {};   // v91: replaced below when in Discord
   if (!d.inDiscord) return d;
   const clientId = location.hostname.split('.')[0];
   const ALLOWED = new Set([location.origin, 'https://discord.com', 'https://discordapp.com', 'https://ptb.discord.com',
@@ -74,6 +80,78 @@ window.JDF_DISCORD = (function () {
     throw new Error('token exchange failed (' + last + ')');
   }
 
+  // ---- v91: saved player on the race Worker (URL mapping /race -> jdf-race Worker) ----
+  let token = '';                  // Discord access token: only in here, never on window
+  const QKEY = 'jdf-reports';      // queued race reports (each {uid, rid, report}) until the server says ok
+  let queue = [];
+  try { const a = JSON.parse(localStorage.getItem(QKEY) || '[]'); if (Array.isArray(a)) queue = a; } catch (e) {}
+  const saveQ = () => { queue = queue.slice(-50); try { localStorage.setItem(QKEY, JSON.stringify(queue)); } catch (e) {} };
+  const newRid = () => crypto.randomUUID ? crypto.randomUUID() : 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+
+  // POST to the Worker. Returns {status, j} once a path answers with the Worker's own JSON ({ok: ...});
+  // throws if no path does (offline, mapping missing). Same rid sent twice is counted once, so retrying is safe.
+  async function post(what, body) {
+    let last = '';
+    for (const base of ['/.proxy/race/player/', '/race/player/']) {
+      try {
+        const r = await fetch(base + what, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' });
+        const j = await r.json().catch(() => null);
+        if (j && typeof j.ok === 'boolean') return { status: r.status, j };
+        last = base + what + ' -> HTTP ' + r.status;
+      } catch (e) { last = base + what + ' -> ' + e.message; }
+    }
+    throw new Error(last);
+  }
+  const gotPlayer = p => {
+    if (!p) return;
+    d.player = p;
+    window.dispatchEvent(new CustomEvent('jdf-player', { detail: p }));
+  };
+  // Send queued reports for the signed-in player, oldest first. Resolves true when none of theirs are left.
+  let flushing = null, retryT = 0;
+  function flush() {
+    if (flushing) return flushing;
+    flushing = (async () => {
+      while (token && d.user) {
+        const next = queue.find(x => x.uid === d.user.id);   // another account's runs on this device wait for that account
+        if (!next) { d.save = 'saved'; return true; }
+        const { status: code, j } = await post('report', { token, report: Object.assign({ rid: next.rid }, next.report) });
+        if (code === 401) { d.save = 'sign-in expired'; return false; }   // keep the queue for next sign-in
+        queue = queue.filter(x => x.rid !== next.rid); saveQ();   // ok, or rejected as bad data (would fail forever)
+        if (j.ok) gotPlayer(j.player); else console.warn('[JDF Discord] report rejected:', j.error, next);
+      }
+      return false;
+    })().catch(e => {
+      d.save = 'offline: ' + e.message;
+      console.warn('[JDF Discord] save failed, will retry:', e);
+      if (!retryT) retryT = setTimeout(() => { retryT = 0; flush(); }, 30000);
+      return false;
+    }).finally(() => { flushing = null; });
+    return flushing;
+  }
+  window.addEventListener('online', () => flush());
+  d.report = r => {   // r = {level, place, dodges, stumbles, streak, speed, eggs, credits}
+    if (!d.user) return;   // guest: nothing is saved
+    queue.push({ uid: d.user.id, rid: newRid(), report: r }); saveQ();
+    flush();
+  };
+  async function loadPlayer() {
+    d.save = 'loading';
+    const clear = await flush();   // runs from last time first, so the loaded copy includes them
+    try {
+      const { j } = await post('load', { token });
+      if (!j.ok) throw new Error(j.error || 'load failed');
+      if (clear) gotPlayer(j.player);   // unsent runs left: keep this device's eggs until they go through
+      else d.player = j.player;
+      if (clear) d.save = 'saved';
+      status(d.user.name);
+    } catch (e) {
+      d.save = 'offline: ' + e.message;
+      status(d.user.name + ' · offline');
+      console.warn('[JDF Discord] load failed, using this device\'s copy:', e);
+    }
+  }
+
   async function signIn() {
     d.auth = 'signing in';
     status('Discord: signing in…');
@@ -82,6 +160,7 @@ window.JDF_DISCORD = (function () {
       const { code } = await send('AUTHORIZE', { client_id: clientId, response_type: 'code', state: '', prompt: 'none', scope: ['identify'] }, 120000);
       const access_token = await getToken(code);
       const auth = await send('AUTHENTICATE', { access_token });
+      token = access_token;   // v91: kept for the saved-player calls
       const u = (auth && auth.user) || {};
       // same cleanup and 20-character limit as the typed tester name
       const name = String(u.global_name || u.username || '').replace(/[\u0000-\u001f<>=+@]/g, '').trim().slice(0, 20);
@@ -91,11 +170,14 @@ window.JDF_DISCORD = (function () {
       status(name);
       window.dispatchEvent(new CustomEvent('jdf-discord-user', { detail: d.user }));
     } catch (e) {
+      token = '';
       const msg = (e && (e.message || e.code)) || String(e);
       d.auth = 'failed: ' + msg;
       status('Discord ✓ guest');
       console.warn('[JDF Discord] sign-in failed, playing as guest:', e);
+      return;
     }
+    loadPlayer();   // v91
   }
 
   window.addEventListener('message', e => {
@@ -3926,7 +4008,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v90d-2026-10-11';   // Discord build of v90-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v91d-2026-10-11';   // Discord build of v91-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -4040,6 +4122,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       events: r.events, eventsDropped: r.eventsDropped || 0,
     };
     boardRecord(doc);   // v44: personal bests on this browser (skips god-mode sessions)
+    // v91: Discord build: send the result to the saved player on the race server (signed-in players only;
+    // JDF_DISCORD.report queues it and resends if it fails). Skipped: god-mode runs, and runs quit before a single dodge or egg.
+    if (window.JDF_DISCORD && window.JDF_DISCORD.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
+      const lv = String(r.level).split('-').map(Number);   // '2-3' -> 13 (chapter 2, level 3) so the server can keep the best one
+      window.JDF_DISCORD.report({ level: lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0, place: result === 'abandoned' ? 0 : (doc.place || 0), dodges: doc.dodges || 0,
+        stumbles: doc.stumbles || 0, streak: doc.bestStreak || 0, speed: doc.topSpeed || 0, eggs: doc.eggs || 0, credits: 0 });
+    }
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
     if (!tele.db) { tele.lastSave = 'off'; return; }
     tele.lastSave = 'saving';
@@ -4744,6 +4833,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const showGold = () => { $('goldAmt').textContent = gold.toLocaleString(); };
   let saveGoldT = 0;   // v59
   function saveGold() { saveGoldT = 0; try { localStorage.setItem('jdf-gold', String(gold)); } catch (e) {} }
+  // v91: Discord build: the saved player on the race server is the real egg count; this device's count is only
+  // a cache for when the server can't be reached. Eggs from a run still in progress aren't on the server yet: keep them.
+  const serverGold = p => {
+    if (!p || !Number.isFinite(p.eggs)) return;
+    const live = (tele.run && !tele.run.ended && tele.run.gold) || 0;
+    gold = Math.max(0, p.eggs + live); saveGold(); showGold();
+  };
+  window.addEventListener('jdf-player', e => serverGold(e.detail));
+  { const D = window.JDF_DISCORD; if (D && D.player && D.save === 'saved') serverGold(D.player); }   // loaded before this ran
   const goldV = new THREE.Vector3();
   // Screen position (stage px) of a point in the 3D scene, optionally lifted by `up` world units.
   function toScreen(pos, up) {
