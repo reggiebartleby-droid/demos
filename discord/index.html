@@ -2248,6 +2248,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       this.active = false;
       this.setActive(isPlayer);
     }
+    setLane(l) { this.lane = l; this.r = laneR(l); this.leanAngle = Math.atan(K / this.r); }   // v85
+    dress(name, color, tagColor) {   // v85: multiplayer re-labels the ducks per seat
+      this.name = name; this.tagColor = tagColor; this.bodyColor = color; this.model.mat.color.set(color);
+      if (this.tag) { scene.remove(this.tag); this.tag.material.map.dispose(); this.tag.material.dispose(); }
+      this.tag = makeTag(name, tagColor); this.tag.visible = this.active;
+    }
     setActive(on) {
       this.active = on;
       this.model.base.visible = on;
@@ -2272,7 +2278,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // How many more misses until the pool (ahead of the front = more than the starting number)
     get missesLeft() { return Math.max(0, Math.ceil((this.pos - LEFT_EDGE) / this.stumbleBack - 1e-6)); }
     gain(steps, why) {
-      if (st.overtime || eliminated(this)) return;
+      if (st.overtime || eliminated(this) || this.remote) return;   // v85: a puppet's gains come from its owner
       const room = MAX_AHEAD - (this.pos + this.pending);
       if (room > 1e-9) {
         this.pending += Math.min(room, steps * this.stumbleBack);   // queued: moves at the next regroup
@@ -2283,15 +2289,17 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
     // ----- the "buttons" -----
     pressUp() {
+      MP.btn(this, 'U');   // v85
       this.upHeld = true;
       this.breakStumble();
       if (this.grounded && this.lag <= 0) this.launch(); else this.upBuffer = 0.07;   // buffered: fires the moment it's allowed
     }
     releaseUp() {
+      if (this.upHeld) MP.btn(this, 'u');   // v85
       if (this.isPlayer && this.upHeld && this.teleJump && !this.teleJump.hold) this.teleJump.hold = Math.round((st.levelTime - this.upPressedAt) * 1000);
       this.upHeld = false; this.boost = -1;
     }
-    pressDown() { if (this.isPlayer && !this.duckHeld && tele.run && mode === 'play') tele.run.ducks.push(st.levelTime); this.duckHeld = true; this.breakStumble(); }
+    pressDown() { if (!this.duckHeld) MP.btn(this, 'D'); if (this.isPlayer && !this.duckHeld && tele.run && mode === 'play') tele.run.ducks.push(st.levelTime); this.duckHeld = true; this.breakStumble(); }
     // Jump or duck during a stumble (after STUMBLE_LOCK) ends the tumble animation right away.
     // The push-back itself still happens: updateFall() keeps sliding the duck back to its new spot.
     breakStumble() {
@@ -2300,7 +2308,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       this.fall = null; this.tilt = 0; this.fallOff = 0; this.land = 0;
       return true;
     }
-    releaseDown() { this.duckHeld = false; }
+    releaseDown() { if (this.duckHeld) MP.btn(this, 'd'); this.duckHeld = false; }
     launch() {
       probe.mark(this.isPlayer ? 'jump' : 'botjump');   // v59
       if (this.isPlayer) { this.teleJump = teleLaunch(); this.upPressedAt = st.levelTime; }
@@ -2340,7 +2348,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
 
     collide() {
-      if (this.out) return;             // washed-out ducks are out of the race
+      if (this.out || this.remote) return;   // washed-out ducks are out of the race; v85: puppets get results from their owner
       for (const o of st.obs) {
         if (o.res[this.slot]) continue;
         const phi = o.theta - this.progress;   // angle from this duck to the obstacle
@@ -2349,8 +2357,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           if (this.fall) continue;
           if (o.spared && o.spared[this.slot]) {
             // Would have hit it, but was still invulnerable: no stumble, but no dodge credit either
-            o.hit[this.slot] = null; if (this.isPlayer) teleObstacle(o, false, phi, true);
-          } else { o.hit[this.slot] = false; if (this.isPlayer) teleObstacle(o, false, phi); this.dodged(); }
+            o.hit[this.slot] = null; if (this.isPlayer) teleObstacle(o, false, phi, true); MP.res(this, 'spare', o);
+          } else { o.hit[this.slot] = false; if (this.isPlayer) teleObstacle(o, false, phi); MP.res(this, 'dodge', o); this.dodged(); }
           continue;
         }
         if (Math.abs(phi) < this.hitAngle && !this.fall) {
@@ -2359,8 +2367,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           if (hit && this.isPlayer && godMode) { st.godUsed = true; (o.spared || (o.spared = []))[this.slot] = true; continue; }
           if (hit && this.invuln > 0) { (o.spared || (o.spared = []))[this.slot] = true; continue; }
           // v36 GLOW SHIELD (player only): a glowing duck that gets hit loses the glow instead of a stumble
-          if (hit && this.isPlayer && this.streak >= GLOW_STREAK) { this.shieldBreak(o); continue; }
-          if (hit) { o.res[this.slot] = true; o.hit[this.slot] = true; if (this.isPlayer) teleObstacle(o, true, phi); this.stumble(); return; }
+          if (hit && this.isPlayer && this.streak >= GLOW_STREAK) { this.shieldBreak(o); MP.res(this, 'shield', o); continue; }
+          if (hit) { o.res[this.slot] = true; o.hit[this.slot] = true; if (this.isPlayer) teleObstacle(o, true, phi); this.stumble(); MP.hit(this, o); return; }
         }
       }
     }
@@ -2399,7 +2407,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         st.shake = 0.4; st.hitstop = 0.09; flash();
         if (out) {
           noteElimination(this);
-          if (!st.overtime) mode = 'dying';
+          if (!st.overtime && !MP.on) mode = 'dying';   // v85: multiplayer keeps racing (you watch)
           // v36: overtime wash-out no longer pops results 0.5 s after the hit; the swim's arrival
           // on the podium (updateFall) schedules them, RESULT_DELAY s after the duck is seated.
         }
@@ -2458,7 +2466,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           this.fall = null; this.out = true;
           podiumSeat(this, this.podium);
           this.model.base.visible = false; if (this.tag) this.tag.visible = false;
-          if (this.isPlayer) {
+          if (this.isPlayer && MP.on) { if (!st.ending) toast('Out! Watching the rest of the race', '#ffe2a8'); }   // v85
+          else if (this.isPlayer) {
             if (st.overtime) {
               if (FEATURES.spectate) {
                 const watch = () => { if (mode === 'play' && !st.ending) toast('Spectating: tap to skip', '#ffe2a8'); };
@@ -2620,7 +2629,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           pFail += Math.min(0.15, Math.max(0, 0.2 * (st.speed / st.level.startSpeed - 1)));
           // Rubber band: slip a bit more when ahead of the player, a bit less when behind,
           // so the pack stays close and there are passes to make.
-          const lead = d.progress - player.progress;
+          const lead = MP.on ? 0 : d.progress - player.progress;   // v85: no rubber band in multiplayer
           if (!st.overtime) pFail *= lead > 0 ? 1 + Math.min(1, lead / 0.5) * 0.7 : 1 - Math.min(1, -lead / 0.5) * 0.4;
           const ok = Math.random() >= pFail;
           plan = o.plan[d.slot] = { done: false, shift: ok ? rand(-0.02, 0.02) : -rand(0.12, 0.3) };
@@ -2634,9 +2643,287 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
   }
 
-  const player = new Racer({ lane: LANES - 1, color: 0xffd23f, name: 'You', isPlayer: true });
-  const bots = RIVALS.map((p, i) => new Racer({ lane: i, color: p.color, name: p.name, tagColor: p.tag, brain: new BotBrain(p) }));
+  // v84 LANE TEST: ?lane=1..4 puts you in that lane (1 = inner, next to the trunk; 4 = outer, the usual one).
+  // Remembered for this tab, so a self-update reload keeps it. Bots fill the other lanes in order.
+  // First step toward multiplayer: every lane has to be playable and fair.
+  const PLAYER_LANE = (() => {
+    let n = parseInt(new URLSearchParams(location.search).get('lane'), 10);
+    try { if (n >= 1 && n <= LANES) sessionStorage.setItem('jdf-lane', n); else n = parseInt(sessionStorage.getItem('jdf-lane'), 10); } catch (e) {}
+    return (n >= 1 && n <= LANES) ? n - 1 : LANES - 1;
+  })();
+  const player = new Racer({ lane: PLAYER_LANE, color: 0xffd23f, name: 'You', isPlayer: true });
+  const BOT_LANES = [...Array(LANES).keys()].filter(i => i !== PLAYER_LANE);   // v84: the lanes you're not in
+  const bots = RIVALS.map((p, i) => new Racer({ lane: BOT_LANES[i], color: p.color, name: p.name, tagColor: p.tag, brain: new BotBrain(p) }));
   let racers = [player];
+
+  // =====================================================================
+  //  v85 MULTIPLAYER (Discord Activity): up to 4 people race together in one Activity instance.
+  //  Server: the jdf-race Worker (one Durable Object per instanceId), reached through the Discord URL
+  //  mapping /race -> jdf-race.<account>.workers.dev. It seats players, sends a shared seed + start time,
+  //  and passes messages between devices.
+  //  - Same obstacles on every device: seeded random numbers, a fixed 1/240 s sim step on a shared clock,
+  //    and the world keyed to the slide (st.theta) instead of the local duck. No pausing, no hit-stop.
+  //  - Each device runs its own duck and sends its button presses, hits, dodges and a position sync twice a
+  //    second. Other humans are "puppets" that replay those messages (no local collisions). Bots run on the
+  //    host (lowest seat) and are puppets everywhere else; if the host leaves, the next seat takes the bots.
+  //  - Everyone sees themselves in lane 4 (lanes are only looks: timing is identical in every lane).
+  //  - After washing out you watch until the race ends for everyone.
+  //  - Outside Discord (no instance_id) none of this runs: single player exactly as before.
+  // =====================================================================
+  const MP = (() => {
+    const q = new URLSearchParams(location.search);
+    const local = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const testUrl = local ? q.get('mp') : null;   // sandbox testing only: ?mp=ws://localhost:8787/ws&instance=..&uid=..&name=..
+    const inDiscord = !!(window.JDF_DISCORD && window.JDF_DISCORD.inDiscord);
+    const instance = testUrl ? (q.get('instance') || 'test') : q.get('instance_id');
+    const FIX = 1 / 240;
+    const SEAT_COLORS = [[0xff7eb6, '#ffb3d4'], [0xffa94d, '#ffd2a1'], [0xc58fff, '#e0c4ff'], [0xff6b6b, '#ffb0b0']];   // human ducks on other screens
+    const m = { on: false, linked: false, full: false, seat: -1, host: -1, roster: [], states: {}, race: null,
+                rng: Math.random, offset: 0, bestRtt: 1e9, dressed: false, FIX,
+                now: () => Date.now(), ui() {}, btn() {}, res() {}, hit() {}, tick() {}, checkEnd() {}, setState() {},
+                restore() {}, requestStart() {} };
+    if (!instance || !/^[\w.-]{1,120}$/.test(instance) || (!inDiscord && !testUrl)) return m;
+
+    const el = id => document.getElementById(id);
+    let ws = null, tries = 0, syncAt = 0;
+    const now = () => Date.now() + m.offset;
+    m.now = now;
+    const mulberry32 = a => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const myUid = () => {
+      if (testUrl) return q.get('uid') || 'test';
+      const u = window.JDF_DISCORD.user; if (u && u.id) return String(u.id);
+      let g = ''; try { g = sessionStorage.getItem('jdf-guest') || ''; } catch (e) {}
+      if (!g) { g = 'g' + Math.random().toString(36).slice(2, 12); try { sessionStorage.setItem('jdf-guest', g); } catch (e) {} }
+      return g;
+    };
+    const myName = () => (testUrl ? q.get('name') : ((window.JDF_DISCORD.user && window.JDF_DISCORD.user.name) || testerName)) || 'Duck';
+    const urls = () => testUrl ? [testUrl] : ['wss://' + location.host + '/.proxy/race/ws', 'wss://' + location.host + '/race/ws'];
+    const hostName = () => { const h = m.roster.find(p => p.seat === m.host); return h ? h.name : 'the host'; };
+    function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+
+    function connect() {
+      const list = urls(), base = list[tries % list.length];
+      const url = base + '?instance=' + encodeURIComponent(instance) + '&uid=' + encodeURIComponent(myUid()) + '&name=' + encodeURIComponent(myName());
+      let opened = false;
+      try { ws = new WebSocket(url); } catch (e) { tries++; setTimeout(connect, 2000); return; }
+      ws.onopen = () => {
+        opened = true; m.linked = true; m.bestRtt = 1e9;
+        for (let i = 0; i < 6; i++) setTimeout(ping, i * 250);
+        m.setState(m.on && mode === 'play' ? 'race' : 'idle');
+        ui();
+      };
+      ws.onmessage = e => { let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };
+      ws.onclose = ev => {
+        const wasOpen = opened; ws = null; m.linked = false;
+        if (!wasOpen) tries++;
+        if (ev.code === 4001) m.full = true;
+        ui();
+        if (ev.code === 4001 || ev.code === 4000) return;   // race full / this player opened the game again elsewhere
+        setTimeout(connect, wasOpen ? 1500 : Math.min(15000, 1000 * tries));
+      };
+    }
+    function ping() { send({ t: 'ping', c: Date.now() }); }
+    setInterval(ping, 5000);
+    // Wait for Discord sign-in (so we join with the Discord user id and name), but not forever
+    let waited = 0;
+    setTimeout(function waitAuth() {   // starts after the page script has finished loading
+      const a = window.JDF_DISCORD ? String(window.JDF_DISCORD.auth) : '';
+      if (testUrl || a === 'ok' || a.startsWith('failed') || waited > 20000) connect();
+      else { waited += 300; setTimeout(waitAuth, 300); }
+    }, 0);
+
+    function onMsg(d) {
+      if (d.t === 'pong') {
+        const rtt = Date.now() - d.c;
+        if (rtt >= 0 && rtt <= m.bestRtt * 1.25 + 5) { m.bestRtt = Math.min(m.bestRtt, rtt); m.offset = d.s - (d.c + rtt / 2); }
+        return;
+      }
+      if (d.t === 'hello') { m.seat = d.seat; setRoster(d.roster); return; }
+      if (d.t === 'roster') { setRoster(d.roster, d.host); return; }
+      if (d.t === 'full') { m.full = true; ui(); return; }
+      if (d.t === 'err') { toast(d.why === 'only the host can start' ? 'Only the host can start the race' : 'Race server: ' + d.why, '#ffb020'); return; }
+      if (d.t === 'start') { onStart(d); return; }
+      if (d.t === 'ev') onEv(d);
+    }
+    function setRoster(list, host) {
+      m.roster = (Array.isArray(list) ? list : []).filter(p => p && p.seat >= 0 && p.seat < 4)
+        .map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20), uid: String(p.uid || '') }));
+      m.host = host != null ? host : (m.roster.length ? m.roster[0].seat : -1);
+      const live = new Set(m.roster.map(p => p.seat));
+      for (const s of Object.keys(m.states)) if (!live.has(+s)) delete m.states[s];
+      if (m.on && m.race) {
+        for (const r of racers) if (r.human && r.remote && !live.has(r.seat)) dropOut(r);
+        if (m.host === m.seat) adoptBots();
+      }
+      ui();
+    }
+    function onStart(d) {
+      if (typeof d.seed !== 'number' || typeof d.at !== 'number' || !(d.level >= 0)) return;
+      if (!(d.roster || []).some(p => p.seat === m.seat)) return;   // joined after this start: wait for the next race
+      m.race = { seed: d.seed, level: Math.min(d.level | 0, LEVELS.length - 1), at: d.at,
+                 roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
+      m.rng = mulberry32(d.seed);
+      m.on = true;
+      startLevelNow(m.race.level);
+    }
+    function onEv(d) {
+      if (d.k === 'state') { if (d.from >= 0 && d.from < 4) { m.states[d.from] = d.st === 'race' ? 'race' : 'idle'; ui(); } return; }
+      const R = m.race;
+      if (!m.on || !R || d.r !== R.seed || mode !== 'play') return;
+      const r = racers.find(x => x.seat === d.s);
+      if (!r || !r.remote) return;
+      if (r.human ? d.from !== d.s : d.from !== m.host) return;   // a human moves only their own duck; the host moves the bots
+      const o = d.o != null ? st.obs.find(x => x.id === d.o) : null;
+      if (d.k === 'b') {
+        if (d.b === 'U') {
+          r.pressUp();
+          // catch the jump up: it started (now - sent) seconds ago on their screen
+          const lag = Math.min(0.5, Math.max(0, st.levelTime - (+d.lt || 0)));
+          for (let t = FIX; t <= lag; t += FIX) r.physics(FIX, FIX);
+        } else if (d.b === 'u') r.releaseUp();
+        else if (d.b === 'D') r.pressDown();
+        else if (d.b === 'd') r.releaseDown();
+      } else if (d.k === 'hit') {
+        if (eliminated(r) || !Number.isFinite(+d.pos)) return;
+        if (o) { o.res[r.slot] = true; o.hit[r.slot] = true; }
+        r.stumbles = Math.max(0, (d.stu | 0) - 1);
+        r.pos = Math.max(-3, Math.min(3, +d.pos)) + r.stumbleBack;   // stumble() takes one step back from here
+        r.stumble();
+      } else if (d.k === 'dodge') {
+        if (o && !o.res[r.slot]) { o.res[r.slot] = true; o.hit[r.slot] = false; r.dodged(); }
+      } else if (d.k === 'spare') {
+        if (o) { o.res[r.slot] = true; o.hit[r.slot] = null; }
+      } else if (d.k === 'shield') {
+        if (o) (o.spared || (o.spared = []))[r.slot] = true;
+        r.streak = 0;
+      } else if (d.k === 'sync') {
+        if (!r.fall && !eliminated(r) && Number.isFinite(+d.pos)) r.pos = Math.max(-3, Math.min(3, +d.pos));
+        r.stumbles = d.stu | 0; r.streak = d.str | 0; r.bestStreak = Math.max(r.bestStreak, d.best | 0); r.cleared = d.clr | 0;
+      }
+    }
+    function dropOut(r) {   // a human left mid-race: their duck leaves the race
+      if (eliminated(r)) return;
+      noteElimination(r);
+      r.fall = null; r.out = true;
+      podiumSeat(r, r.podium);
+      r.model.base.visible = false; if (r.tag) r.tag.visible = false;
+      toast(`${r.name} left the race`, '#6fd3ff');
+    }
+    function adoptBots() {   // this device just became the host: it runs the bots from here on
+      for (const r of racers) if (!r.human && r.remote) { r.remote = false; r.brain = new BotBrain(r.prof); r.brain.reset(st.level); }
+    }
+    function ui() {
+      const ver = el('ver');
+      let tag = el('mpTag');
+      if (!tag && ver) { tag = document.createElement('span'); tag.id = 'mpTag'; ver.append(tag); }
+      if (tag) tag.textContent = m.linked ? ` · MP ${m.roster.length}/4` : m.full ? ' · MP full' : ' · MP…';
+      if (mode !== 'title') return;
+      const pb = el('playBtn');
+      if (!pb) return;
+      let info = el('mpInfo');
+      if (!info) {
+        info = document.createElement('p'); info.id = 'mpInfo';
+        info.style.cssText = 'margin:4px 0 8px;font-size:13px;line-height:1.35;color:var(--ink-dim,#bbb);text-align:center';
+        pb.before(info);
+      }
+      if (!m.linked) {
+        info.textContent = m.full ? 'This race is full (4 players). Playing solo.' : 'Connecting to the race server…';
+        pb.disabled = false;
+        return;
+      }
+      const names = m.roster.map(p => (p.seat === m.seat ? 'You' : p.name) + (p.seat === m.host ? ' (host)' : '')
+        + (p.seat !== m.seat && m.states[p.seat] === 'race' ? ' (racing)' : '')).join(', ');
+      const nb = 4 - m.roster.length;
+      info.textContent = `Racers: ${names}${nb ? ` + ${nb} bot${nb > 1 ? 's' : ''}` : ''}`;
+      if (m.seat === m.host) { pb.disabled = false; pb.textContent = 'Start race: ' + levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)]); }
+      else { pb.disabled = true; pb.textContent = 'Waiting for ' + hostName() + ' to start'; }
+    }
+    m.ui = ui;
+
+    // ---- this device's own ducks (its player, plus the bots on the host) ----
+    const mine = r => m.on && m.race && !r.remote && r.seat != null && mode === 'play';
+    m.btn = (r, b) => { if (mine(r)) send({ t: 'ev', k: 'b', s: r.seat, b, lt: +st.levelTime.toFixed(4), r: m.race.seed }); };
+    m.res = (r, k, o) => { if (mine(r)) send({ t: 'ev', k, s: r.seat, o: o.id, r: m.race.seed }); };
+    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, r: m.race.seed }); };
+    m.tick = () => {
+      if (!m.on || mode !== 'play' || performance.now() < syncAt) return;
+      syncAt = performance.now() + 500;
+      for (const r of racers) if (!r.remote && r.seat != null && !eliminated(r))
+        send({ t: 'ev', k: 'sync', s: r.seat, pos: +r.pos.toFixed(5), stu: r.stumbles, str: r.streak, best: r.bestStreak, clr: r.cleared, r: m.race.seed });
+    };
+    m.setState = s => send({ t: 'ev', k: 'state', st: s });
+    // Fixed-step sim on the shared clock: every device steps the world identically
+    m.run = () => {
+      const target = (now() - m.race.at) / 1000;
+      let n = 0;
+      while (mode === 'play' && st.levelTime + FIX <= target && n++ < 2400) simStep(FIX, FIX);
+      m.tick();
+    };
+    // Race over when no human is still in it (bots don't race on alone)
+    m.checkEnd = () => {
+      if (!m.on || st.ending || racers.some(r => r.human && !eliminated(r))) return;
+      st.ending = true;
+      const myRun = runId, how = st.overtime ? 'overtime' : 'splash';
+      setTimeout(() => { if (runId === myRun && mode === 'play') maybeLoot(() => showResult(how)); }, 1500);
+    };
+    m.requestStart = idx => {
+      if (m.seat !== m.host) {
+        toast('Waiting for ' + hostName() + ' to start the race', '#ffe2a8');
+        if (mode !== 'title') { mode = 'title'; showOverlay('title'); }
+        refreshPlay();
+        return;
+      }
+      const busy = m.roster.filter(p => p.seat !== m.seat && m.states[p.seat] === 'race');
+      // someone still racing: wait for them, unless the host presses again within 5 s (stuck device)
+      if (busy.length && performance.now() - (m.askedAt || -1e9) > 5000) {
+        m.askedAt = performance.now();
+        toast(busy.map(p => p.name).join(', ') + ' still racing. Press again to start anyway', '#ffb020');
+        return;
+      }
+      m.askedAt = 0;
+      send({ t: 'start', level: idx });
+    };
+    // Seats -> ducks on this screen: you in lane 4, the other three seats in lanes 1-3 (seat order)
+    m.buildRacers = () => {
+      const humans = new Map(m.race.roster.map(p => [p.seat, p]));
+      const botOf = {}; let bn = 0;
+      for (let s = 0; s < 4; s++) if (!humans.has(s)) botOf[s] = bn++;
+      player.seat = m.seat; player.human = true; player.remote = false; player.setLane(LANES - 1);
+      const list = [player];
+      [0, 1, 2, 3].filter(s => s !== m.seat).forEach((s, j) => {
+        const b = bots[j], p = humans.get(s);
+        b.seat = s; b.setLane(j); b.setActive(true);
+        if (p) {
+          b.human = true; b.remote = true; b.brain = null;
+          b.dress(p.name, SEAT_COLORS[s][0], SEAT_COLORS[s][1]);
+        } else {
+          const prof = RIVALS[botOf[s] % RIVALS.length];
+          b.human = false; b.prof = prof; b.remote = m.host !== m.seat;
+          b.brain = b.remote ? null : new BotBrain(prof);
+          b.dress(prof.name, prof.color, prof.tag);
+        }
+        list.push(b);
+      });
+      m.dressed = true;
+      const tb = el('trackerBody'); if (tb) tb.innerHTML = '';
+      return list;
+    };
+    // Back to single player: bots and lanes as before
+    m.restore = () => {
+      m.on = false;
+      if (!m.dressed) return;
+      bots.forEach((b, i) => {
+        const p = RIVALS[i];
+        b.human = false; b.remote = false; b.seat = undefined; b.prof = p; b.brain = new BotBrain(p);
+        b.setLane(BOT_LANES[i]); b.dress(p.name, p.color, p.tag);
+      });
+      player.seat = undefined; player.human = false; player.setLane(PLAYER_LANE);
+      m.dressed = false;
+      const tb = el('trackerBody'); if (tb) tb.innerHTML = '';
+    };
+    return m;
+  })();
 
   // =====================================================================
   //  LEVEL FLOW
@@ -2646,7 +2933,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     Object.assign(st, {
       godUsed: godMode, level: L, theta: 0, speed: L.startSpeed, targetSpeed: L.startSpeed, topSpeed: L.startSpeed, stepTimer: 0, tier: 0,
       finishTheta: L.lengthCoils * TAU, finishCount: 0, lastPlace: 1, lastPassToast: 0,
-      hitstop: 0, shake: 0, obs: [], spawned: 0, introDone: !L.intro, coast: 1,
+      hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1,
       nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
       countdown: 3.2, countShown: 4, levelTime: 0,
       overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, otStart: 0, speedAtFinish: null,
@@ -2654,22 +2941,27 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     $('gold').classList.remove('x2'); document.querySelectorAll('.lds').forEach(e => e.remove());   // v68
     bots.forEach((b, i) => b.setActive(i < L.rivals));
     racers = [player, ...bots.filter(b => b.active)];
+    if (MP.on) racers = MP.buildRacers();   // v85
     racers.forEach((r, i) => { r.slot = i; r.reset(L); r.elimAt = undefined; r.elimOrder = 0; r.survivor = false; });
     recolor(0);
   }
 
   // True if no obstacle reaches the duck within `ahead` seconds or passed it within `behind`.
+  // v85: in multiplayer the world must be identical on every device, so it uses shared random numbers and
+  // is keyed to the slide (st.theta) instead of your duck.
+  const wRnd = () => MP.on ? MP.rng() : Math.random();
+  const wRef = () => MP.on ? st.theta : player.progress;
   function quietAroundPlayer(ahead, behind) {
-    if (eliminated(player)) return true;
+    if (!MP.on && eliminated(player)) return true;
     const w = st.speed / RP;
-    return !st.obs.some(o => { const t = (o.theta - player.progress) / w; return t < ahead && t > -behind; });
+    return !st.obs.some(o => { const t = (o.theta - wRef()) / w; return t < ahead && t > -behind; });
   }
   const QUIET = 1.2;   // seconds kept clear on each side of a speed-up
   const stepEvery = () => st.solo ? 5.5 : st.overtime ? 7 : st.level.stepEvery;   // v34 solo: every 5.5 s
   const stepMult = () => st.solo ? 1.18 : st.overtime ? 1.15 : st.level.stepMult;   // v34 solo: +18% per step   // overtime keeps ramping
   const quiet = () => st.overtime ? 0.8 : QUIET;
   function pickType(mix) {
-    let r = Math.random() * Object.values(mix).reduce((a, b) => a + b, 0);
+    let r = wRnd() * Object.values(mix).reduce((a, b) => a + b, 0);
     for (const [k, w] of Object.entries(mix)) { if ((r -= w) <= 0) return k; }
     return 'low';
   }
@@ -2686,7 +2978,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   function addObstacle(theta, type, hint, combo) {
     const mesh = makeObstacleMesh(type);
     obsGroup.add(mesh);
-    st.obs.push({ theta, type, mesh, hint: !!hint, hinted: false, combo: !!combo, res: [], hit: [], plan: [], settled: false });
+    st.obs.push({ id: st.obsSeq++, theta, type, mesh, hint: !!hint, hinted: false, combo: !!combo, res: [], hit: [], plan: [], settled: false });
   }
   function spawn() {
     const L = st.level;
@@ -2696,9 +2988,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       // When will the next speed-up happen, and when would this obstacle arrive?
       const w = st.speed / RP;
       const upAt = st.levelTime + Math.max(0, stepEvery() - st.stepTimer);
-      const arrive = st.levelTime + (st.nextSpawn - player.progress) / w;
+      const arrive = st.levelTime + (st.nextSpawn - wRef()) / w;
       if (arrive > upAt - quiet() - COMBO_GAP && arrive < upAt + quiet()) {
-        st.nextSpawn = player.progress + (upAt + quiet() + 0.05 - st.levelTime) * w;   // skip past the quiet zone
+        st.nextSpawn = wRef() + (upAt + quiet() + 0.05 - st.levelTime) * w;   // skip past the quiet zone
         continue;
       }
       let kind, hint = false, extraAfter = 0;
@@ -2707,8 +2999,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         st.nextSpawn += ft(st.speed * 1.4); extraAfter = st.speed * 1.4;
         if (st.nextSpawn >= stopAt) break;
       } else if (!st.introDone) {
-        kind = Math.random() < 0.5 ? 'low' : 'high';
-      } else if (L.combos && Math.random() < L.combos) {
+        kind = wRnd() < 0.5 ? 'low' : 'high';
+      } else if (L.combos && wRnd() < L.combos) {
         kind = 'combo';
       } else {
         kind = pickType(L.mix);
@@ -2724,7 +3016,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       st.spawned++;
       const along = Math.min(1, st.nextSpawn / st.finishTheta);          // 0 at start, 1 at finish
       // Wider random spread so the rhythm is less predictable (the minimum below keeps it fair)
-      const gapSec = (L.gapStart + (L.gapEnd - L.gapStart) * along) * rand(0.6, 1.55);
+      const gapSec = (L.gapStart + (L.gapEnd - L.gapStart) * along) * (0.6 + wRnd() * 0.95);   // v85: rand(0.6, 1.55), shared in multiplayer
       let gap = st.speed * gapSec;                                       // seconds -> feet
       gap = Math.max(gap, st.speed * 1.0 + 0.8);                         // always room to land and reset
       st.nextSpawn += ft(gap + extraAfter);
@@ -2759,7 +3051,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     } else {
       toast(`${ordinal(player.place)} place`, '#ff6a2b');
     }
-    startOvertime();
+    if (!MP.on) startOvertime();   // v85: multiplayer starts overtime when the slide reaches the arch (simStep)
   }
   // Once every duck still racing has passed an obstacle, apply the comeback rules.
   function settleObstacles() {
@@ -2847,7 +3139,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
   function checkOvertimeEnd() {
     if (!st.overtime || st.ending) return;
-    if (!FEATURES.spectate && eliminated(player)) return;   // player's own splash ends the race
+    if (!FEATURES.spectate && !MP.on && eliminated(player)) return;   // player's own splash ends the race
     const alive = racers.filter(r => !eliminated(r));
     if (alive.length > 1) return;
     // v34: the player is the only duck left: keep racing (and speeding up faster) until washed out.
@@ -2871,8 +3163,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v83d2-2026-10-09';   // Discord build of v83-2026-10-09 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
-  document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
+  const BUILD = 'v85d-2026-10-10';   // Discord build of v85-2026-10-10 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
   // tabs open for days. On load and whenever the tab comes back, fetch a fresh copy (bypassing every
@@ -2965,7 +3257,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const others = racers.filter(x => !x.isPlayer && !x.out);
     const nearest = others.length ? others.reduce((a, b) => Math.abs(b.progress - player.progress) < Math.abs(a.progress - player.progress) ? b : a) : null;
     const doc = {
-      schema: 4, build: BUILD, session: tele.session, runInSession: tele.runsThisSession,
+      schema: 4, build: BUILD, lane: PLAYER_LANE + 1, session: tele.session, runInSession: tele.runsThisSession,
       level: r.level, chapter: st.level.chapter, boss: r.boss, result, startedAt: r.startedAt, endedAt: Date.now(),
       passes: r.passes, passedBy: r.passedBy, secondsInFirst: +r.secondsInFirst.toFixed(1), maxStreak: r.maxStreak,
       finishPlace: st.finishPlace, finishOk: st.finishOk, reachedOvertime: st.overtime,
@@ -3049,7 +3341,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const device = myDevice();
     const details = sheetDetails(doc);
     const row = {
-      name: testerName || '(no name)', build: doc.build, level: doc.level, chapter: doc.chapter, boss: !!doc.boss,
+      name: testerName || '(no name)', build: doc.build + (doc.lane && doc.lane !== LANES ? ' L' + doc.lane : ''), level: doc.level, chapter: doc.chapter, boss: !!doc.boss,
       result: doc.result, place: doc.place, finishPlace: doc.finishPlace, stumbles: doc.stumbles, seconds: doc.seconds,
       topSpeed: doc.topSpeed, reachedOvertime: !!doc.reachedOvertime, overtimeSec: doc.overtimeSec,
       jumps: doc.jumps, duckPresses: doc.duckPresses, godMode: doc.godMode, botMinus: doc.botMinus,
@@ -4224,7 +4516,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     });
   }
 
+  // v85: in multiplayer the host asks the server to start, and every device starts on its 'start' message
   function startLevel(idx) {
+    if (MP.linked && !MP.full) { MP.requestStart(idx); return; }
+    MP.restore();
+    startLevelNow(idx);
+  }
+  function startLevelNow(idx) {
     lootOpen = false; lootThen = null; $('loot').classList.add('hidden');
     if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned');
     teleNext(idx === levelIdx ? 'retry' : idx === levelIdx + 1 ? 'next' : 'other level');
@@ -4247,6 +4545,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     probe.reset();   // v59: lag stats are per race
     const L = st.level, myRun = runId;
     mode = 'play';
+    MP.setState('race');   // v85
     toast('Go!', '#a8f58f');
     let msg = null;
     if (L.boss) msg = L.note;
@@ -4264,6 +4563,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     } });
     trackerFrame(true);   // final numbers on the results screen
     mode = 'result';
+    MP.setState('idle');   // v85
     teleEnd(how);
     noteSave();
     const rc = $('result').querySelector('.card'); rc.classList.remove('tight', 'tighter'); rc.scrollTop = 0;   // v47; v62 tighter
@@ -4387,6 +4687,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   let pausedFrom = null;
   function pause() {
     if (mode !== 'play' && mode !== 'dying') return;
+    if (MP.on) { toast('No pausing in a multiplayer race', '#ffe2a8'); return; }   // v85
     pausedFrom = mode; mode = 'paused';
     player.releaseUp(); player.releaseDown(); releasePads();
     $('pausedSub').textContent = `${levelName(st.level)}: ${st.level.note}`;
@@ -4394,7 +4695,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     showOverlay('paused');
   }
   function resume() { if (mode !== 'paused') return; mode = pausedFrom; showOverlay(null); clock.getDelta(); }
-  const refreshPlay = () => { $('playBtn').textContent = unlocked > 0 ? `Play ${levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)])}` : 'Play'; };
+  const refreshPlay = () => { $('playBtn').textContent = unlocked > 0 ? `Play ${levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)])}` : 'Play'; MP.ui(); };
 
   $('playBtn').addEventListener('click', () => { if (testerReady()) startLevel(Math.min(unlocked, LEVELS.length - 1)); });
   $('levelsBtn').addEventListener('click', () => { if (testerReady()) openSelect(); });
@@ -4420,7 +4721,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // =====================================================================
   const UP_KEYS = ['ArrowUp', 'KeyW', 'Space'], DOWN_KEYS = ['ArrowDown', 'KeyS'];
   const live = () => mode === 'play' && !eliminated(player);
-  const spectating = () => mode === 'play' && st.overtime && player.out && !st.ending;
+  const spectating = () => mode === 'play' && st.overtime && player.out && !st.ending && !MP.on;   // v85: no skipping in multiplayer
   const skipSpectate = () => { st.ending = true; showResult('overtime'); };
   // ---------- v26: PLAY AREA outline ----------
   // The play area = from the bottom of the duck tracker to the top of the Duck/Jump pads, edge to edge.
@@ -4630,6 +4931,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         st.speed += (st.targetSpeed - st.speed) * Math.min(1, simDt * 2.5);
         st.theta += (st.speed / RP) * simDt;
         spawn();
+        if (MP.on && !st.overtime && st.theta >= st.finishTheta) startOvertime();   // v85
     } else if (mode === 'cleared') {
       st.coast = Math.max(0.25, st.coast - dt * 0.6);
       st.theta += (st.speed * st.coast / RP) * dt;
@@ -4642,7 +4944,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       r.updateFall(simDt, dt);
     }
     if (mode === 'play' || mode === 'cleared') checkFinishes();
-    if (mode === 'play') { settleObstacles(); regroup(); checkOvertimeEnd(); }
+    if (mode === 'play') { settleObstacles(); regroup(); checkOvertimeEnd(); MP.checkEnd(); }
   }
   function frame() {
     probe.start(mode === 'play', `${(st.speed || 0).toFixed(0)}ft/s eggs${pile.count()}`);   // v59: judges the previous frame
@@ -4657,10 +4959,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const racing = mode === 'play' || mode === 'dying' || mode === 'cleared';
 
     if (mode === 'countdown') {
-      st.countdown -= dt;
+      st.countdown = MP.on ? (MP.race.at - MP.now()) / 1000 : st.countdown - dt;   // v85: shared start time
       const n = Math.ceil(st.countdown - 0.2);
       if (n < st.countShown && n >= 1 && n <= 3) { st.countShown = n; toast(String(n), '#ffe2a8'); }
       if (st.countdown <= 0) onGo();
+      hudFrame();
+    } else if (MP.on && mode === 'play') {
+      MP.run();   // v85: fixed 1/240 s steps on the shared clock (no hit-stop)
       hudFrame();
     } else if (mode === 'play' || mode === 'cleared') {
       // Substeps: at high speed one frame could carry a duck past an obstacle's whole hit window
