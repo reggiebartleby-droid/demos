@@ -10,32 +10,109 @@
 <title>Jump Duck Faster</title>
 <script>
 // =====================================================================
-//  DISCORD ACTIVITY BUILD (guest mode), added by Make-JDF-Discord.ps1
+//  DISCORD ACTIVITY BUILD, added by Make-JDF-Discord.ps1
 //  Inside Discord the page runs at https://<client id>.discordsays.com/?frame_id=...&instance_id=...&platform=...
-//  This is a minimal copy of the Embedded App SDK 2.5.0 handshake (github.com/discord/embedded-app-sdk,
-//  src/Discord.ts): post HANDSHAKE to the Discord client, wait for the READY dispatch. No sign-in (authorize)
-//  yet, so no Discord names; the client id is read from the discordsays.com hostname, so nothing to paste in.
+//  This is a minimal copy of the Embedded App SDK 2.5.0 messages (github.com/discord/embedded-app-sdk,
+//  src/Discord.ts): HANDSHAKE (opcode 0), then commands as FRAME (opcode 1) {cmd, args, nonce}; the reply
+//  carries the same nonce, or evt 'ERROR'. The client id is read from the discordsays.com hostname.
+//  SIGN-IN (Discord name): after READY -> AUTHORIZE (scope identify; Discord shows its consent box the first
+//  time) -> POST the one-time code to the token Worker through the URL mapping /api -> <worker>.workers.dev
+//  -> AUTHENTICATE with the token -> user. The Client Secret lives only in the Worker, never in this file.
+//  If sign-in fails or is declined, the game plays as a guest, same as before.
+//  Result: window.JDF_DISCORD.user = { id, name, username } and a 'jdf-discord-user' event.
 //  Outside Discord (no frame_id) this does nothing and the page plays exactly like the normal copy.
 // =====================================================================
 window.JDF_DISCORD = (function () {
   const q = new URLSearchParams(location.search);
   const frameId = q.get('frame_id');
-  const d = { inDiscord: !!frameId && location.hostname.endsWith('.discordsays.com'), ready: false, platform: q.get('platform') || '' };
+  const d = { inDiscord: !!frameId && location.hostname.endsWith('.discordsays.com'), ready: false,
+              platform: q.get('platform') || '', user: null, auth: 'off' };
   if (!d.inDiscord) return d;
   const clientId = location.hostname.split('.')[0];
   const ALLOWED = new Set([location.origin, 'https://discord.com', 'https://discordapp.com', 'https://ptb.discord.com',
     'https://ptb.discordapp.com', 'https://canary.discord.com', 'https://canary.discordapp.com', 'null']);
   const target = window.parent.opener || window.parent;
   const targetOrigin = document.referrer ? document.referrer : '*';
+
+  // ---- small status text next to the version number (bottom-right) ----
+  let tagText = '';
+  const paint = () => {
+    if (document.readyState === 'loading') return;   // the game sets #ver while the page loads; add ours after
+    let tag = document.getElementById('discordTag');
+    if (!tag) {
+      const ver = document.getElementById('ver');
+      if (!ver) return;
+      tag = document.createElement('span'); tag.id = 'discordTag';
+      ver.append(' · ', tag);
+    }
+    tag.textContent = tagText;
+  };
+  const status = t => { tagText = t; paint(); };
+  document.addEventListener('DOMContentLoaded', paint);
+
+  // ---- commands: FRAME with a nonce, reply matched by nonce ----
+  const pending = new Map();
+  let seq = 0;
+  const send = (cmd, args, ms) => new Promise((resolve, reject) => {
+    const nonce = (crypto.randomUUID ? crypto.randomUUID() : 'n' + Date.now() + '-' + (++seq));
+    pending.set(nonce, { resolve, reject });
+    target.postMessage([1, { cmd, args, nonce }], targetOrigin);   // opcode 1 = FRAME
+    setTimeout(() => { if (pending.delete(nonce)) reject(new Error(cmd + ' timed out')); }, ms || 15000);
+  });
+
+  // ---- token exchange via the Worker (Discord docs show both paths; try the README one first) ----
+  async function getToken(code) {
+    let last = '';
+    for (const path of ['/.proxy/api/token', '/api/token']) {
+      try {
+        const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const j = await r.json().catch(() => null);
+        if (r.ok && j && j.access_token) return j.access_token;
+        last = path + ' -> HTTP ' + r.status + (j && j.error ? ' ' + j.error : '');
+      } catch (e) { last = path + ' -> ' + e.message; }
+    }
+    throw new Error('token exchange failed (' + last + ')');
+  }
+
+  async function signIn() {
+    d.auth = 'signing in';
+    status('Discord: signing in…');
+    try {
+      // 2 minutes: the first time, Discord waits for the player to click Authorize
+      const { code } = await send('AUTHORIZE', { client_id: clientId, response_type: 'code', state: '', prompt: 'none', scope: ['identify'] }, 120000);
+      const access_token = await getToken(code);
+      const auth = await send('AUTHENTICATE', { access_token });
+      const u = (auth && auth.user) || {};
+      // same cleanup and 20-character limit as the typed tester name
+      const name = String(u.global_name || u.username || '').replace(/[\u0000-\u001f<>=+@]/g, '').trim().slice(0, 20);
+      if (!name) throw new Error('no user name in AUTHENTICATE reply');
+      d.user = { id: u.id, name, username: u.username };
+      d.auth = 'ok';
+      status(name);
+      window.dispatchEvent(new CustomEvent('jdf-discord-user', { detail: d.user }));
+    } catch (e) {
+      const msg = (e && (e.message || e.code)) || String(e);
+      d.auth = 'failed: ' + msg;
+      status('Discord ✓ guest');
+      console.warn('[JDF Discord] sign-in failed, playing as guest:', e);
+    }
+  }
+
   window.addEventListener('message', e => {
     if (!ALLOWED.has(e.origin) || !Array.isArray(e.data)) return;
     const [op, data] = e.data;
-    if (op === 1 && data && data.cmd === 'DISPATCH' && data.evt === 'READY' && !d.ready) {
-      d.ready = true;
-      const tag = document.getElementById('discordTag');
-      if (tag) tag.textContent = 'Discord ✓';
+    if (op !== 1 || !data) return;
+    if (data.cmd === 'DISPATCH') {
+      if (data.evt === 'READY' && !d.ready) { d.ready = true; status('Discord ✓'); signIn(); }
+      return;
     }
+    const p = data.nonce != null && pending.get(data.nonce);
+    if (!p) return;
+    pending.delete(data.nonce);
+    if (data.evt === 'ERROR') p.reject(data.data || new Error(data.cmd + ' error'));
+    else p.resolve(data.data);
   });
+
   const hs = { v: 1, encoding: 'json', client_id: clientId, frame_id: frameId };
   const mob = parseInt((q.get('mobile_app_version') || '').split('.')[0], 10);
   if (d.platform === 'desktop' || mob >= 250) hs.sdk_version = '2.5.0';
@@ -2794,7 +2871,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v83d-2026-10-09';   // Discord build of v83-2026-10-09 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v83d2-2026-10-09';   // Discord build of v83-2026-10-09 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0];   // v35: shows e.g. "v35" in the corner
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -2926,7 +3003,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxCjlxxeGOslsrBM2gbaC2uJ8O5UWC1eqMAqIP2kkHDq2i1DylQdDuqVBcLAEpPyBA_jQ/exec';   // Apps Script web app (Manage deployments)
   const sheet = { on: location.hostname.endsWith('github.io') && SHEET_URL.startsWith('https://script.google.com/'), note: '' };
   let testerName = '';
-  try { testerName = (localStorage.getItem('jdf-tester') || '').slice(0, 20); } catch (e) {}   // v62: names max 20
+  try { testerName = (localStorage.getItem('jdf-tester') || '').slice(0, 20); } catch (e) {}
+  { const useDiscordName = () => { const u = window.JDF_DISCORD && window.JDF_DISCORD.user; if (u && u.name) testerName = u.name; };   // Discord build: signed-in Discord name is the tester name
+    useDiscordName(); window.addEventListener('jdf-discord-user', useDiscordName); }   // v62: names max 20
   function myDevice() {   // v49: shared by sheetSend and the friends-board merge
     const ua = navigator.userAgent;
     return (/iPhone|iPad/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'other';
