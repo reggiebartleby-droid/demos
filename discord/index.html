@@ -472,6 +472,40 @@ window.JDF_DISCORD = (function () {
   .board-note .retry { font: inherit; font-weight: 600; color: var(--butter); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
   /* v47 TITLE: Choose a level + Leaderboard share one row, smaller than Play */
   .btn-row { display: flex; gap: 8px; }
+  /* v90 CUSTOMIZE screen: preview on top, options below (phone first); opaque so the game doesn't draw behind it */
+  #customize { background: var(--sky); align-items: stretch; }
+  #customize .cz { width: 100%; max-width: 560px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  #customize .cz-head { display: flex; align-items: center; justify-content: space-between; }
+  #customize h1 { font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: 26px; line-height: 1; margin: 0; color: var(--butter); }
+  #customize .cz-x { font-size: 18px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,226,168,.5); background: transparent; color: var(--butter); cursor: pointer; }
+  #customize .cz-stage { position: relative; flex: 0 0 42%; min-height: 200px; border: 2px solid rgba(255,226,168,.25); border-radius: 16px; overflow: hidden; touch-action: none; }
+  #customize .cz-stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; }   /* the game styles every canvas as fixed full-screen */
+  #customize .cz-over { position: absolute; left: 8px; right: 8px; top: 8px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
+  #customize .cz-grp { display: flex; gap: 4px; flex-wrap: wrap; pointer-events: auto; }
+  #customize .cz-pill { font: 600 13px "Space Grotesk", system-ui, sans-serif; color: var(--ink); background: rgba(20,16,58,.85); border: 1px solid rgba(255,226,168,.35); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  #customize .cz-pill[aria-pressed="true"] { background: var(--butter); color: #2a1660; border-color: var(--butter); }
+  #customize .cz-toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: rgba(0,0,0,.7); color: #fff; font-weight: 600; font-size: 14px; padding: 6px 12px; border-radius: 999px; opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap; }
+  #customize .cz-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: none; padding-bottom: 2px; }
+  #customize .cz-tabs::-webkit-scrollbar { display: none; }
+  #customize .cz-tab { flex: none; font: 400 14px "Bungee", "Impact", sans-serif; color: var(--ink-dim); background: transparent; border: 2px solid rgba(255,226,168,.3); border-radius: 12px; padding: 6px 11px; cursor: pointer; }
+  #customize .cz-tab[aria-selected="true"] { color: #2a1660; background: var(--butter); border-color: var(--butter); }
+  #customize .cz-panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--panel); border: 2px solid rgba(255,226,168,.25); border-radius: 16px; padding: 12px; }
+  #customize .cz-row { margin-bottom: 14px; } #customize .cz-row:last-child { margin-bottom: 0; }
+  #customize .cz-row h2 { font: 600 12px "Space Grotesk", system-ui, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim); margin: 0 0 6px; }
+  #customize .cz-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  #customize .cz-chip { font: 600 14px "Space Grotesk", system-ui, sans-serif; color: var(--ink); background: rgba(255,226,168,.08); border: 1px solid rgba(255,226,168,.3); border-radius: 999px; padding: 7px 13px; cursor: pointer; }
+  #customize .cz-chip[aria-pressed="true"] { background: var(--butter); color: #2a1660; border-color: var(--butter); }
+  #customize .cz-sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255,226,168,.3); cursor: pointer; padding: 0; }
+  #customize .cz-sw[aria-pressed="true"] { outline: 3px solid var(--butter); outline-offset: 2px; }
+  #customize .cz-custom { position: relative; overflow: hidden; background: conic-gradient(#ff5a5a, #ffd23f, #7fe06a, #5fd4ff, #b88cff, #ff5a5a); }
+  #customize .cz-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  #customize .cz-note { color: var(--ink-dim); font-size: 13px; margin: 6px 0 0; }
+  #customize .cz-share { display: flex; gap: 6px; flex: none; }
+  #customize .cz-share.hidden { display: none !important; }
+  #customize .cz-share input { flex: 1; min-width: 0; font: 12px ui-monospace, monospace; color: var(--ink); background: rgba(255,226,168,.08); border: 1px solid rgba(255,226,168,.3); border-radius: 8px; padding: 8px; }
+  #customize .cz-foot { display: flex; gap: 6px; flex: none; }
+  #customize .cz-foot .btn { margin-top: 0; flex: 1 1 0; min-width: 0; font-size: 14px; padding: 10px 4px; white-space: nowrap; }
+  #title #customBtn { font-size: 15px; padding: 10px 8px; margin-top: 8px; }
   #title .btn-row .btn { flex: 1 1 0; min-width: 0; font-size: 15px; padding: 10px 8px; }
   /* v47 RESULTS FIT: tighter spacing when the card is too tall for the space above the podium */
   #result .card.tight { padding: 16px 18px; }
@@ -642,6 +676,7 @@ window.JDF_DISCORD = (function () {
       <button class="btn ghost" id="levelsBtn">Choose a level</button>
       <button class="btn ghost" id="boardBtn">Leaderboard</button>
     </div>
+    <button class="btn ghost" id="customBtn">Customize your duck</button>   <!-- v90 -->
   </div>
 </div>
 
@@ -662,6 +697,28 @@ window.JDF_DISCORD = (function () {
     <div id="boardsSlot"></div>
     <button class="btn ghost" id="boardsBack">Back</button>
     <div class="more-hint" aria-hidden="true"><span>More below ▾</span></div>
+  </div>
+</div>
+
+<!-- v90 CUSTOMIZE: dress your duck (colors, head, hair, hat, face, neck, outfit, back, feet). -->
+<div class="overlay hidden" id="customize">
+  <div class="cz">
+    <div class="cz-head"><h1>Your duck</h1><button class="cz-x" id="czCancel" aria-label="Close without saving">&#x2715;</button></div>
+    <div class="cz-stage" id="czStage">
+      <div class="cz-over">
+        <div class="cz-grp" role="group" aria-label="Pose">
+          <button class="cz-pill" data-pose="idle" aria-pressed="true">Idle</button><button class="cz-pill" data-pose="run" aria-pressed="false">Run</button><button class="cz-pill" data-pose="jump" aria-pressed="false">Jump</button><button class="cz-pill" data-pose="duck" aria-pressed="false">Duck</button>
+        </div>
+        <div class="cz-grp" role="group" aria-label="View">
+          <button class="cz-pill" data-view="full" aria-pressed="true">Full</button><button class="cz-pill" data-view="head" aria-pressed="false">Head</button>
+        </div>
+      </div>
+      <div class="cz-toast" id="czToast"></div>
+    </div>
+    <div class="cz-tabs" id="czTabs" role="tablist" aria-label="Parts"></div>
+    <div class="cz-panel" id="czPanel" role="tabpanel"></div>
+    <div class="cz-share hidden" id="czShare"><input id="czCode" aria-label="Look code" spellcheck="false" autocomplete="off"><button class="cz-pill" id="czCopy">Copy</button><button class="cz-pill" id="czApply">Apply</button></div>
+    <div class="cz-foot"><button class="btn ghost" id="czRand">Random</button><button class="btn ghost" id="czReset">Reset</button><button class="btn ghost" id="czShareBtn">Share</button><button class="btn" id="czDone">Save</button></div>
   </div>
 </div>
 
@@ -1462,6 +1519,10 @@ window.JDF_DISCORD = (function () {
       d = smin(d, ell(x, y, z, 0.34, 1.05, 0, 0.12, 0.085, 0.12), 0.07);             // forehead sloping into the bill
       return d;
     }
+    // v90 CUSTOMIZER neck socket: where the head comes off. A plane square to the neck, through NECK_S.
+    // neckCut < 0 = body side, > 0 = head side.
+    const NECK_S = [0.19, 0.80], NECK_N = (() => { const a = 0.08, b = 0.26, l = Math.hypot(a, b); return [a / l, b / l]; })();
+    const neckCut = (x, y) => (x - NECK_S[0]) * NECK_N[0] + (y - NECK_S[1]) * NECK_N[1];
     // surface nets: turn the sculpt into a smooth mesh
     function sculpt(h, f = sdf, box = [-0.62, 0.06, -0.42, 0.56, 1.26, 0.42]) {
       const [x0, y0, z0, x1, y1, z1] = box;
@@ -1533,7 +1594,7 @@ window.JDF_DISCORD = (function () {
       for (let i = 0; i < P.count; i++) {
         this.pos.push(P.getX(i), P.getY(i), P.getZ(i)); this.nor.push(N.getX(i), N.getY(i), N.getZ(i));
         const uv = uvFn ? uvFn(i) : g.attributes.uv2x ? [g.attributes.uv2x.getX(i), g.attributes.uv2x.getY(i)] : [0, 0];
-        this.uv.push(uv[0], uv[1]); this.kind.push(kind); this.tone.push(typeof tone === 'function' ? tone(i) : tone); this.ink.push(ink);
+        this.uv.push(uv[0], uv[1]); this.kind.push(kind); this.tone.push(typeof tone === 'function' ? tone(i) : tone); this.ink.push(typeof ink === 'function' ? ink(i, P, N) : ink);
       }
       if (g.index) for (let i = 0; i < g.index.count; i++) this.idx.push(g.index.getX(i) + off);
       else for (let i = 0; i < P.count; i++) this.idx.push(i + off);
@@ -1549,11 +1610,11 @@ window.JDF_DISCORD = (function () {
       return g;
     };
     // a copy pushed out along the normals (outline / aura); only pieces flagged for ink
-    Bag.prototype.grown = function (d, onlyKinds) {
+    Bag.prototype.grown = function (d, onlyKinds, triFilter) {
       const pos = [], idx = [], map = new Map();
       for (let t = 0; t < this.idx.length; t += 3) {
         const a = this.idx[t], b = this.idx[t + 1], c = this.idx[t + 2];
-        if (!this.ink[a] || (onlyKinds && !onlyKinds.includes(this.kind[a]))) continue;
+        if ((!this.ink[a] && !this.ink[b] && !this.ink[c]) || (onlyKinds && !onlyKinds.includes(this.kind[a])) || (triFilter && !triFilter(a, b, c, this.pos))) continue;
         for (const v of [a, b, c]) {
           if (!map.has(v)) {
             map.set(v, pos.length / 3);
@@ -1638,13 +1699,29 @@ window.JDF_DISCORD = (function () {
       const t0 = performance.now();
       const bag = new Bag();
       // 1) the sculpted body
-      const S = sculpt(Q.body), body = new THREE.BufferGeometry();
-      body.setAttribute('position', new THREE.Float32BufferAttribute(S.pos, 3));
-      body.setAttribute('normal', new THREE.Float32BufferAttribute(S.nor, 3));
-      body.setIndex(S.idx);
-      bag.add(body, 0);
+      // v90 CUSTOMIZER: the sculpt is cut in two at the neck socket (a plane square to the neck). Body below, head
+      // above; together they are exactly the old one-piece surface. The flat caps at the cut are hidden inside
+      // the other piece and get no outline.
+      const toGeo = S => { const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(S.pos, 3));
+        g.setAttribute('normal', new THREE.Float32BufferAttribute(S.nor, 3));
+        g.setIndex(S.idx); return g; };
+      const capInk = 0;
+      const whole = new Bag(); whole.add(toGeo(sculpt(Q.body)), 0);
+      const side = (a, b, c, p) => neckCut((p[a * 3] + p[b * 3] + p[c * 3]) / 3, (p[a * 3 + 1] + p[b * 3 + 1] + p[c * 3 + 1]) / 3);
+      const mergeG = (g1, g2) => { const P = [...g1.attributes.position.array, ...g2.attributes.position.array], n1 = g1.attributes.position.count;
+        const I = [...g1.index.array, ...Array.from(g2.index.array, i => i + n1)];
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I);
+        g.computeVertexNormals(); g.computeBoundingSphere(); return g; };
+      const OV = 0.02;   // the two pieces overlap a little so the joint never shows (the head draws on top there)
+      const S = sculpt(Q.body, (x, y, z) => Math.max(sdf(x, y, z), neckCut(x, y) - OV)), body = toGeo(S);
+      bag.add(body, 0, 1, null, capInk);
       const bodyTris = S.idx.length / 3;
-      const rimBag = new Bag(); rimBag.add(body, 0);
+      const hbag = new Bag(), tbag = new Bag();
+      const HS = sculpt(Q.body, (x, y, z) => Math.max(sdf(x, y, z), -neckCut(x, y) - OV), [-0.08, 0.6, -0.3, 0.52, 1.26, 0.3]), headG = toGeo(HS);
+      hbag.add(headG, 0, 1, null, capInk);
+      const rimBag = new Bag(); rimBag.add(body, 0); rimBag.add(headG, 0);
+      const rimBodyBag = new Bag(); rimBodyBag.add(body, 0);   // aura without the duck head (other heads)
 
       // 2) wings: a smooth sculpted wing on each side (feather rows painted on by the shader) with real
       //    flight feathers fanning out of its tip
@@ -1672,7 +1749,7 @@ window.JDF_DISCORD = (function () {
       bag.add(placed(feather(0.13, 0.04, { bend: 4.2, thick: 0.016, camber: 0.4 }), M4(-0.4, 0.66, 0, 0, Math.PI, 1.0, 1, 'YZX')), 1, 0.85, null, 0);   // drake curl
       // 4) tuft on the crown
       for (const [z, a, L] of [[0, 1.25, 0.12], [-0.035, 1.05, 0.095], [0.035, 1.05, 0.095]])
-        bag.add(placed(feather(L, 0.04, { bend: 3.2, thick: 0.014, camber: 0.4 }), M4(0.21, 1.17, z, 0, Math.PI + z * 4, a, 1, 'YZX')), 1, 0.95, null, 0);
+        tbag.add(placed(feather(L, 0.04, { bend: 3.2, thick: 0.014, camber: 0.4 }), M4(0.21, 1.17, z, 0, Math.PI + z * 4, a, 1, 'YZX')), 1, 0.95, null, 0);
 
       // 5) bill: upper and lower half, shaped from a stretched sphere (spoon-shaped, wider at the tip)
       const billPart = (upper) => {
@@ -1692,11 +1769,11 @@ window.JDF_DISCORD = (function () {
         g.computeVertexNormals(); weld(g);
         return g;
       };
-      bag.add(billPart(true), 2, 1);
-      bag.add(billPart(false), 2, 0.86);
+      hbag.add(billPart(true), 2, 1);
+      hbag.add(billPart(false), 2, 0.86);
       for (const s of [-1, 1]) {   // nostrils
         const g = new THREE.SphereGeometry(0.014, 10, 8); g.scale(1.8, 0.5, 0.8);
-        g.applyMatrix4(M4(0.48, 0.958, s * 0.027, 0, 0, -0.25)); bag.add(g, 5, 1, null, 0);
+        g.applyMatrix4(M4(0.48, 0.958, s * 0.027, 0, 0, -0.25)); hbag.add(g, 5, 1, null, 0);
       }
 
       // 6) eyes with lids
@@ -1708,18 +1785,18 @@ window.JDF_DISCORD = (function () {
         const uv = [], tone = [];
         for (let i = 0; i < P.count; i++) { n.set(N.getX(i), N.getY(i), N.getZ(i)); uv.push(n.dot(side) * s, n.dot(u2)); tone.push(n.dot(f)); }
         g.translate(c.x, c.y, c.z);
-        bag.add(g, 3, i => tone[i], i => [uv[2 * i], uv[2 * i + 1]], 0);
+        hbag.add(g, 3, i => tone[i], i => [uv[2 * i], uv[2 * i + 1]], 0);
         // upper lid: a cap of skin over the top of the eye, a little bigger than the eye
         const lid = new THREE.SphereGeometry(r * 1.13, Q.lid[0], Q.lid[1], 0, Math.PI * 2, 0, 1.05);
         const ax = up.clone().multiplyScalar(0.85).add(f.clone().multiplyScalar(-0.2)).normalize();
         lid.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(up, ax))); lid.translate(c.x, c.y, c.z);   // r128: geometry has no applyQuaternion
-        bag.add(lid, 6, 1, null, 0);
+        hbag.add(lid, 6, 1, null, 0);
         // lower lid: thin rim under the eye
         const low = new THREE.TorusGeometry(r * 0.98, 0.009, 6, 24, Math.PI * 0.9);
         low.applyMatrix4(new THREE.Matrix4().makeBasis(side, u2.clone().negate(), f));
         const q = new THREE.Quaternion().setFromAxisAngle(f, Math.PI * 0.05 * s); low.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q));
         low.translate(c.x - f.x * 0.012, c.y - f.y * 0.012, c.z - f.z * 0.012);
-        bag.add(low, 6, 0.92, null, 0);
+        hbag.add(low, 6, 0.92, null, 0);
       }
 
       // 7) foot (shared by both feet): scaled leg, 3 toes, scalloped webbing, claws
@@ -1756,7 +1833,8 @@ window.JDF_DISCORD = (function () {
 
       const inkW = k => (k === 8 ? 0.009 : k === 7 ? 0.008 : 0.011);
       const GEO = {
-        main: bag.geo(), ink: bag.grown(inkW), rim: rimBag.grown(0.075),
+        main: bag.geo(), ink: mergeG(bag.grown(inkW), whole.grown(0.011, null, (a, b, c, p) => side(a, b, c, p) < 0)), rim: rimBag.grown(0.075), rimBody: rimBodyBag.grown(0.075),
+        head: hbag.geo(), headInk: mergeG(hbag.grown(inkW), whole.grown(0.011, null, (a, b, c, p) => side(a, b, c, p) >= 0)), tuft: tbag.geo(), tuftInk: tbag.grown(inkW),
         foot: fb.geo(), footInk: fb.grown(0.008),
         stats: { ms: Math.round(performance.now() - t0), tris: bag.idx.length / 3, bodyTris, footTris: fb.idx.length / 3 },
       };
@@ -1766,7 +1844,8 @@ window.JDF_DISCORD = (function () {
 
     // ---- the material: standard lighting + painted detail per pixel ----
     const VERT_HEAD = 'attribute vec2 aUV;\nattribute float aKind;\nattribute float aTone;\nvarying vec2 vDkUV;\nvarying float vDkKind;\nvarying float vDkTone;\nvarying vec3 vDkP;\n';
-    const FRAG_HEAD = `varying vec2 vDkUV; varying float vDkKind; varying float vDkTone; varying vec3 vDkP;
+    const FRAG_HEAD = `uniform vec3 dkBill; uniform vec3 dkIris;
+varying vec2 vDkUV; varying float vDkKind; varying float vDkTone; varying vec3 vDkP;
 float dkHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // overlapping feathers, roots toward +y (the duck's front), rounded tips toward -y
 float dkFeathers(vec2 p, out float edge, out float fid) {
@@ -1806,7 +1885,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   vec3 dkBase = diffuseColor.rgb, dkCol = dkBase, dkE = vec3(0.0);
   float dkH = 0.0, dkRough = 0.6, dkRimK = 1.0, dkK = vDkKind;
   vec3 dkP = vDkP;
-  vec3 BILL = vec3(1.0, 0.56, 0.13);
+  vec3 BILL = dkBill;
   if (dkK < 0.5) {                                   // body: painted overlapping feathers
     float head = smoothstep(0.74, 0.88, dkP.y);
     float s = mix(0.05, 0.026, head);
@@ -1853,7 +1932,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     vec2 q = vDkUV;
     dkCol = BILL * vDkTone * mix(0.86, 1.06, q.x);
     float nail = smoothstep(0.84, 0.92, q.x) * smoothstep(0.1, 0.45, q.y);
-    dkCol = mix(dkCol, vec3(0.86, 0.4, 0.14), 0.75 * nail);
+    dkCol = mix(dkCol, BILL * vec3(0.86, 0.71, 1.0), 0.75 * nail);
     float lam = smoothstep(0.2, 0.02, abs(q.y)) * (0.5 + 0.5 * sin(q.x * 140.0)) * smoothstep(0.1, 0.25, q.x) * smoothstep(0.9, 0.75, q.x);
     float px = fwidth(q.x * 140.0);
     lam *= 1.0 - smoothstep(0.8, 2.0, px);
@@ -1864,7 +1943,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     vec2 q = vDkUV; float rr = length(q), fr = step(0.0, vDkTone);
     float aa = fwidth(rr) * 1.5 + 0.004;
     float ang = atan(q.y, q.x);
-    vec3 iris = mix(vec3(0.22, 0.1, 0.03), vec3(0.78, 0.48, 0.12), smoothstep(0.28, 0.56, rr)) * (0.82 + 0.18 * sin(ang * 26.0 + rr * 20.0));
+    vec3 iris = mix(dkIris * 0.28, dkIris, smoothstep(0.28, 0.56, rr)) * (0.82 + 0.18 * sin(ang * 26.0 + rr * 20.0));
     vec3 sclera = vec3(0.97, 0.97, 1.0) * mix(0.82, 1.0, smoothstep(-0.2, 0.6, q.y));
     float inIris = fr * (1.0 - smoothstep(0.62 - aa, 0.62 + aa, rr));
     float pupil = fr * (1.0 - smoothstep(0.34 - aa, 0.34 + aa, rr));
@@ -1905,6 +1984,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   diffuseColor.rgb = dkCol;
 `;
     function hook(sh) {
+      sh.uniforms.dkBill = this.userData.bill; sh.uniforms.dkIris = this.userData.iris;
       sh.vertexShader = VERT_HEAD + sh.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n  vDkUV = aUV; vDkKind = aKind; vDkTone = aTone; vDkP = position;');
       sh.fragmentShader = FRAG_HEAD + sh.fragmentShader
@@ -1917,33 +1997,569 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   totalEmissiveRadiance += vec3(0.75, 0.82, 1.0) * 0.55 * dkRimK * pow(dkRim, 3.0);`)
         .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.6;');
     }
-    function material(color) {
+    function material(color, opts = {}) {
       const m = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0, emissive: 0x000000, emissiveIntensity: 1 });
+      m.userData.bill = { value: new THREE.Color(opts.bill != null ? opts.bill : 0xff8f21) };   // was vec3(1.0, 0.56, 0.13)
+      m.userData.iris = { value: new THREE.Color(opts.iris != null ? opts.iris : 0xc77a1f) };   // was vec3(0.78, 0.48, 0.12)
+      if (opts.onTop) { m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -2; }   // v90 CUSTOMIZER: head wins where it overlaps the neck
       m.onBeforeCompile = hook;
       m.customProgramCacheKey = () => 'duck2';
       m.extensions = { derivatives: true };
       return m;
     }
-    return { build, material };
+    return { build, material, sdf, sculpt, NECK_S, NECK_N, neckCut };
   })();
-  // v79: every duck is the new detailed duck (DUCK2). Same parts as before (base > lean > tumble > body, two
-  // feet groups that paddle, mat for the streak glow, rimGeo for the aura), so the race code is unchanged.
-  // opts.lite: the light version (rubber duckies). The old drawn duck (duckGeo above) is no longer used.
+  // ===================== v90 LOOKS: every duck is dressed from a look =====================
+  const LOOKS = (() => {
+    // v90 DUCK CUSTOMIZER (built and tested as duck-customizer.html)
+    // HOW TO ADD AN OPTION: append an entry to the right list in CATALOG below: { id, name, build(ctx) }.
+    // build() returns a THREE.Object3D placed in its SOCKET's own coordinates (see SOCKETS). Nothing else changes.
+    // A look is a small JSON object (LOOK_DEFAULT); the game only needs makeLookDuck(look) to dress a duck.
+    const NS = DUCK2.NECK_S, NN = DUCK2.NECK_N;
+    const INK = DUCK_INK;
+    const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+    const Z_AXIS = v3(0, 0, 1), Y_AXIS = v3(0, 1, 0);
+
+    // ---- body sockets (duck coordinates: x forward, y up, z side, feet at y = 0) ----
+    const SOCKETS = {
+      head: { p: [NS[0], NS[1], 0] },                                        // where any head plugs in (the neck cut)
+      neck: { p: [0.179, 0.76, 0], axis: [NN[0], NN[1], 0], r: 0.168 },     // base of the neck: scarves, collars, bow ties
+      back: { p: [-0.12, 0.725, 0] },                                        // middle of the back: backpack, cape, jetpack
+      waist: { p: [-0.03, 0.32, 0], rx: 0.44, rz: 0.33 },                    // tutu
+      foot: { p: [0, 0, 0] },                                                // each foot group (they paddle in the race)
+    };
+    // Every head also returns its own sockets: top (hats, hair), eyes (glasses), band (straps / wraparounds).
+
+    // ---- helpers ----
+    const NOISE = `float pnH(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float pnN(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(pnH(i), pnH(i + vec3(1,0,0)), f.x), mix(pnH(i + vec3(0,1,0)), pnH(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(pnH(i + vec3(0,0,1)), pnH(i + vec3(1,0,1)), f.x), mix(pnH(i + vec3(0,1,1)), pnH(i + vec3(1,1,1)), f.x), f.y), f.z); }
+    `;
+    const PATTERNS = { solid: 0, stripes: 1, dots: 2, checks: 3, camo: 4 };
+    // paint: the accessory material. Same "pop" shading as the game's drawn ducks (top lighter, belly darker, soft
+    // sheen, light rim), plus an optional pattern painted from the piece's own coordinates.
+    function paint(color, o = {}) {
+      const m = new THREE.MeshStandardMaterial({ color, roughness: o.rough ?? 0.42, metalness: o.metal ?? 0,
+        emissive: o.emissive ?? 0x000000, emissiveIntensity: 1, side: o.side ?? THREE.FrontSide,
+        transparent: o.opacity != null, opacity: o.opacity ?? 1 });
+      const pat = PATTERNS[o.pattern] || 0, sc = o.scale || 1;
+      const base = new THREE.Color(color), c2 = new THREE.Color(o.color2 ?? (pat === 4 ? base.clone().lerp(new THREE.Color(0xc8b48a), 0.6) : (base.getHSL({}).l > 0.75 ? 0x24305a : 0xffffff)));
+      m.onBeforeCompile = sh => {
+        sh.uniforms.pC2 = { value: c2 };
+        sh.vertexShader = 'varying vec3 vPP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPP = position;');
+        const k = (n) => (n * sc).toFixed(2);
+        const pc = [
+          '',
+          `diffuseColor.rgb = mix(diffuseColor.rgb, pC2, step(0.5, fract(vPP.y * ${k(9)})));`,
+          `{ vec3 q = fract(vPP * ${k(16)}) - 0.5; diffuseColor.rgb = mix(diffuseColor.rgb, pC2, step(length(q), 0.24)); }`,
+          `{ vec3 q = floor(vPP * ${k(10)}); diffuseColor.rgb = mix(diffuseColor.rgb, pC2, mod(q.x + q.y + q.z, 2.0)); }`,
+          `{ float n1 = pnN(vPP * ${k(7)}), n2 = pnN(vPP * ${k(9)} + 7.3);
+             diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.5, step(0.55, n1));
+             diffuseColor.rgb = mix(diffuseColor.rgb, pC2, step(0.62, n2) * (1.0 - step(0.55, n1))); }`,
+        ][pat];
+        sh.fragmentShader = 'uniform vec3 pC2;\nvarying vec3 vPP;\n' + NOISE + sh.fragmentShader
+          .replace('#include <color_fragment>', '#include <color_fragment>\n' + pc)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      diffuseColor.rgb *= mix(0.62, 1.12, smoothstep(-0.65, 0.75, normal.y));
+      float pGloss = smoothstep(0.55, 0.98, dot(normal, normalize(vec3(-0.3, 0.75, 0.6))));
+      totalEmissiveRadiance += vec3(1.0, 0.98, 0.9) * 0.16 * pGloss * pGloss;
+      float pRim = 1.0 - max(dot(normalize(vViewPosition), normal), 0.0);
+      totalEmissiveRadiance += vec3(0.75, 0.82, 1.0) * 0.4 * pow(pRim, 3.0);`)
+          .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse *= 0.5;');
+      };
+      m.customProgramCacheKey = () => 'paint' + pat + '_' + sc;
+      return m;
+    }
+    // ink outline: an inside-out copy pushed out along smoothed normals (corners of boxes stay closed)
+    const inkCache = new WeakMap();
+    function inkGeo(geo, d) {
+      const key = inkCache.get(geo) || {}; if (key[d]) return key[d];
+      const g = geo.clone(); if (!g.attributes.normal) g.computeVertexNormals();
+      const P = g.attributes.position, N = g.attributes.normal, acc = new Map();
+      const id = i => Math.round(P.getX(i) * 1e4) + ',' + Math.round(P.getY(i) * 1e4) + ',' + Math.round(P.getZ(i) * 1e4);
+      for (let i = 0; i < P.count; i++) { const k = id(i), a = acc.get(k) || [0, 0, 0]; a[0] += N.getX(i); a[1] += N.getY(i); a[2] += N.getZ(i); acc.set(k, a); }
+      const out = [];
+      for (let i = 0; i < P.count; i++) { const a = acc.get(id(i)), l = Math.hypot(a[0], a[1], a[2]) || 1; out.push([a[0] / l, a[1] / l, a[2] / l]); }
+      for (let i = 0; i < P.count; i++) P.setXYZ(i, P.getX(i) + out[i][0] * d, P.getY(i) + out[i][1] * d, P.getZ(i) + out[i][2] * d);
+      g.deleteAttribute('uv'); key[d] = g; inkCache.set(geo, key); return g;
+    }
+    // one piece: mesh + ink. o: { p:[x,y,z], r:[rx,ry,rz], s:[sx,sy,sz] or number, ink: width (0 = none), q: quaternion }
+    function piece(geo, mat, o = {}) {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(geo, mat));
+      const ink = o.ink ?? 0.01;
+      if (ink && mat.side !== THREE.DoubleSide) g.add(new THREE.Mesh(inkGeo(geo, ink), INK));
+      if (o.p) g.position.set(...o.p);
+      if (o.r) g.rotation.set(...o.r);
+      if (o.q) g.quaternion.copy(o.q);
+      if (o.s != null) Array.isArray(o.s) ? g.scale.set(...o.s) : g.scale.setScalar(o.s);
+      return g;
+    }
+    const G = {   // shared shapes (built once)
+      ball: new THREE.SphereGeometry(1, 32, 20), ballLo: new THREE.SphereGeometry(1, 14, 10),
+      dome: new THREE.SphereGeometry(1, 36, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+      cyl: new THREE.CylinderGeometry(1, 1, 1, 32), cylOpen: new THREE.CylinderGeometry(1, 1, 1, 40, 1, true),
+      cone: new THREE.ConeGeometry(1, 1, 24), cone4: new THREE.ConeGeometry(1, 1, 4), box: new THREE.BoxGeometry(1, 1, 1, 2, 2, 2),
+      torus: new THREE.TorusGeometry(1, 0.12, 12, 48), torusThin: new THREE.TorusGeometry(1, 0.05, 8, 48),
+    };
+    const qFrom = (from, to) => new THREE.Quaternion().setFromUnitVectors(from, to.clone().normalize());
+    const mirrorZ = a => [a[0], a[1], -a[2]];
+    const hex = c => new THREE.Color(c).getHex();
+    const tint = (c, k) => { const x = new THREE.Color(c); return k > 1 ? x.lerp(new THREE.Color(0xffffff), k - 1) : x.multiplyScalar(k); };
+    // a cartoon eye for non-duck heads: white ball, iris, pupil, catchlight; looks along n
+    function makeEye(p, n, r, iris, slit = false) {
+      const g = new THREE.Group(); g.position.set(...p); g.quaternion.copy(qFrom(Z_AXIS, v3(...n)));
+      g.add(piece(G.ball, paint(0xf7f5ff, { rough: 0.2 }), { s: r, ink: 0.006 / r }));
+      g.add(piece(G.ball, paint(iris, { rough: 0.25 }), { p: [0, 0, r * 0.72], s: [r * 0.62, r * 0.62, r * 0.32], ink: 0 }));
+      g.add(piece(G.ball, paint(0x0b0812, { rough: 0.2 }), { p: [0, 0, r * 0.86], s: [r * (slit ? 0.14 : 0.34), r * 0.4, r * 0.2], ink: 0 }));
+      g.add(piece(G.ballLo, new THREE.MeshBasicMaterial({ color: 0xffffff }), { p: [r * 0.22, r * 0.28, r * 0.96], s: r * 0.14, ink: 0 }));
+      return g;
+    }
+    const norm = (x, y, z) => { const l = Math.hypot(x, y, z); return [x / l, y / l, z / l]; };
+
+    // glasses for any head: a lens on each eye (it follows the head's eye sockets) and a bridge over the front
+    function glasses(ctx, dark) {
+      const { eyes, band } = ctx.headSock, g = new THREE.Group(), frame = paint(ctx.accent(dark ? 0x111018 : 0x2a1f3a), { rough: 0.3 }), ends = [];
+      const lens = dark ? paint(0x0d0b14, { rough: 0.08, metal: 0.3, emissive: 0x1a1240 })
+                        : new THREE.MeshStandardMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.25, roughness: 0.05, side: THREE.DoubleSide });
+      for (const s of [1, -1]) {
+        const n = v3(eyes.n[0], eyes.n[1], eyes.n[2] * s), c = v3(eyes.p[0], eyes.p[1], eyes.p[2] * s).addScaledVector(n, eyes.r * 1.0), q = qFrom(Z_AXIS, n);
+        const R = eyes.r * 1.35;
+        g.add(piece(G.torusThin, frame, { p: c.toArray(), q, s: R, ink: 0 }));
+        g.add(dark ? piece(G.ball, lens, { p: c.toArray(), q, s: [R, R * 0.85, R * 0.3], ink: 0 }) : piece(new THREE.CircleGeometry(1, 24), lens, { p: c.toArray(), q, s: R * 0.97, ink: 0 }));
+        const side = new THREE.Vector3().crossVectors(n, Y_AXIS).normalize().multiplyScalar(-s);   // inner edge of the lens
+        ends.push(c.clone().addScaledVector(side, R));
+      }
+      const mid = v3(band.c[0] + band.r + 0.04, eyes.p[1] + 0.03, 0);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(ends[0], mid, ends[1]), 16, 0.009, 6), frame));
+      return g;
+    }
+    // ---- garments: the duck's own sculpt, inflated a little and trimmed to a region (so it fits the body exactly) ----
+    const garmentCache = {};
+    function garmentGeo(id, g) {
+      if (garmentCache[id]) return garmentCache[id];
+      const f = (x, y, z) => Math.max(DUCK2.sdf(x, y, z) - g.t, g.y0 - y, y - g.y1, g.x0 - x, DUCK2.neckCut(x, y) - g.nk);
+      const S = DUCK2.sculpt(0.018, f, [-0.68, 0.06, -0.46, 0.66, 0.95, 0.46]);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(S.pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(S.nor, 3));
+      geo.setIndex(S.idx); geo.computeBoundingSphere();
+      return (garmentCache[id] = geo);
+    }
+    function garment(id, g) {
+      return ctx => piece(garmentGeo(id, g), paint(ctx.outfitColor(g.color), { pattern: ctx.pattern(g.pattern), scale: g.pscale || 1 }), { ink: 0.009 });
+    }
+
+    // ===================== CATALOG =====================
+    // ctx gives each build the colors it needs: ctx.head, ctx.iris, ctx.bill, ctx.hair, ctx.accent(def),
+    // ctx.outfitColor(def), ctx.pattern(def), ctx.headSock (the chosen head's sockets), ctx.extra (outfit thickness)
+    const CATALOG = {
+      head: [
+        { id: 'duck', name: 'Duck', build: ctx => {
+          const D = DUCK2.build(ctx.lite), g = new THREE.Group();
+          const m = new THREE.Mesh(D.head, ctx.duckHeadMat), k = new THREE.Mesh(D.headInk, INK);
+          m.position.set(-NS[0], -NS[1], 0); k.position.copy(m.position); g.add(m, k);
+          return { obj: g, top: { p: [0.06, 0.405, 0], r: 0.21 }, eyes: { p: [0.185, 0.235, 0.135], n: norm(0.62, 0.12, 0.78), r: 0.07 }, band: { c: [0.06, 0.235, 0], r: 0.258 }, ball: { c: [0.06, 0.19, 0], r: 0.215 } };
+        } },
+        { id: 'cat', name: 'Cat', build: ctx => {
+          const g = new THREE.Group(), fur = paint(ctx.head), light = paint(tint(ctx.head, 1.55)), pink = paint(0xff8fb0);
+          g.add(piece(G.ball, fur, { p: [0.02, 0.0, 0], s: 0.16, ink: 0 }));
+          g.add(piece(G.ball, fur, { p: [0.06, 0.2, 0], s: [0.2, 0.185, 0.215] }));
+          for (const s of [-1, 1]) {
+            g.add(piece(G.cone4, fur, { p: [0.02, 0.385, s * 0.11], r: [s * 0.35, Math.PI / 4, 0], s: [0.085, 0.15, 0.085] }));
+            g.add(piece(G.cone4, pink, { p: [0.045, 0.375, s * 0.105], r: [s * 0.35, Math.PI / 4, 0], s: [0.05, 0.1, 0.05], ink: 0 }));
+            g.add(piece(G.ball, light, { p: [0.225, 0.14, s * 0.045], s: [0.05, 0.045, 0.055], ink: 0.006 }));
+            for (const a of [-0.12, 0.08]) g.add(piece(G.cyl, paint(0xf4f0ff), { p: [0.235, 0.15 + a * 0.2, s * 0.13], r: [s * (Math.PI / 2 - 0.25), a, 0], s: [0.004, 0.13, 0.004], ink: 0 }));
+            g.add(makeEye([0.175, 0.245, s * 0.09], norm(0.9, 0.1, s * 0.45), 0.052, ctx.iris, true));
+          }
+          g.add(piece(G.ball, pink, { p: [0.262, 0.185, 0], s: [0.022, 0.018, 0.028], ink: 0.004 }));
+          return { obj: g, top: { p: [0.06, 0.405, 0], r: 0.19 }, eyes: { p: [0.175, 0.245, 0.09], n: norm(0.9, 0.1, 0.45), r: 0.052 }, band: { c: [0.06, 0.245, 0], r: 0.225 }, ball: { c: [0.06, 0.2, 0], r: 0.205 } };
+        } },
+        { id: 'frog', name: 'Frog', build: ctx => {
+          const g = new THREE.Group(), skin = paint(ctx.head), belly = paint(tint(ctx.head, 1.45));
+          g.add(piece(G.ball, skin, { p: [0.02, 0.0, 0], s: 0.16, ink: 0 }));
+          g.add(piece(G.ball, skin, { p: [0.08, 0.15, 0], s: [0.22, 0.14, 0.215] }));
+          g.add(piece(G.ball, belly, { p: [0.12, 0.09, 0], s: [0.17, 0.08, 0.17], ink: 0 }));
+          g.add(piece(G.torusThin, paint(0x3a1426), { p: [0.1, 0.12, 0], r: [Math.PI / 2, 0, 0], s: [0.2, 0.2, 0.3], ink: 0 }));
+          for (const s of [-1, 1]) {
+            g.add(piece(G.ball, skin, { p: [0.12, 0.27, s * 0.1], s: 0.075 }));
+            g.add(makeEye([0.15, 0.285, s * 0.105], norm(0.85, 0.35, s * 0.4), 0.06, ctx.iris));
+            g.add(piece(G.ball, paint(0xff8fb0), { p: [0.2, 0.12, s * 0.15], s: [0.03, 0.022, 0.02], ink: 0 }));
+          }
+          return { obj: g, top: { p: [0.0, 0.29, 0], r: 0.16 }, eyes: { p: [0.15, 0.285, 0.105], n: norm(0.85, 0.35, 0.4), r: 0.06 }, band: { c: [0.08, 0.27, 0], r: 0.2 }, ball: { c: [0.08, 0.15, 0], r: 0.21 } };
+        } },
+        { id: 'bear', name: 'Bear', build: ctx => {
+          const g = new THREE.Group(), fur = paint(ctx.head), light = paint(tint(ctx.head, 1.5)), dark = paint(0x1a1020, { rough: 0.25 });
+          g.add(piece(G.ball, fur, { p: [0.02, 0.0, 0], s: 0.16, ink: 0 }));
+          g.add(piece(G.ball, fur, { p: [0.05, 0.2, 0], s: [0.2, 0.19, 0.205] }));
+          g.add(piece(G.ball, light, { p: [0.2, 0.15, 0], s: [0.085, 0.07, 0.09] }));
+          g.add(piece(G.ball, dark, { p: [0.285, 0.18, 0], s: [0.025, 0.022, 0.035], ink: 0 }));
+          for (const s of [-1, 1]) {
+            g.add(piece(G.ball, fur, { p: [-0.01, 0.36, s * 0.13], s: [0.04, 0.065, 0.065] }));
+            g.add(piece(G.ball, light, { p: [0.01, 0.355, s * 0.13], s: [0.02, 0.04, 0.04], ink: 0 }));
+            g.add(makeEye([0.195, 0.255, s * 0.085], norm(0.9, 0.05, s * 0.42), 0.04, ctx.iris));
+          }
+          return { obj: g, top: { p: [0.05, 0.39, 0], r: 0.19 }, eyes: { p: [0.195, 0.255, 0.085], n: norm(0.9, 0.05, 0.42), r: 0.04 }, band: { c: [0.05, 0.255, 0], r: 0.215 }, ball: { c: [0.05, 0.2, 0], r: 0.2 } };
+        } },
+        { id: 'bunny', name: 'Bunny', build: ctx => {
+          const g = new THREE.Group(), fur = paint(ctx.head), light = paint(tint(ctx.head, 1.55)), pink = paint(0xff9ab8);
+          g.add(piece(G.ball, fur, { p: [0.02, 0.0, 0], s: 0.16, ink: 0 }));
+          g.add(piece(G.ball, fur, { p: [0.06, 0.2, 0], s: [0.19, 0.18, 0.185] }));
+          for (const s of [-1, 1]) {
+            g.add(piece(G.ball, fur, { p: [-0.04, 0.52, s * 0.07], r: [s * 0.18, 0, 0.3], s: [0.05, 0.19, 0.04] }));
+            g.add(piece(G.ball, pink, { p: [-0.012, 0.52, s * 0.072], r: [s * 0.18, 0, 0.3], s: [0.03, 0.15, 0.03], ink: 0 }));
+            g.add(piece(G.ball, light, { p: [0.21, 0.15, s * 0.04], s: [0.045, 0.045, 0.05], ink: 0.006 }));
+            g.add(makeEye([0.17, 0.25, s * 0.095], norm(0.85, 0.1, s * 0.5), 0.05, ctx.iris));
+          }
+          g.add(piece(G.ball, pink, { p: [0.245, 0.18, 0], s: [0.02, 0.016, 0.025], ink: 0.004 }));
+          g.add(piece(G.box, paint(0xffffff), { p: [0.235, 0.105, 0], s: [0.012, 0.04, 0.04], ink: 0.004 }));
+          return { obj: g, top: { p: [0.07, 0.375, 0], r: 0.17 }, eyes: { p: [0.17, 0.25, 0.095], n: norm(0.85, 0.1, 0.5), r: 0.05 }, band: { c: [0.06, 0.25, 0], r: 0.22 }, ball: { c: [0.06, 0.2, 0], r: 0.19 } };
+        } },
+        { id: 'robot', name: 'Robot', build: ctx => {
+          const g = new THREE.Group(), metal = paint(tint(ctx.head, 0.85), { metal: 0.45, rough: 0.35 }), dark = paint(0x2a2440, { metal: 0.3 });
+          g.add(piece(G.cyl, dark, { p: [0.0, 0.03, 0], s: [0.12, 0.12, 0.12] }));
+          g.add(piece(G.box, metal, { p: [0.06, 0.21, 0], s: [0.34, 0.27, 0.32] }));
+          g.add(piece(G.box, dark, { p: [0.232, 0.125, 0], s: [0.012, 0.05, 0.16], ink: 0 }));
+          const glow = paint(ctx.iris, { emissive: hex(ctx.iris), rough: 0.2 });
+          for (const s of [-1, 1]) {
+            const e = piece(G.cyl, glow, { p: [0.232, 0.24, s * 0.075], r: [0, 0, Math.PI / 2], s: [0.045, 0.012, 0.045], ink: 0 }); g.add(e);
+            g.add(piece(G.cyl, dark, { p: [0.06, 0.22, s * 0.165], r: [Math.PI / 2, 0, 0], s: [0.05, 0.03, 0.05], ink: 0.006 }));
+          }
+          g.add(piece(G.cyl, dark, { p: [0.04, 0.4, 0], s: [0.01, 0.1, 0.01], ink: 0.004 }));
+          const bulb = piece(G.ball, paint(0xff4b5c, { emissive: 0x99102a }), { p: [0.04, 0.46, 0], s: 0.03, ink: 0.005 });
+          bulb.userData.tick = t => { bulb.children[0].material.emissiveIntensity = 0.6 + 0.6 * Math.sin(t * 5); };
+          g.add(bulb);
+          return { obj: g, top: { p: [0.06, 0.345, 0], r: 0.2 }, eyes: { p: [0.215, 0.24, 0.075], n: [1, 0, 0], r: 0.045 }, band: { c: [0.06, 0.24, 0], r: 0.235 }, ball: { c: [0.06, 0.21, 0], r: 0.215 } };
+        } },
+      ],
+      hair: [
+        { id: 'none', name: 'None', build: () => null },
+        { id: 'tuft', name: 'Classic tuft', build: ctx => {   // the game duck's own crown feathers
+          const D = DUCK2.build(ctx.lite), g = new THREE.Group();
+          const m = new THREE.Mesh(D.tuft, ctx.tuftMat), k = new THREE.Mesh(D.tuftInk, INK);
+          m.position.set(-0.25, -1.205, 0); k.position.copy(m.position); g.add(m, k); return g;
+        } },
+        { id: 'mohawk', name: 'Mohawk', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.hair);
+          [[0.09, 0.17], [0.04, 0.22], [-0.02, 0.24], [-0.08, 0.2], [-0.13, 0.15]].forEach(([x, h], i) =>
+            g.add(piece(G.cone, m, { p: [x, h / 2 - 0.03 - Math.abs(x) * 0.25, 0], r: [0, 0, 0.15 + i * 0.12], s: [0.05, h, 0.018] })));
+          return g;
+        } },
+        { id: 'spiky', name: 'Spiky', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.hair), c = v3(0, -0.2, 0);
+          for (let i = 0; i < 11; i++) {
+            const el = i === 0 ? Math.PI / 2 : 0.75 + (i % 2) * 0.28, az = i * 2.4;
+            const d = v3(Math.cos(el) * Math.cos(az) - 0.15, Math.sin(el), Math.cos(el) * Math.sin(az)).normalize();
+            g.add(piece(G.cone, m, { p: c.clone().addScaledVector(d, 0.2).toArray(), q: qFrom(Y_AXIS, d), s: [0.035, 0.13, 0.035] }));
+          }
+          return g;
+        } },
+        { id: 'afro', name: 'Curly', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.hair, { rough: 0.7 }), c = v3(-0.02, -0.17, 0);
+          for (let i = 0; i < 18; i++) {
+            const el = 0.15 + (i % 3) * 0.45 + (i > 15 ? 0.6 : 0), az = i * 2.4;
+            const d = v3(Math.cos(el) * Math.cos(az) - 0.25, Math.sin(el), Math.cos(el) * Math.sin(az)).normalize();
+            g.add(piece(G.ballLo, m, { p: c.clone().addScaledVector(d, 0.2).toArray(), s: 0.085, ink: 0.006 }));
+          }
+          return g;
+        } },
+        { id: 'quiff', name: 'Quiff', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.hair, { rough: 0.3 });
+          g.add(piece(G.ball, m, { p: [0.05, 0.02, 0], r: [0, 0, -0.55], s: [0.16, 0.07, 0.1] }));
+          g.add(piece(G.ball, m, { p: [0.13, 0.08, 0], r: [0, 0, -0.9], s: [0.09, 0.045, 0.075] }));
+          return g;
+        } },
+      ],
+      hat: [
+        { id: 'none', name: 'None', build: () => null },
+        { id: 'tophat', name: 'Top hat', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.accent(0x1d1a2a), { rough: 0.5 });
+          g.add(piece(G.cyl, m, { p: [0, -0.02, 0], s: [0.2, 0.014, 0.2] }));
+          g.add(piece(G.cyl, m, { p: [0, 0.1, 0], s: [0.125, 0.23, 0.125] }));
+          g.add(piece(G.cyl, paint(0xd23a4a), { p: [0, 0.015, 0], s: [0.128, 0.04, 0.128], ink: 0 }));
+          g.rotation.z = 0.12; return g;
+        } },
+        { id: 'cap', name: 'Ball cap', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.accent(0x2f6fe0));
+          g.add(piece(G.dome, m, { p: [0, -0.1, 0], s: [0.2, 0.15, 0.2] }));
+          g.add(piece(new THREE.CylinderGeometry(1, 1, 1, 24, 1, false, 0.2, Math.PI - 0.4), m, { p: [0.08, -0.095, 0], s: [0.21, 0.012, 0.15] }));
+          g.add(piece(G.ball, m, { p: [0, 0.05, 0], s: 0.018, ink: 0.004 }));
+          g.rotation.z = -0.08; return g;
+        } },
+        { id: 'crown', name: 'Crown', keepHair: true, build: ctx => {
+          const g = new THREE.Group(), gold = paint(ctx.accent(0xffc93c), { metal: 0.6, rough: 0.28, side: THREE.DoubleSide });
+          g.add(piece(G.cylOpen, gold, { p: [0, 0.0, 0], s: [0.115, 0.075, 0.115] }));
+          const goldS = paint(ctx.accent(0xffc93c), { metal: 0.6, rough: 0.28 });
+          for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2;
+            g.add(piece(G.cone, goldS, { p: [Math.cos(a) * 0.112, 0.07, Math.sin(a) * 0.112], s: [0.025, 0.07, 0.025], ink: 0.004 }));
+            g.add(piece(G.ballLo, paint(i % 2 ? 0x3a7bff : 0xe8304a, { rough: 0.15 }), { p: [Math.cos(a + 0.52) * 0.117, 0.0, Math.sin(a + 0.52) * 0.117], s: 0.017, ink: 0 })); }
+          g.position.y = 0.0; g.rotation.z = 0.1; return g;
+        } },
+        { id: 'beanie', name: 'Beanie', build: ctx => {
+          const g = new THREE.Group(), c = ctx.accent(0xe8443a), m = paint(c, { pattern: 'stripes', color2: 0xffffff, scale: 1.2, rough: 0.7 });
+          g.add(piece(G.dome, m, { p: [0, -0.11, 0], s: [0.222, 0.19, 0.222] }));
+          g.add(piece(G.torus, paint(c, { rough: 0.7 }), { p: [0, -0.105, 0], r: [Math.PI / 2, 0, 0], s: [0.215, 0.215, 0.24] }));
+          g.add(piece(G.ballLo, paint(0xffffff, { rough: 0.9 }), { p: [0, 0.08, 0], s: 0.05 }));
+          return g;
+        } },
+        { id: 'party', name: 'Party hat', build: ctx => {
+          const g = new THREE.Group(), c = ctx.accent(0xb88cff);
+          g.add(piece(G.cone, paint(c, { pattern: 'dots', color2: 0xffd23f, scale: 1.4 }), { p: [0, 0.11, 0], s: [0.1, 0.26, 0.1] }));
+          g.add(piece(G.ballLo, paint(0xffd23f), { p: [0, 0.25, 0], s: 0.035, ink: 0.005 }));
+          g.rotation.z = -0.15; g.position.y = -0.02; return g;
+        } },
+        { id: 'helmet', name: 'Army helmet', build: ctx => {
+          const g = new THREE.Group(), c = ctx.accent(0x5b6b34), m = paint(c, { pattern: 'camo', scale: 1.4, rough: 0.6 });
+          g.add(piece(G.dome, m, { p: [0, -0.14, 0], s: [0.245, 0.2, 0.24] }));
+          g.add(piece(G.torus, paint(tint(c, 0.8), { rough: 0.6 }), { p: [0, -0.14, 0], r: [Math.PI / 2, 0, 0], s: [0.245, 0.24, 0.12] }));
+          g.add(piece(G.box, paint(0x3a2a1a), { p: [0.03, -0.065, 0], s: [0.005, 0.05, 0.05], ink: 0 }));
+          return g;
+        } },
+        { id: 'propeller', name: 'Propeller', build: ctx => {
+          const g = new THREE.Group(), c = ctx.accent(0x3fd0c9);
+          g.add(piece(G.dome, paint(c, { pattern: 'checks', color2: 0xffd23f, scale: 1.2 }), { p: [0, -0.12, 0], s: [0.215, 0.17, 0.215] }));
+          g.add(piece(G.cyl, paint(0x9aa0b8, { metal: 0.5 }), { p: [0, 0.07, 0], s: [0.012, 0.06, 0.012], ink: 0.004 }));
+          const prop = new THREE.Group(); prop.position.y = 0.1;
+          for (const s of [-1, 1]) prop.add(piece(G.ball, paint(s > 0 ? 0xe8443a : 0x3a7bff), { p: [s * 0.08, 0, 0], r: [0.3 * s, 0, 0], s: [0.08, 0.008, 0.025], ink: 0.004 }));
+          prop.userData.tick = (t) => { prop.rotation.y = t * 9; };
+          g.add(prop); return g;
+        } },
+        { id: 'viking', name: 'Viking', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.accent(0x9aa3b8), { metal: 0.55, rough: 0.3 });
+          g.add(piece(G.dome, m, { p: [0, -0.13, 0], s: [0.23, 0.2, 0.23] }));
+          g.add(piece(G.torus, paint(0xc8902c, { metal: 0.6, rough: 0.3 }), { p: [0, -0.125, 0], r: [Math.PI / 2, 0, 0], s: [0.23, 0.23, 0.18] }));
+          for (const s of [-1, 1]) g.add(piece(G.cone, paint(0xf2ead6), { p: [0, -0.02, s * 0.25], r: [s * 1.1, 0, 0], s: [0.04, 0.17, 0.04], ink: 0.006 }));
+          return g;
+        } },
+        { id: 'cowboy', name: 'Cowboy', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.accent(0x9a6233), { rough: 0.6 });
+          const brim = new THREE.CylinderGeometry(1, 1, 1, 48, 1); { const P = brim.attributes.position;
+            for (let i = 0; i < P.count; i++) { const z = P.getZ(i); P.setY(i, P.getY(i) + 7 * z * z * z * z); } brim.computeVertexNormals(); }
+          g.add(piece(brim, m, { p: [0, -0.04, 0], s: [0.3, 0.014, 0.26] }));
+          g.add(piece(new THREE.CylinderGeometry(0.85, 1, 1, 32), m, { p: [0, 0.04, 0], s: [0.13, 0.15, 0.12] }));
+          g.add(piece(G.cyl, paint(0x2a1a12), { p: [0, -0.01, 0], s: [0.133, 0.03, 0.123], ink: 0 }));
+          g.rotation.z = 0.08; return g;
+        } },
+      ],
+      face: [
+        { id: 'none', name: 'None', build: () => null },
+        { id: 'shades', name: 'Shades', build: ctx => glasses(ctx, true) },
+        { id: 'specs', name: 'Round specs', build: ctx => glasses(ctx, false) },
+        { id: 'patch', name: 'Eye patch', build: ctx => {
+          const { eyes, band } = ctx.headSock, g = new THREE.Group(), blk = paint(0x15101c, { rough: 0.6 });
+          const n = v3(...eyes.n), c = v3(...eyes.p).addScaledVector(n, eyes.r * 0.75);
+          g.add(piece(G.ball, blk, { p: c.toArray(), q: qFrom(Z_AXIS, n), s: [eyes.r * 1.25, eyes.r * 1.15, eyes.r * 0.35], ink: 0.005 }));
+          const B = ctx.headSock.ball, v = c.clone().sub(v3(...B.c)).normalize(), axis = new THREE.Vector3().crossVectors(v, v3(-0.5, 1, 0)).normalize();
+          g.add(piece(G.torusThin, blk, { p: B.c, q: qFrom(Z_AXIS, axis), s: B.r + 0.01, ink: 0 }));
+          return g;
+        } },
+        { id: 'monocle', name: 'Monocle', build: ctx => {
+          const { eyes } = ctx.headSock, g = new THREE.Group(), gold = paint(0xffc93c, { metal: 0.6, rough: 0.25 });
+          const n = v3(...eyes.n), c = v3(...eyes.p).addScaledVector(n, eyes.r * 0.85);
+          g.add(piece(G.torus, gold, { p: c.toArray(), q: qFrom(Z_AXIS, n), s: eyes.r * 1.3, ink: 0 }));
+          g.add(piece(new THREE.CircleGeometry(1, 24), new THREE.MeshStandardMaterial({ color: 0xdff4ff, transparent: true, opacity: 0.3, roughness: 0.05, side: THREE.DoubleSide }), { p: c.toArray(), q: qFrom(Z_AXIS, n), s: eyes.r * 1.25, ink: 0 }));
+          for (let i = 1; i <= 8; i++) g.add(piece(G.ballLo, gold, { p: [c.x - i * 0.012, c.y - eyes.r * 1.3 - i * 0.022 + i * i * 0.0012, c.z + i * 0.004], s: 0.006, ink: 0 }));
+          return g;
+        } },
+      ],
+      neck: [
+        { id: 'none', name: 'None', build: () => null },
+        { id: 'scarf', name: 'Scarf', build: ctx => {
+          const S = SOCKETS.neck, g = new THREE.Group(), r = S.r + ctx.extra, m = paint(ctx.accent(0xe8443a), { pattern: 'stripes', rough: 0.75, scale: 1.4 });
+          const ax = v3(...S.axis), f = v3(ax.y, -ax.x, 0);
+          g.add(piece(G.torus, m, { p: S.p, q: qFrom(Z_AXIS, ax), s: [r, r, 0.3], ink: 0.008 }));
+          const tail = piece(G.box, m, { p: v3(...S.p).addScaledVector(f, r * 0.75).add(v3(-0.01, -0.13, 0.08)).toArray(), r: [0.1, 0, 0.15], s: [0.03, 0.22, 0.075], ink: 0.007 });
+          tail.userData.tick = t => { tail.rotation.x = 0.1 + Math.sin(t * 3) * 0.06; };
+          g.add(tail); return g;
+        } },
+        { id: 'bowtie', name: 'Bow tie', build: ctx => {
+          const S = SOCKETS.neck, ax = v3(...S.axis), f = v3(ax.y, -ax.x, 0), g = new THREE.Group(), m = paint(ctx.accent(0xd2304a), { rough: 0.5 });
+          g.position.copy(v3(...S.p).addScaledVector(f, S.r + ctx.extra + 0.015)); g.rotation.z = -0.3;
+          for (const s of [-1, 1]) g.add(piece(G.cone4, m, { p: [0, 0, s * 0.045], r: [-s * Math.PI / 2, Math.PI / 4, 0], s: [0.04, 0.075, 0.04], ink: 0.006 }));
+          g.add(piece(G.ball, m, { s: [0.018, 0.022, 0.022], ink: 0.005 }));
+          g.scale.set(0.6, 1, 1); return g;
+        } },
+        { id: 'chain', name: 'Golden egg', build: ctx => {
+          const S = SOCKETS.neck, ax = v3(...S.axis), f = v3(ax.y, -ax.x, 0), g = new THREE.Group(), gold = paint(0xffc93c, { metal: 0.65, rough: 0.22 });
+          const r = S.r + ctx.extra + 0.008;
+          g.add(piece(G.torusThin, gold, { p: S.p, q: qFrom(Z_AXIS, ax), s: [r, r, 0.25], ink: 0 }));
+          const top = v3(...S.p).addScaledVector(f, r), egg = v3(0.415 + ctx.extra, 0.6, 0);
+          g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(top, egg), 4, 0.006, 6), gold));
+          g.add(piece(G.ball, paint(0xffd23f, { metal: 0.5, rough: 0.18, emissive: 0x3a2800 }), { p: egg.toArray(), s: [0.032, 0.044, 0.032], ink: 0.005 }));
+          return g;
+        } },
+        { id: 'collar', name: 'Bell collar', build: ctx => {
+          const S = SOCKETS.neck, ax = v3(...S.axis), f = v3(ax.y, -ax.x, 0), g = new THREE.Group(), r = S.r + ctx.extra;
+          g.add(piece(G.torus, paint(ctx.accent(0x2f6fe0)), { p: S.p, q: qFrom(Z_AXIS, ax), s: [r, r, 0.22], ink: 0.006 }));
+          const b = v3(...S.p).addScaledVector(f, r + 0.02).add(v3(0, -0.035, 0));
+          g.add(piece(G.ball, paint(0xffc93c, { metal: 0.6, rough: 0.25 }), { p: b.toArray(), s: 0.032, ink: 0.005 }));
+          return g;
+        } },
+      ],
+      outfit: [
+        { id: 'none', name: 'None', build: () => null },
+        { id: 'tee', name: 'T-shirt', t: 0.016, build: garment('tee', { t: 0.016, y0: 0.27, y1: 0.72, x0: -0.3, nk: -0.07, color: 0xf4f1ea, pattern: 'solid' }) },
+        { id: 'sweater', name: 'Sweater', t: 0.02, build: garment('sweater', { t: 0.02, y0: 0.17, y1: 0.8, x0: -0.44, nk: -0.025, color: 0xe8443a, pattern: 'stripes' }) },
+        { id: 'jacket', name: 'Army jacket', t: 0.024, build: garment('jacket', { t: 0.024, y0: 0.2, y1: 0.78, x0: -0.4, nk: -0.035, color: 0x5b6b34, pattern: 'camo' }) },
+        { id: 'vest', name: 'Life vest', t: 0.045, build: garment('vest', { t: 0.045, y0: 0.33, y1: 0.7, x0: -0.16, nk: -0.06, color: 0xff7a1a, pattern: 'solid' }) },
+        { id: 'tutu', name: 'Tutu', t: 0, build: ctx => {
+          const W = SOCKETS.waist, pos = [], idx = [], A = 72, R = 6;
+          for (let i = 0; i <= A; i++) { const a = i / A * Math.PI * 2;
+            for (let j = 0; j <= R; j++) { const k = j / R, sc = 1 + k * 0.42;
+              pos.push(Math.cos(a) * W.rx * sc, -k * 0.09 + k * 0.025 * Math.sin(a * 14), Math.sin(a) * W.rz * sc); } }
+          for (let i = 0; i < A; i++) for (let j = 0; j < R; j++) { const a = i * (R + 1) + j, b = a + R + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+          const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+          const g = new THREE.Group();
+          for (const [dy, s] of [[0, 1], [-0.03, 1.06]]) g.add(piece(geo, paint(ctx.outfitColor(0xff8fc8), { pattern: ctx.pattern('solid'), side: THREE.DoubleSide, rough: 0.6 }), { p: [W.p[0], W.p[1] + dy, 0], s: [s, 1, s] }));
+          return g;
+        } },
+      ],
+      back: [
+        { id: 'none', name: 'None', build: () => null },
+        { id: 'backpack', name: 'Backpack', build: ctx => {
+          const B = SOCKETS.back, g = new THREE.Group(), c = ctx.accent(0x3a7bff), m = paint(c, { rough: 0.6 });
+          g.position.set(B.p[0] - 0.05, B.p[1] + 0.08 + ctx.extra, 0); g.rotation.z = 0.18;
+          g.add(piece(G.box, m, { s: [0.22, 0.2, 0.24] }));
+          g.add(piece(G.box, paint(tint(c, 0.75), { rough: 0.6 }), { p: [0.0, 0.09, 0], r: [0, 0, 0.1], s: [0.2, 0.05, 0.25] }));
+          g.add(piece(G.box, paint(tint(c, 0.8), { rough: 0.6 }), { p: [-0.115, -0.02, 0], s: [0.03, 0.1, 0.15] }));
+          return g;
+        } },
+        { id: 'cape', name: 'Cape', build: ctx => {
+          // a sheet from the back of the neck to the tail, following the top of the back, edges drooping, flapping
+          const c = ctx.accent(0xd2304a), U = 18, V = 10, pos = [], idx = [];
+          const backY = x => { let lo = 0.3, hi = 1.0; for (let i = 0; i < 20; i++) { const mid = (lo + hi) / 2; if (DUCK2.sdf(x, mid, 0) < 0) lo = mid; else hi = mid; } return lo; };
+          const geo = new THREE.BufferGeometry(), base = [];
+          for (let i = 0; i <= U; i++) { const u = i / U, x = 0.07 - u * 0.56, y0 = Math.max(backY(Math.min(x, 0.02)), 0.66) + 0.05 + 0.06 * Math.min(1, u * 3) + 0.12 * u * u + ctx.extra;
+            for (let j = 0; j <= V; j++) { const v = j / V * 2 - 1, w = 0.13 + 0.2 * u; base.push([x, y0 - 0.07 * v * v * (0.3 + u), v * w, u]); pos.push(0, 0, 0); } }
+          for (let i = 0; i < U; i++) for (let j = 0; j < V; j++) { const a = i * (V + 1) + j, b = a + V + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+          geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx);
+          const shape = t => { const P = geo.attributes.position;
+            base.forEach(([x, y, z, u], i) => P.setXYZ(i, x, y + u * u * 0.05 * Math.sin(t * 7 - u * 5), z)); P.needsUpdate = true; geo.computeVertexNormals(); };
+          shape(0);
+          const g = new THREE.Group();
+          g.add(piece(geo, paint(c, { side: THREE.DoubleSide, rough: 0.55 }), { ink: 0 }));
+          const S = SOCKETS.neck, ax = v3(...S.axis);
+          g.add(piece(G.torusThin, paint(c), { p: [S.p[0], S.p[1] + 0.03, 0], q: qFrom(Z_AXIS, ax), s: [S.r + ctx.extra + 0.005, S.r + ctx.extra + 0.005, 0.4], ink: 0 }));
+          g.add(piece(G.ball, paint(0xffc93c, { metal: 0.6, rough: 0.25 }), { p: v3(...S.p).addScaledVector(v3(ax.y, -ax.x, 0), S.r + ctx.extra + 0.01).add(v3(0, 0.03, 0)).toArray(), s: 0.026, ink: 0.005 }));
+          g.userData.tick = shape;
+          return g;
+        } },
+        { id: 'jetpack', name: 'Jetpack', build: ctx => {
+          const B = SOCKETS.back, g = new THREE.Group(), metal = paint(ctx.accent(0xb7bfd6), { metal: 0.55, rough: 0.3 });
+          g.position.set(B.p[0] - 0.05, B.p[1] + 0.09 + ctx.extra, 0);
+          g.add(piece(G.box, paint(0x3a3550, { metal: 0.3 }), { p: [0.04, -0.03, 0], s: [0.16, 0.06, 0.12] }));
+          const flames = [];
+          for (const s of [-1, 1]) {
+            g.add(piece(G.cyl, metal, { p: [0, 0, s * 0.075], r: [0, 0, Math.PI / 2], s: [0.055, 0.26, 0.055] }));
+            g.add(piece(G.cone, paint(0xe8443a), { p: [0.16, 0, s * 0.075], r: [0, 0, -Math.PI / 2], s: [0.055, 0.07, 0.055] }));
+            const fl = piece(G.cone, new THREE.MeshBasicMaterial({ color: 0xffa21f, transparent: true, opacity: 0.9 }), { p: [-0.19, 0, s * 0.075], r: [0, 0, Math.PI / 2], s: [0.04, 0.12, 0.04], ink: 0 });
+            g.add(fl); flames.push(fl);
+          }
+          g.userData.tick = t => flames.forEach((f, i) => { f.scale.y = 0.1 + 0.03 * Math.sin(t * 40 + i * 2); f.position.x = -0.13 - f.scale.y / 2; });
+          return g;
+        } },
+        { id: 'shell', name: 'Turtle shell', build: ctx => {
+          const g = new THREE.Group(), c = ctx.accent(0x4f8a3a);
+          g.add(piece(G.dome, paint(c, { pattern: 'dots', color2: tint(c, 0.6), scale: 0.6, rough: 0.5 }), { p: [-0.07, 0.6 + ctx.extra, 0], s: [0.44, 0.22, 0.36] }));
+          g.add(piece(G.torus, paint(tint(c, 1.3)), { p: [-0.07, 0.6 + ctx.extra, 0], r: [Math.PI / 2, 0, 0], s: [0.44, 0.36, 0.2] }));
+          return g;
+        } },
+      ],
+      feet: [
+        { id: 'none', name: 'Bare', build: () => null },
+        { id: 'sneakers', name: 'Sneakers', build: ctx => {
+          const g = new THREE.Group(), c = ctx.accent(0xe8443a);
+          g.add(piece(G.ball, paint(c), { p: [0.06, 0.0, 0], s: [0.115, 0.055, 0.072] }));
+          g.add(piece(G.ball, paint(0xf7f5ff), { p: [0.06, -0.035, 0], s: [0.13, 0.022, 0.08] }));
+          for (const x of [0.06, 0.1]) g.add(piece(G.box, paint(0xffffff), { p: [x, 0.05, 0], s: [0.012, 0.01, 0.07], ink: 0 }));
+          return g;
+        } },
+        { id: 'boots', name: 'Rain boots', build: ctx => {
+          const g = new THREE.Group(), m = paint(ctx.accent(0xffc93c), { rough: 0.25 });
+          g.add(piece(G.cyl, m, { p: [-0.005, 0.09, 0], s: [0.06, 0.2, 0.06] }));
+          g.add(piece(G.ball, m, { p: [0.06, -0.005, 0], s: [0.105, 0.055, 0.07] }));
+          g.add(piece(G.cyl, paint(0x2a2230), { p: [0.03, -0.045, 0], s: [0.11, 0.015, 0.075], r: [0, 0, 0] }));
+          return g;
+        } },
+      ],
+    };
+
+    // ---- looks ----
+    const LOOK_DEFAULT = { v: 1, body: '#ffd23f', head: 'match', bill: '#ff8f21', iris: '#c77a1f',
+      headType: 'duck', hair: 'tuft', hairColor: 'match', hat: 'none', face: 'none', neck: 'none',
+      outfit: 'none', outfitColor: 'default', pattern: 'default', back: 'none', feet: 'none', accent: 'default' };
+    const SLOT_KEY = { head: 'headType', hair: 'hair', hat: 'hat', face: 'face', neck: 'neck', outfit: 'outfit', back: 'back', feet: 'feet' };
+    function cleanLook(o) {   // anything unknown falls back to the default, so old or hand-edited codes never break
+      const L = { ...LOOK_DEFAULT };
+      if (!o || typeof o !== 'object') return L;
+      const isHex = s => typeof s === 'string' && /^#[0-9a-f]{6}$/i.test(s);
+      for (const k of ['body', 'bill', 'iris']) if (isHex(o[k])) L[k] = o[k];
+      for (const k of ['head', 'hairColor', 'outfitColor', 'accent']) if (isHex(o[k]) || o[k] === LOOK_DEFAULT[k]) L[k] = o[k];
+      if (o.pattern === 'default' || o.pattern in PATTERNS) L.pattern = o.pattern;
+      for (const [slot, k] of Object.entries(SLOT_KEY)) if (CATALOG[slot].some(it => it.id === o[k])) L[k] = o[k];
+      return L;
+    }
+    const item = (slot, id) => CATALOG[slot].find(it => it.id === id) || CATALOG[slot][0];
+
+    // ---- dress a duck: same parts as the game's makeDuck (base > lean > tumble > body, feet groups, mat) ----
+    // dress a duck. Same parts the race code uses: base > lean > tumble > body, two feet groups, mat (streak glow / hit tint),
+    // rimGeo (aura), drawn. Plus glowMats (every duck/clothing material that should glow with mat) and ticks (moving parts).
+    function makeLookDuck(lookIn, lite = false) {
+      const look = cleanLook(lookIn), D = DUCK2.build(lite), lc = s => String(s).toLowerCase();
+      const headCol = look.head === 'match' ? look.body : look.head;
+      const ctx = {
+        lite, head: headCol, iris: look.iris, bill: look.bill,
+        hair: look.hairColor === 'match' ? headCol : look.hairColor,
+        accent: def => look.accent === 'default' ? def : look.accent,
+        outfitColor: def => look.outfitColor === 'default' ? def : look.outfitColor,
+        pattern: def => look.pattern === 'default' ? def : look.pattern,
+        extra: item('outfit', look.outfit).t || 0,
+      };
+      const dm = (c, onTop) => DUCK2.material(new THREE.Color(c), { bill: new THREE.Color(look.bill), iris: new THREE.Color(look.iris), onTop });
+      const mat = dm(look.body);
+      // plain ducks share ONE material (so dress() recolors the whole duck, like before v90)
+      ctx.duckHeadMat = lc(headCol) === lc(look.body) ? mat : dm(headCol, true);
+      ctx.tuftMat = lc(ctx.hair) === lc(look.body) ? mat : lc(ctx.hair) === lc(headCol) ? ctx.duckHeadMat : dm(ctx.hair);
+      const lean = new THREE.Group(), tumble = new THREE.Group(); tumble.position.y = 0.55; lean.add(tumble);
+      const body = new THREE.Group(); tumble.add(body);
+      const drawn = [new THREE.Mesh(D.main, mat), new THREE.Mesh(D.ink, INK)];
+      body.add(...drawn);
+      const feet = [-1, 1].map(s => { const f = new THREE.Group(); f.position.set(0.05, 0.04, s * 0.14);
+        f.add(new THREE.Mesh(D.foot, mat), new THREE.Mesh(D.footInk, INK)); body.add(f); return f; });
+      const headSock = new THREE.Group(); headSock.position.set(...SOCKETS.head.p); body.add(headSock); drawn.push(headSock);
+      const H = item('head', look.headType).build(ctx); ctx.headSock = H;
+      if (look.headType !== 'duck') H.obj.scale.setScalar(1.18);   // cartoon heads read a bit bigger than the duck's
+      headSock.add(H.obj);
+      const top = new THREE.Group(); top.position.set(...H.top.p); top.scale.setScalar(H.top.r / 0.21); H.obj.add(top);
+      const hat = item('hat', look.hat), hatObj = hat.build(ctx);
+      if (hatObj) top.add(hatObj);
+      if (!hatObj || hat.keepHair) { const h = item('hair', look.hair).build(ctx); if (h) top.add(h); }
+      const face = item('face', look.face).build(ctx); if (face) H.obj.add(face);
+      for (const slot of ['outfit', 'neck', 'back']) { const o = item(slot, look[SLOT_KEY[slot]]).build(ctx); if (o) { body.add(o); drawn.push(o); } }
+      for (const f of feet) { const o = item('feet', look.feet).build(ctx); if (o) f.add(o); }
+      const base = new THREE.Group(); base.add(lean);
+      const ticks = [], glowMats = [mat];
+      base.traverse(o => {
+        if (o.userData.tick) ticks.push(o.userData.tick);
+        const m = o.material;
+        if (m && m !== INK && m.isMeshStandardMaterial && m.emissive.getHex() === 0 && !glowMats.includes(m)) glowMats.push(m);
+      });
+      return { base, lean, tumble, body, feet, mat, glowMats, rimGeo: look.headType === 'duck' ? D.rim : D.rimBody, drawn, headSock, ticks, look, meshy: false };
+    }
+    return { makeLookDuck, cleanLook, LOOK_DEFAULT, CATALOG, PATTERNS, SLOT_KEY, item, paint, piece, G };
+  })();
+  const LOOK_KEY = 'jdf-look';   // v90: the player's look (Customize screen), kept in this browser
+  let playerLook = LOOKS.LOOK_DEFAULT;
+  try { const s = localStorage.getItem(LOOK_KEY); if (s) playerLook = LOOKS.cleanLook(JSON.parse(s)); } catch (e) {}
+  const lookColor = L => parseInt(L.body.slice(1), 16);
+  function disposeLook(m) { m.base.traverse(o => { if (o.material && o.material !== DUCK_INK) o.material.dispose(); }); }
+  // v79: every duck is the new detailed duck (DUCK2). v90: and every duck is dressed from a LOOK. AI ducks get the
+  // classic look in their own color; the player gets the look saved on the Customize screen (opts.look).
+  // opts.lite: the light version (rubber duckies).
   function makeDuck(bodyColor, opts = {}) {
-    const D = DUCK2.build(!!opts.lite);
-    const lean = new THREE.Group();
-    const tumble = new THREE.Group(); tumble.position.y = 0.55; lean.add(tumble);
-    const body = new THREE.Group(); tumble.add(body);
-    const mat = DUCK2.material(bodyColor);
-    const drawn = [new THREE.Mesh(D.main, mat), new THREE.Mesh(D.ink, DUCK_INK)];
-    body.add(...drawn);
-    const feet = [-1, 1].map(s => {
-      const f = new THREE.Group(); f.position.set(0.05, 0.04, s * 0.14);
-      f.add(new THREE.Mesh(D.foot, mat), new THREE.Mesh(D.footInk, DUCK_INK));
-      body.add(f); return f;
-    });
-    const base = new THREE.Group(); base.add(lean);
-    const model = { base, lean, tumble, body, feet, mat, rimGeo: D.rim, drawn, meshy: false };
+    const look = opts.look ? LOOKS.cleanLook(opts.look) : { ...LOOKS.LOOK_DEFAULT, body: '#' + new THREE.Color(bodyColor).getHexString() };
+    const model = LOOKS.makeLookDuck(look, !!opts.lite);
     if (opts.meshy && USE_MESHY_PLAYER && MESHY_DUCK) dressMeshy(model);
     return model;
   }
@@ -2257,7 +2873,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       this.r = laneR(lane);
       this.hitAngle = HIT_HALF / RP;           // same timing in every lane, so inner lanes aren't handicapped
       this.leanAngle = Math.atan(K / this.r);
-      this.model = makeDuck(color, { meshy: !!isPlayer }); this.model.base.scale.setScalar(DS);   // v73: player = Meshy duck
+      this.model = makeDuck(color, { meshy: !!isPlayer, look: isPlayer ? playerLook : null }); this.model.base.scale.setScalar(DS);   // v73: player = Meshy duck; v90: player wears their look
       this.bodyColor = color;
       this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xffd23f, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       this.halo.position.set(0, 0.75, 0); this.halo.visible = false; this.model.lean.add(this.halo);
@@ -2289,6 +2905,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       this.setActive(isPlayer);
     }
     setLane(l) { this.lane = l; this.r = laneR(l); this.leanAngle = Math.atan(K / this.r); }   // v85
+    restyle(look) {   // v90: new look from the Customize screen (only opened from the title, so no race is running)
+      const old = this.model, m = makeDuck(lookColor(look), { meshy: !!this.isPlayer, look });
+      m.base.scale.copy(old.base.scale); m.base.position.copy(old.base.position); m.base.rotation.copy(old.base.rotation); m.base.visible = old.base.visible;
+      for (const o of [this.halo, ...this.motes, this.blob]) { old.lean.remove(o); m.lean.add(o); }
+      for (const r of this.rims) { old.body.remove(r); r.geometry = m.rimGeo; m.body.add(r); }
+      scene.remove(old.base); scene.add(m.base); disposeLook(old);
+      this.model = m; this.bodyColor = lookColor(look);
+      this.baseEmissive = m.mat.emissive.clone(); this.baseEI = m.mat.emissiveIntensity;
+    }
     dress(name, color, tagColor) {   // v85: multiplayer re-labels the ducks per seat
       this.name = name; this.tagColor = tagColor; this.bodyColor = color; this.model.mat.color.set(color);
       if (this.tag) { scene.remove(this.tag); this.tag.material.map.dispose(); this.tag.material.dispose(); }
@@ -2556,6 +3181,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const pad = swim ? Math.sin(time * 14) * 0.1 : runAnim ? Math.sin(stride) * 0.12 : 0;
       m.feet[0].position.x = 0.05 + pad; m.feet[1].position.x = 0.05 - pad;
       body.rotation.z = this.jumpY > 0 ? Math.max(-0.4, Math.min(0.4, this.jumpV * 0.035)) : 0;
+      if (m.ticks && m.ticks.length) for (const f of m.ticks) f(time);   // v90: propeller, cape, jetpack flames...
       if (m.meshy && MESHY_DUCK && MESHY_DUCK.rig) {   // v81 dragon: wings spread on a jump, fold on a duck; legs run; tail sways
         const R = m.rig || (m.rig = { wing: 0, spread: 0, tuck: 0, lift: 0 }), air = this.jumpY > 0 && !f;
         const ease = (key, to, rate) => { R[key] += (to - R[key]) * Math.min(1, dt * rate); };
@@ -2628,6 +3254,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (!this.hitTint) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
       } else if (lvl) { dm.emissive.copy(GLOW_GOLD); dm.emissiveIntensity = (0.6 + 0.1 * lvl) * pulse; }
       else if (dm.emissiveIntensity !== this.baseEI) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
+      if (m.glowMats && m.glowMats.length > 1) for (const g of m.glowMats) if (g !== dm) { g.emissive.copy(dm.emissive); g.emissiveIntensity = dm.emissiveIntensity; }   // v90: head, hat, clothes glow and tint too
     }
   }
 
@@ -2698,7 +3325,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     try { if (n >= 1 && n <= LANES) sessionStorage.setItem('jdf-lane', n); else n = parseInt(sessionStorage.getItem('jdf-lane'), 10); } catch (e) {}
     return (n >= 1 && n <= LANES) ? n - 1 : LANES - 1;
   })();
-  const player = new Racer({ lane: PLAYER_LANE, color: 0xffd23f, name: 'You', isPlayer: true });
+  const player = new Racer({ lane: PLAYER_LANE, color: lookColor(playerLook), name: 'You', isPlayer: true });   // v90: color from the saved look (gold by default)
   const BOT_LANES = [...Array(LANES).keys()].filter(i => i !== PLAYER_LANE);   // v84: the lanes you're not in
   const bots = RIVALS.map((p, i) => new Racer({ lane: BOT_LANES[i], color: p.color, name: p.name, tagColor: p.tag, brain: new BotBrain(p) }));
   let racers = [player];
@@ -3299,7 +3926,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v89d-2026-10-11';   // Discord build of v89-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v90d-2026-10-11';   // Discord build of v90-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -3809,7 +4436,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  UI
   // =====================================================================
   const $ = id => document.getElementById(id);
-  const overlays = ['title', 'select', 'boards', 'paused', 'result'];
+  const overlays = ['title', 'select', 'boards', 'paused', 'result', 'customize'];   // v90: + customize
   // v39 MASCOT: Sarge, the game's army duck. Original drawing, made from shapes so it stays sharp at any size.
   // Poses: 'salute' (title), 'cheer' (won), 'sad' (lost), 'halt' (paused).
   function mascotSVG(pose) {
@@ -3864,7 +4491,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
   function showOverlay(id) {
     overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
-    const menu = id === 'title' || id === 'select' || id === 'boards';   // v47: + leaderboard
+    const menu = id === 'title' || id === 'select' || id === 'boards' || id === 'customize';   // v47: + leaderboard; v90: + customize
     if (menu && window.__jdfPile) window.__jdfPile.reset();   // v51: the loot pile stays through the results, gone on the menus
     $('hud').classList.toggle('hidden', menu);
     $('tracker').classList.toggle('hidden', menu);
@@ -3952,8 +4579,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // head included, always fits inside it with a margin (v37 framing cut the top of the head off).
   const SNAP_ASPECT = 0.6;   // width / height of the podium duck picture
   function duckImage(color, px = 160, meshy = false) {
+    const look = meshy ? playerLook : null;   // v90: the player's picture wears their look
     meshy = meshy && USE_MESHY_PLAYER && !!MESHY_DUCK;   // v73: the player's picture uses the Meshy duck
-    const key = color + '@' + px + (meshy ? 'm' : '');
+    const key = color + '@' + px + (meshy ? 'm' : '') + (look ? JSON.stringify(look) : '');
     if (key in duckImgCache) return duckImgCache[key];
     try {
       if (!snapR) { snapR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); snapR.setPixelRatio(2);   /* v71: 2x = sharp on phones */ snapR.setClearColor(0x000000, 0); }
@@ -3962,7 +4590,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const sc = new THREE.Scene();
       sc.add(new THREE.HemisphereLight(0xfff4e0, 0x2a0c3a, 0.95));
       const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(2, 4, 3); sc.add(dl);
-      const m = makeDuck(color, { meshy });
+      const m = makeDuck(color, { meshy, look });
+      if (look) m.body.position.y = -0.3;   // v90: room above the head for hats and ears (feet/top are measured below)
       m.base.rotation.y = -Math.PI / 2 + 0.45;   // beak toward the viewer, turned a little: a three-quarter view
       sc.add(m.base);
       const cam = new THREE.PerspectiveCamera(38, SNAP_ASPECT, 0.1, 20);
@@ -4850,6 +5479,168 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     showOverlay('boards'); boardShow('title');
   });
   $('boardsBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
+  // ===================== v90 CUSTOMIZE SCREEN (from the title) =====================
+  // Same preview as duck-customizer.html: drag to turn, test poses, then Save puts the look on your racer.
+  const CZ = (() => {
+    const { CATALOG, PATTERNS, SLOT_KEY, LOOK_DEFAULT, cleanLook, item, paint, piece, G } = LOOKS;
+    let R = null, sc, cam, spinner, duck = null, look = playerLook, pose = 'idle', view = 'full', ang = -0.8, drag = null, idleT = 0, open = false;
+    let T = 0, last = 0, jumpY = 0, jumpV = 0, land = 0, tab = 'colors';
+    const stage = $('czStage');
+    const toastCz = msg => { const t = $('czToast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(toastCz.h); toastCz.h = setTimeout(() => t.style.opacity = 0, 1600); };
+    function setup() {
+      R = new THREE.WebGLRenderer({ antialias: true });
+      stage.prepend(R.domElement);
+      sc = new THREE.Scene(); sc.background = new THREE.Color(0x14103a);
+      sc.add(new THREE.HemisphereLight(0x9fb4ff, 0x2a0c3a, 0.8));
+      const sun = new THREE.DirectionalLight(0xfff0d8, 0.85); sun.position.set(6, 12, 10); sc.add(sun);
+      const pl = new THREE.PointLight(0x5fd4ff, 1.6, 18, 2); pl.position.set(-4, -1, 3); sc.add(pl);
+      const stump = new THREE.Group(); sc.add(stump);   // a tree-stump stand, like the game's tree
+      stump.add(piece(G.cyl, paint(0x6b4426, { rough: 0.8 }), { p: [0, -0.16, 0], s: [1.1, 0.3, 1.1], ink: 0 }));
+      stump.add(piece(G.cyl, paint(0xc79a5f, { rough: 0.8 }), { p: [0, -0.005, 0], s: [1.05, 0.012, 1.05], ink: 0 }));
+      for (let i = 1; i < 5; i++) stump.add(piece(G.torusThin, paint(0x8a5f34), { p: [0, 0.002, 0], r: [Math.PI / 2, 0, 0], s: [i * 0.22, i * 0.22, 0.25], ink: 0 }));
+      cam = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
+      spinner = new THREE.Group(); sc.add(spinner);
+      const cv = R.domElement;
+      cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, a: ang }; cv.setPointerCapture(e.pointerId); });
+      cv.addEventListener('pointermove', e => { if (drag) { ang = drag.a + (e.clientX - drag.x) * 0.012; idleT = 0; } });
+      const endDrag = () => { drag = null; idleT = 0; };
+      cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+      document.querySelectorAll('#customize [data-pose]').forEach(b => b.onclick = () => { pose = b.dataset.pose;
+        document.querySelectorAll('#customize [data-pose]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+      document.querySelectorAll('#customize [data-view]').forEach(b => b.onclick = () => { view = b.dataset.view;
+        document.querySelectorAll('#customize [data-view]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+    }
+    function rebuild() {
+      try { if (duck) { spinner.remove(duck.base); disposeLook(duck); } duck = makeDuck(0, { look }); spinner.add(duck.base); }
+      catch (e) { console.warn('customizer: could not build that look', e); }
+    }
+    function animate(dt) {   // the same squash/stretch, bob and paddling numbers as Racer.render
+      const m = duck; if (!m) return;
+      T += dt; m.ticks.forEach(f => f(T));
+      let tY = 1, tX = 1, bob = 0, pad = 0;
+      if ((pose === 'run' || pose === 'jump') && !jumpY) { const stride = T * 4.6 * 2.4; bob = Math.abs(Math.sin(stride)) * 0.07; pad = Math.sin(stride) * 0.12; }
+      if (pose === 'jump') {
+        if (!jumpY && land <= 0 && (T % 1.4) < dt) { jumpV = 9; jumpY = 0.001; }
+        if (jumpY > 0) { jumpV -= 26 * dt; jumpY += jumpV * dt; if (jumpY <= 0) { jumpY = 0; land = 0.12; } }
+        if (land > 0) land -= dt;
+        tY = land > 0 ? 0.7 : jumpV > 4 ? 1.15 : 1; tX = land > 0 ? 1.2 : 1;
+      } else { jumpY = 0; land = 0; }
+      if (pose === 'duck') { tY = 0.5; tX = 1.18; }
+      if (pose === 'idle') bob = Math.sin(T * 2) * 0.006;
+      const b = m.body, k = Math.min(1, dt * 22);
+      b.scale.y += (tY - b.scale.y) * k; b.scale.x += (tX - b.scale.x) * k;
+      b.position.y = -0.55 + bob;
+      b.rotation.z = jumpY > 0 ? Math.max(-0.4, Math.min(0.4, jumpV * 0.035)) : 0;
+      m.feet[0].position.x = 0.05 + pad; m.feet[1].position.x = 0.05 - pad;
+      m.base.position.y = jumpY * 0.35;
+    }
+    function frame(now) {
+      if (!open) return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (!drag) { idleT += dt; if (idleT > 3) ang += dt * 0.45; }
+      const w = stage.clientWidth, h = stage.clientHeight;
+      if (w && h) {
+        R.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); R.setSize(w, h, false); cam.aspect = w / h;
+        animate(dt); spinner.rotation.y = ang;
+        const fit = Math.max(1, 0.85 / cam.aspect);   // narrow phone screens: step back so the duck fits
+        if (view === 'head') { if (duck) duck.base.position.x = -0.32; cam.position.set(0, 1.25, 1.7 * fit); cam.lookAt(0, 1.0, 0); }
+        else { if (duck) duck.base.position.x = -0.03; cam.position.set(0, 1.25, 3.5 * fit); cam.lookAt(0, 0.72, 0); }
+        cam.updateProjectionMatrix(); R.render(sc, cam);
+      }
+      requestAnimationFrame(frame);
+    }
+    // ---- controls ----
+    const PAL = {
+      body: [['#ffd23f', 'Gold'], ['#f6f1e7', 'Cream'], ['#7fe06a', 'Green'], ['#8fb4ff', 'Sky'], ['#ff9b3f', 'Orange'], ['#ff7aa8', 'Pink'], ['#b88cff', 'Lilac'], ['#e8443a', 'Red'], ['#3fd0c9', 'Teal'], ['#8a6240', 'Brown'], ['#3a3548', 'Charcoal'], ['#1f6b3a', 'Mallard']],
+      bill: [['#ff8f21', 'Orange'], ['#ffc93c', 'Yellow'], ['#ff9ab0', 'Pink'], ['#2a2230', 'Black'], ['#5aa84a', 'Green'], ['#4f86e8', 'Blue']],
+      iris: [['#c77a1f', 'Amber'], ['#3a8bff', 'Blue'], ['#3fbf5a', 'Green'], ['#e8443a', 'Red'], ['#9b5cff', 'Purple'], ['#ffcc33', 'Gold'], ['#3a2a20', 'Dark']],
+      hair: [['#1d1a24', 'Black'], ['#6b4226', 'Brown'], ['#f2d16b', 'Blonde'], ['#d9452b', 'Red'], ['#3a7bff', 'Blue'], ['#ff6fb5', 'Pink'], ['#4cd964', 'Green'], ['#f4f4f4', 'White']],
+      cloth: [['#e8443a', 'Red'], ['#2f6fe0', 'Blue'], ['#3fbf5a', 'Green'], ['#ffc93c', 'Yellow'], ['#b88cff', 'Lilac'], ['#ff8fc8', 'Pink'], ['#f4f1ea', 'White'], ['#2a2440', 'Navy'], ['#5b6b34', 'Olive']],
+    };
+    const accentRow = { key: 'accent', label: 'Accessory color', pal: PAL.cloth, match: 'Default' };
+    const TABS = [
+      { id: 'colors', label: 'Colors', rows: [{ key: 'body', label: 'Body', pal: PAL.body }, { key: 'head', label: 'Head', pal: PAL.body, match: 'Match body' },
+        { key: 'bill', label: 'Bill & feet', pal: PAL.bill }, { key: 'iris', label: 'Eyes', pal: PAL.iris }] },
+      { id: 'head', label: 'Head', slot: 'head' },
+      { id: 'hair', label: 'Hair', slot: 'hair', rows: [{ key: 'hairColor', label: 'Hair color', pal: PAL.hair, match: 'Match head' }] },
+      { id: 'hat', label: 'Hat', slot: 'hat', rows: [accentRow] },
+      { id: 'face', label: 'Face', slot: 'face', rows: [{ ...accentRow, label: 'Frame color (glasses)' }] },
+      { id: 'neck', label: 'Neck', slot: 'neck', rows: [accentRow] },
+      { id: 'outfit', label: 'Outfit', slot: 'outfit', rows: [{ key: 'outfitColor', label: 'Color', pal: PAL.cloth, match: 'Default' },
+        { key: 'pattern', label: 'Pattern', opts: [['default', 'Default'], ['solid', 'Solid'], ['stripes', 'Stripes'], ['dots', 'Dots'], ['checks', 'Checks'], ['camo', 'Camo']] }] },
+      { id: 'back', label: 'Back', slot: 'back', rows: [accentRow] },
+      { id: 'feet', label: 'Feet', slot: 'feet', rows: [accentRow] },
+    ];
+    function set(k, v) { look = { ...look, [k]: v }; rebuild(); drawPanel(); }
+    function chip(label, on, fn) { const b = document.createElement('button'); b.className = 'cz-chip'; b.textContent = label; b.setAttribute('aria-pressed', on); b.onclick = fn; return b; }
+    function drawTabs() {
+      const box = $('czTabs'); box.innerHTML = '';
+      for (const t of TABS) { const b = document.createElement('button'); b.className = 'cz-tab'; b.setAttribute('role', 'tab'); b.textContent = t.label;
+        b.setAttribute('aria-selected', t.id === tab); b.onclick = () => { tab = t.id; drawTabs(); drawPanel(); }; box.append(b); }
+    }
+    function drawPanel() {
+      const t = TABS.find(x => x.id === tab), box = $('czPanel'); box.innerHTML = '';
+      const row = title => { const r = document.createElement('div'); r.className = 'cz-row'; const h = document.createElement('h2'); h.textContent = title;
+        const c = document.createElement('div'); c.className = 'cz-chips'; r.append(h, c); box.append(r); return c; };
+      if (t.slot) {
+        const c = row('Style'), key = SLOT_KEY[t.slot];
+        for (const it of CATALOG[t.slot]) c.append(chip(it.name, look[key] === it.id, () => set(key, it.id)));
+        if (t.slot === 'hair' && look.hat !== 'none' && !item('hat', look.hat).keepHair) {
+          const p = document.createElement('p'); p.className = 'cz-note'; p.textContent = 'Hidden under the hat (only the crown shows hair).'; c.parentNode.append(p); }
+      }
+      for (const r of t.rows || []) {
+        const c = row(r.label);
+        if (r.opts) { for (const [v, n] of r.opts) c.append(chip(n, look[r.key] === v, () => set(r.key, v))); continue; }
+        if (r.match) c.append(chip(r.match, look[r.key] === LOOK_DEFAULT[r.key], () => set(r.key, LOOK_DEFAULT[r.key])));
+        for (const [hx, n] of r.pal) { const b = document.createElement('button'); b.className = 'cz-sw'; b.style.background = hx; b.title = n; b.setAttribute('aria-label', n);
+          b.setAttribute('aria-pressed', look[r.key].toLowerCase() === hx); b.onclick = () => set(r.key, hx); c.append(b); }
+        const cu = document.createElement('label'); cu.className = 'cz-sw cz-custom'; cu.title = 'Custom color';
+        const inp = document.createElement('input'); inp.type = 'color'; inp.setAttribute('aria-label', r.label + ': custom color');
+        inp.value = /^#/.test(look[r.key]) ? look[r.key] : '#ffffff';
+        if (/^#/.test(look[r.key]) && !r.pal.some(([h]) => h === look[r.key].toLowerCase())) cu.style.outline = '3px solid var(--butter)';
+        inp.oninput = () => { look = { ...look, [r.key]: inp.value.toLowerCase() }; rebuild(); };
+        inp.onchange = () => set(r.key, inp.value.toLowerCase());
+        cu.append(inp); c.append(cu);
+      }
+    }
+    const encode = L => 'JDF1-' + btoa(JSON.stringify(Object.fromEntries(Object.entries(L).filter(([k, v]) => v !== LOOK_DEFAULT[k] || k === 'v'))));
+    const decode = s => { const m = /JDF1-([A-Za-z0-9+/=]+)/.exec(s || ''); if (!m) return null; try { return cleanLook(JSON.parse(atob(m[1]))); } catch (e) { return null; } };
+    $('czReset').onclick = () => { look = { ...LOOK_DEFAULT }; rebuild(); drawPanel(); toastCz('Back to the classic duck'); };
+    $('czShareBtn').onclick = () => { $('czShare').classList.toggle('hidden'); $('czCode').value = encode(look); };
+    $('czCopy').onclick = async () => { $('czCode').value = encode(look); try { await navigator.clipboard.writeText($('czCode').value); toastCz('Code copied'); } catch (e) { $('czCode').select(); toastCz('Select and copy the code'); } };
+    $('czApply').onclick = () => { const L = decode($('czCode').value); if (!L) return toastCz('That code didn’t work'); look = L; rebuild(); drawPanel(); toastCz('Look applied'); };
+    $('czRand').onclick = () => {
+      const pick = a => a[Math.floor(Math.random() * a.length)], some = (slot, pNone) => Math.random() < pNone ? 'none' : pick(CATALOG[slot].filter(i => i.id !== 'none')).id;
+      look = cleanLook({ body: pick(PAL.body)[0], head: Math.random() < 0.75 ? 'match' : pick(PAL.body)[0], bill: pick(PAL.bill)[0], iris: pick(PAL.iris)[0],
+        headType: Math.random() < 0.5 ? 'duck' : pick(CATALOG.head).id, hair: some('hair', 0.15), hairColor: Math.random() < 0.4 ? 'match' : pick(PAL.hair)[0],
+        hat: some('hat', 0.4), face: some('face', 0.6), neck: some('neck', 0.5), outfit: some('outfit', 0.4), outfitColor: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0],
+        pattern: Math.random() < 0.6 ? 'default' : pick(Object.keys(PATTERNS)), back: some('back', 0.6), feet: some('feet', 0.6), accent: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0] });
+      rebuild(); drawPanel();
+    };
+    function close(save) {
+      open = false;
+      if (save) {
+        playerLook = look;
+        try { localStorage.setItem(LOOK_KEY, JSON.stringify(look)); } catch (e) {}
+        player.restyle(look);
+      }
+      mode = 'title'; refreshPlay(); showOverlay('title');
+      if (save) toast('Looking sharp!', '#a8f58f');
+    }
+    $('czDone').onclick = () => close(true);
+    $('czCancel').onclick = () => close(false);
+    function show() {
+      if (!R) setup();
+      look = playerLook; tab = 'colors'; pose = 'idle'; ang = -0.8; idleT = 0;
+      $('czShare').classList.add('hidden');
+      rebuild(); drawTabs(); drawPanel();
+      mode = 'customize'; showOverlay('customize');
+      open = true; last = performance.now(); requestAnimationFrame(frame);
+    }
+    return { show, get look() { return look; }, set: L => { look = cleanLook(L); rebuild(); drawPanel(); }, pose: p => { pose = p; }, view: v => { view = v; }, angle: a => { ang = a; idleT = -1e9; } };
+  })();
+  $('customBtn').addEventListener('click', () => { if (mode === 'title') CZ.show(); });
+  window.__jdfLook = CZ;   // v90: for testing
   $('unlockAll').addEventListener('click', () => { saveUnlocked(LEVELS.length - 1); buildSelect(); });
   $('pauseBtn').addEventListener('click', pause);
   $('resumeBtn').addEventListener('click', resume);
@@ -5180,7 +5971,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     camera.lookAt(CAM_TARGET);
     floatDuckies(time);
 
-    renderer.render(scene, camera);
+    if (mode !== 'customize') renderer.render(scene, camera);   // v90: the Customize screen covers the game and draws its own duck
     probe.end();   // v59
     requestAnimationFrame(frame);
   }
