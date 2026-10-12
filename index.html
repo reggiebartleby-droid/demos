@@ -936,6 +936,10 @@
   const STAND_H = 1.22 * DS, DUCK_H = 0.6 * DS;
   const LOW_H = 0.5 * DS, TALL_H = 0.95 * DS, HIGH_BOTTOM = 0.86 * DS;
   const SPAWN_AHEAD = 2.2;
+  // v106: obstacles are laid out this far ahead: your lap's visible part + the two laps above (the third is above the
+  // top of the phone screen; measured in the browser). v103 used a fixed 2.2 rad (~15 ft): at 45 ft/s each obstacle
+  // was on screen ~0.3 s and clusters were too far apart (in feet) to ever be on screen together.
+  const SPAWN_VIEW = SPAWN_AHEAD + 2 * TAU;
   const HIT_HALF = 0.26;            // duck + obstacle overlap, ft (at the player's lane)
 
   // Bot timing, measured from the jump physics: a hop is highest 0.22 s after takeoff,
@@ -2458,7 +2462,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (!o || typeof o !== 'object') return L;
       const isHex = s => typeof s === 'string' && /^#[0-9a-f]{6}$/i.test(s);
       for (const k of ['body', 'bill', 'iris']) if (isHex(o[k])) L[k] = o[k];
-      for (const k of ['head', 'hairColor', 'outfitColor', 'accent']) if (isHex(o[k]) || o[k] === LOOK_DEFAULT[k]) L[k] = o[k];
+      for (const k of ['hairColor', 'outfitColor', 'accent']) if (isHex(o[k]) || o[k] === LOOK_DEFAULT[k]) L[k] = o[k];   // v104: head always matches body (old looks/codes too)
       if (o.pattern === 'default' || o.pattern in PATTERNS) L.pattern = o.pattern;
       for (const [slot, k] of Object.entries(SLOT_KEY)) if (CATALOG[slot].some(it => it.id === o[k])) L[k] = o[k];
       return L;
@@ -2664,7 +2668,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // v31 streak glow: a soft gold halo (added light) around a duck on a long run
   const haloTex = canvasTex(128, 128, (g, w, h) => {
     const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
-    gr.addColorStop(0, 'rgba(255,240,170,1)'); gr.addColorStop(0.35, 'rgba(255,205,70,.55)'); gr.addColorStop(1, 'rgba(255,190,40,0)');
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');   // v104: white, tinted per duck
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
   });
   haloTex.wrapS = haloTex.wrapT = THREE.ClampToEdgeWrapping;
@@ -2672,11 +2676,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const RIM_ALPHA = 0.5;   // v103: streak-aura edge is a flat 50% see-through at every streak level (v102: 0.8 x a level ramp, up to ~72%)
   // v100 streak-aura rim color: the duck's feather color pulled 40% toward warm gold, a bit richer and darker,
   // so the edge outside the ink outline looks like glowing feathers instead of a white line.
-  const rimTint = (feather, out) => {
-    out.set(feather).lerp(GLOW_GOLD, 0.4);
-    const hsl = {}; out.getHSL(hsl);
-    return out.setHSL(hsl.h, Math.min(1, hsl.s + 0.15), Math.min(0.58, hsl.l * 0.9));
-  };
+  // v104 (user): every duck's glow is its own body color (rim, halo, motes, body glow, sparks); no gold pull.
+  const rimTint = (feather, out) => out.set(feather);
+  const glowLight = (c, k) => new THREE.Color(c).lerp(new THREE.Color(0xffffff), k);   // a lighter shade of the duck's color
   const waveMat = new THREE.MeshStandardMaterial({ color: 0x6fd3ff, emissive: 0x1b6a96, emissiveIntensity: 0.6, transparent: true, opacity: 0.82, roughness: 0.2 });
   const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   function makeWave() {
@@ -2700,10 +2702,16 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const draw = () => {
       const g = c.getContext('2d');
       g.clearRect(0, 0, 256, 72);
-      g.fillStyle = 'rgba(20,16,58,0.78)';
-      g.beginPath(); g.moveTo(40, 8); g.arcTo(232, 8, 232, 64, 26); g.arcTo(232, 64, 24, 64, 26); g.arcTo(24, 64, 24, 8, 26); g.arcTo(24, 8, 232, 8, 26); g.fill();
-      g.fillStyle = color; g.font = '40px "Bungee", "Impact", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(text, 128, 38);
+      // v107 (user: the box behind the name distracts from the race): no background, just the name, bolder:
+      // light interior (the duck's tag color mixed with white) inside a thick black outline. Long names shrink to fit.
+      let fs = 42;
+      g.font = `${fs}px "Bungee", "Impact", sans-serif`;
+      const tw = g.measureText(text).width;
+      if (tw > 228) { fs = Math.max(20, Math.floor(fs * 228 / tw)); g.font = `${fs}px "Bungee", "Impact", sans-serif`; }
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.miterLimit = 2;
+      g.strokeStyle = '#000'; g.lineWidth = 9; g.strokeText(text, 128, 38);
+      g.fillStyle = color; g.fillText(text, 128, 38);
+      g.globalAlpha = 0.4; g.fillStyle = '#fff'; g.fillText(text, 128, 38); g.globalAlpha = 1;
       tex.needsUpdate = true;
     };
     draw();
@@ -2779,6 +2787,44 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const o = new THREE.Mesh(mesh.geometry, mats.outline);
     o.scale.set(1.35, 1.12, 1.03); mesh.add(o); return mesh;
   };
+  // v107 (user: obstacles up above aren't in the race yet: 60% transparent, and a different object, the same for jump
+  // and duck, so you know one is coming but not which). Above your lap each obstacle shows as a construction barricade
+  // + warning sign at 40% opacity; it turns into the real obstacle when it comes around onto your lap (SIGN_PHI).
+  const SIGN_PHI = SPAWN_AHEAD;     // phi past this = the laps above (same edge the old spawner used for "your lap")
+  const SIGN_OPACITY = 0.4;         // 60% transparent
+  const signMats = (() => {
+    const fade = (m) => { m.transparent = true; m.opacity = SIGN_OPACITY; m.depthWrite = false; return m; };
+    const stripes = canvasTex(128, 32, (c) => {
+      c.fillStyle = '#fff4e0'; c.fillRect(0, 0, 128, 32); c.fillStyle = '#ff6a00';
+      for (let x = -32; x < 128; x += 32) { c.beginPath(); c.moveTo(x, 32); c.lineTo(x + 16, 32); c.lineTo(x + 32, 0); c.lineTo(x + 16, 0); c.fill(); }
+    });
+    stripes.wrapS = THREE.RepeatWrapping; stripes.repeat.set(2, 1);
+    const diamond = canvasTex(128, 128, (c) => {
+      c.translate(64, 64); c.rotate(Math.PI / 4);
+      c.fillStyle = '#140a04'; c.fillRect(-42, -42, 84, 84);
+      c.fillStyle = '#ff8a00'; c.fillRect(-36, -36, 72, 72);
+      c.rotate(-Math.PI / 4); c.fillStyle = '#140a04';
+      c.fillRect(-6, -30, 12, 34); c.fillRect(-6, 12, 12, 12);   // "!"
+    });
+    return {
+      board: fade(new THREE.MeshBasicMaterial({ map: stripes })),
+      leg: fade(new THREE.MeshBasicMaterial({ color: 0x8a5a2b })),
+      sign: fade(new THREE.SpriteMaterial({ map: diamond })),
+    };
+  })();
+  const signGeo = { board: new THREE.BoxGeometry(0.1, 0.22 * DS, W * 0.9), leg: new THREE.BoxGeometry(0.06, 0.66 * DS, 0.06) };   // shared
+  function makeSignMesh() {
+    const g = new THREE.Group();
+    const board = new THREE.Mesh(signGeo.board, signMats.board);
+    board.position.y = 0.5 * DS; g.add(board);
+    for (const s of [-1, 1]) for (const lean of [-1, 1]) {   // sawhorse legs
+      const leg = new THREE.Mesh(signGeo.leg, signMats.leg);
+      leg.position.set(lean * 0.1, 0.31 * DS, s * (W * 0.4)); leg.rotation.z = lean * 0.3; g.add(leg);
+    }
+    const sign = new THREE.Sprite(signMats.sign);
+    sign.scale.set(0.75, 0.75, 1); sign.position.y = 1.05 * DS; g.add(sign);
+    return g;
+  }
   function makeObstacleMesh(type) {
     const g = new THREE.Group();
     if (type === 'low' || type === 'tall') {
@@ -3026,11 +3072,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
     // v36: the glow is a one-hit shield. Hit while glowing: glow gone (streak back to 0), no ground lost,
     // no stumble counted, short grace so the same obstacle can't hit next frame. No dodge credit either.
+    glowSparks() { const c = this.bodyColor; return [c, 0xffffff, glowLight(c, 0.5).getHex()]; }   // v104
     shieldBreak(o) {
       (o.spared || (o.spared = []))[this.slot] = true; o.shielded = true;
       this.streak = 0; this.invuln = 0.6;
       const p = this.model.base.position.clone(); p.y += 0.6 * DS;
-      burst(p, [0xffe27a, 0xffffff, 0xffc83d], 6, 26, 1.6);
+      burst(p, this.glowSparks(), 6, 26, 1.6);   // v104: duck's color
       st.shake = 0.2;
       toast('Glow shield! No ground lost', '#ffe27a');
       hud();
@@ -3204,7 +3251,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       }
       // v31 streak glow: level 1 at 10 dodges in a row, +1 every 5 more (15, 20, ...), up to level 6
       const lvl = this.streak >= GLOW_STREAK ? Math.min(6, 1 + Math.floor((this.streak - GLOW_STREAK) / 5)) : 0;
-      if (lvl > this.glowLevel && !this.fall) burst(pb.position.clone().add(new THREE.Vector3(0, 1.1 * DS, 0)), [0xffe27a, 0xffffff, 0xffc83d], 5, 10 + lvl * 4, 1.6);
+      if (lvl > this.glowLevel && !this.fall) burst(pb.position.clone().add(new THREE.Vector3(0, 1.1 * DS, 0)), this.glowSparks(), 5, 10 + lvl * 4, 1.6);   // v104: duck's color
       this.glowLevel = lvl;
       const pulse = 0.85 + 0.15 * Math.sin(time * (4 + lvl));
       const aura = lvl > 0 && pb.visible && !swim;
@@ -3213,7 +3260,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         this.halo.material.opacity = Math.min(1, 0.65 + 0.07 * lvl) * pulse;
         this.halo.scale.setScalar((1.9 + 0.3 * lvl) * pulse);
       }
-      if (aura && this._rimFor !== this.bodyColor) { this._rimFor = this.bodyColor; rimTint(this.bodyColor, this.rimMat.color); }   // v100
+      if (this._rimFor !== this.bodyColor) {   // v104: glow follows the duck's body color (bots, other players, you)
+        this._rimFor = this.bodyColor; rimTint(this.bodyColor, this.rimMat.color);
+        this.glowCol = new THREE.Color(this.bodyColor); this.halo.material.color.copy(this.glowCol);
+        const mc = glowLight(this.bodyColor, 0.55); for (const sp of this.motes) sp.material.color.copy(mc);
+      }
       this.rimMat.opacity = aura ? RIM_ALPHA : 0;   // v103: flat 50% (user), no level ramp or pulse
       for (const r of this.rims) r.visible = aura;
       const nMotes = aura ? Math.min(this.motes.length, 4 + 2 * lvl) : 0;   // 6 motes at level 1, 16 at level 6
@@ -3233,7 +3284,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         const k = Math.min(1, this.hitTint * 1.25), e = k * k * (3 - 2 * k);
         dm.emissive.copy(this.baseEmissive).lerp(HIT_RED, e); dm.emissiveIntensity = this.baseEI + (0.9 - this.baseEI) * e;
         if (!this.hitTint) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
-      } else if (lvl) { dm.emissive.copy(GLOW_GOLD); dm.emissiveIntensity = (0.6 + 0.1 * lvl) * pulse; }
+      } else if (lvl) { dm.emissive.copy(this.glowCol || GLOW_GOLD); dm.emissiveIntensity = (0.6 + 0.1 * lvl) * pulse; }   // v104: duck's color
       else if (dm.emissiveIntensity !== this.baseEI) { dm.emissive.copy(this.baseEmissive); dm.emissiveIntensity = this.baseEI; }
       if (m.glowMats && m.glowMats.length > 1) for (const g of m.glowMats) if (g !== dm) { g.emissive.copy(dm.emissive); g.emissiveIntensity = dm.emissiveIntensity; }   // v90: head, hat, clothes glow and tint too
     }
@@ -3714,6 +3765,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       finishTheta: L.lengthCoils * TAU, finishCount: 0, lastPlace: 1, lastPassToast: 0,
       hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1, burstLeft: 0, tightPrev: false,
       nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
+      marks: [], plan: { t: L.warmup, v: L.startSpeed, up: L.stepEvery, ot: false, solo: false },   // v106 course planner
       countdown: 3.2, countShown: 4, levelTime: 0,
       overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, finWaitAt: null, otStart: 0, speedAtFinish: null,
     });
@@ -3739,6 +3791,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const stepEvery = () => st.solo ? 5.5 : st.overtime ? 7 : st.level.stepEvery;   // v34 solo: every 5.5 s
   const stepMult = () => st.solo ? 1.18 : st.overtime ? 1.15 : st.level.stepMult;   // v34 solo: +18% per step   // overtime keeps ramping
   const quiet = () => st.overtime ? 0.6 : QUIET;   // v99: overtime 0.8 -> 0.6
+  // v105 GENTLER RAMP AT TOP SPEED: in overtime / last-duck-standing, above RAMP_SOFT ft/s each speed-up adds a
+  // smaller share: step size x (RAMP_SOFT / speed)^2 (applied in planAdvance). Still speeds up forever, just slower.
+  // (v103 test run: 15 -> 64 ft/s in ~50 s of solo; now ~77 s. An invincible v103 run reached 920 ft/s.)
+  const RAMP_SOFT = 30;
   // v99: clear time BEFORE a speed-up. The speed-up only needs nothing 0.3 s behind the duck, so 0.45 s (overtime 0.4) is
   // enough; the old 1.2 s + 0.55 s combo margin made ~3 s holes. A combo that would overlap the zone becomes a single.
   const zoneBefore = () => st.overtime ? 0.4 : 0.45;
@@ -3768,40 +3824,70 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (seenV.z < 1 && Math.abs(seenV.x) <= 1 && Math.abs(seenV.y) <= 1) o.seenAt = st.levelTime;
   }
   function addObstacle(theta, type, hint, combo) {
-    const mesh = makeObstacleMesh(type);
+    const mesh = new THREE.Group();   // v107: holds the real obstacle and its "coming up" sign; only one shows at a time
+    const real = makeObstacleMesh(type), sign = makeSignMesh();
+    mesh.add(real, sign);
+    const up = theta - st.theta > SIGN_PHI;
+    real.visible = !up; sign.visible = up;
     obsGroup.add(mesh);
-    st.obs.push({ id: st.obsSeq++, theta, type, mesh, hint: !!hint, hinted: false, combo: !!combo, res: [], hit: [], plan: [], settled: false });
+    st.obs.push({ id: st.obsSeq++, theta, type, mesh, real, sign, up, hint: !!hint, hinted: false, combo: !!combo, res: [], hit: [], plan: [], settled: false });
+  }
+  // v106 COURSE PLANNED AHEAD (user: "visible all the way up the tree, see it coming the entire way").
+  // Obstacles are laid out SPAWN_VIEW rad ahead: your lap plus the two laps above, everything the camera shows.
+  // Because that's up to ~15 s ahead, speed-ups are now planned at SPOTS on the slide (st.marks) while the course is
+  // laid out, instead of on a timer. The planner (st.plan) always knows the speed at each spot, so gaps stay exactly as
+  // designed in seconds (clusters stay hop-able), and a speed-up fires when you reach its spot (see simStep).
+  //   plan.t = race time when you reach st.nextSpawn, plan.v = slide speed there, plan.up = race time of the next speed-up
+  const FIN_CLEAR = SPAWN_AHEAD;   // clear slide past the arch (overtime regroups the ducks there)
+  const planStepEvery = g => g.solo ? 5.5 : g.ot ? 7 : st.level.stepEvery;   // same rules as before (v34 solo, overtime 7 s)
+  const planStepMult = g => g.solo ? 1.18 : g.ot ? 1.15 : st.level.stepMult;
+  function planAdvance(sec) {   // move the planner sec seconds of racing forward; returns radians; plants speed-ups passed
+    const g = st.plan; let rad = 0;
+    while (sec >= g.up - g.t) {
+      const d = Math.max(0, g.up - g.t); rad += d * g.v / RP; sec -= d; g.t = g.up;
+      const k = (g.ot || g.solo) && g.v > RAMP_SOFT ? (RAMP_SOFT / g.v) ** 2 : 1;   // v105 gentler ramp at top speed
+      g.v *= 1 + (planStepMult(g) - 1) * k;
+      st.marks.push({ theta: st.nextSpawn + rad, speed: g.v });
+      g.up = g.t + planStepEvery(g);
+    }
+    g.t += sec; rad += sec * g.v / RP;
+    return rad;
   }
   function spawn() {
-    const L = st.level;
-    const stopAt = st.overtime ? Infinity : st.finishTheta - 0.45;
-    const ft = f => f / RP;     // feet along the player's lane -> radians
-    while (st.nextSpawn < st.theta + SPAWN_AHEAD && st.nextSpawn < stopAt) {
-      // When will the next speed-up happen, and when would this obstacle arrive?
-      const w = st.speed / RP;
-      const upAt = st.levelTime + Math.max(0, stepEvery() - st.stepTimer);
-      const arrive = st.levelTime + (st.nextSpawn - wRef()) / w;
-      if (arrive > upAt - zoneBefore() && arrive < upAt + quiet()) {   // v99: before-side 0.45 s (was quiet + COMBO_GAP = 1.75 s)
-        st.nextSpawn = wRef() + (upAt + quiet() + 0.05 - st.levelTime) * w;   // skip past the quiet zone
+    const L = st.level, g = st.plan;
+    const stopAt = st.finishTheta - 0.45;
+    while (st.nextSpawn < st.theta + SPAWN_VIEW) {
+      if (!g.ot && st.nextSpawn >= stopAt) {   // clear stretch over the arch; overtime's speed-up clock starts at the arch
+        const tFin = g.t + (st.finishTheta - st.nextSpawn) * RP / g.v;
+        g.t += (st.finishTheta + FIN_CLEAR - st.nextSpawn) * RP / g.v;
+        st.nextSpawn = st.finishTheta + FIN_CLEAR;
+        g.ot = true; g.up = Math.max(g.t + 0.5, tFin + planStepEvery(g));
+        continue;
+      }
+      // When will the next speed-up happen, and when would this obstacle arrive? (planner time)
+      const zb = g.ot ? 0.4 : 0.45, q = g.ot ? 0.6 : QUIET;   // same as zoneBefore() / quiet()
+      const upAt = g.up, arrive = g.t;
+      if (arrive > upAt - zb && arrive < upAt + q) {   // v99: before-side 0.45 s (was quiet + COMBO_GAP = 1.75 s)
+        st.nextSpawn += planAdvance(upAt + q + 0.05 - g.t);   // skip past the quiet zone
         continue;
       }
       let kind, hint = false, extraAfter = 0;
       if (!st.introDone && st.spawned >= 3) {
         st.introDone = true; kind = L.intro.kind; hint = true;
-        st.nextSpawn += ft(st.speed * 1.4); extraAfter = st.speed * 1.4;
-        if (st.nextSpawn >= stopAt) break;
+        st.nextSpawn += planAdvance(1.4); extraAfter = 1.4;   // 1.4 s of clear slide before and after the new obstacle
+        if (!g.ot && st.nextSpawn >= stopAt) continue;
       } else if (!st.introDone) {
         kind = wRnd() < 0.5 ? 'low' : 'high';
-      } else if (L.combos && !st.tightPrev && !(arrive + COMBO_GAP > upAt - zoneBefore() && arrive < upAt + quiet()) && wRnd() < L.combos) {
+      } else if (L.combos && !st.tightPrev && !(g.t + COMBO_GAP > upAt - zb && g.t < upAt + q) && wRnd() < L.combos) {
         kind = 'combo';
       } else {
         kind = pickType(L.mix);
       }
       if (kind === 'combo') {
-        const g = ft(st.speed * COMBO_GAP);
         addObstacle(st.nextSpawn, 'low', hint);
-        addObstacle(st.nextSpawn + g, 'high', false, true);
-        st.nextSpawn += g;
+        const cg = planAdvance(COMBO_GAP);   // no speed-up inside a combo (checked above)
+        addObstacle(st.nextSpawn + cg, 'high', false, true);
+        st.nextSpawn += cg;
       } else {
         addObstacle(st.nextSpawn, kind, hint);
       }
@@ -3810,22 +3896,22 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       // v97 SPACING BY TRACK LENGTH: the level's gap is turned into FEET at the level's start speed and stays that many
       // feet as the slide speeds up, so faster = more obstacles per second. Floor: never closer than 1.0-1.5 s apart
       // (jumps take a fixed time: a hop is ~0.45 s in the air), so it stays possible at any speed.
-      // (v85-v96: the gap was in SECONDS, so the same number of obstacles per second at any speed.)
-      // v98 RANDOM RHYTHM: v97's 1.0-1.475 s floor took over at speed, so gaps were nearly even and players could
-      // time them. Now each gap is one of: a tight CLUSTER (2-3 obstacles ~0.7-0.85 s apart: hop-able, a full big
+      // v98 RANDOM RHYTHM: each gap is one of: a tight CLUSTER (2-4 obstacles ~0.7-0.85 s apart: hop-able, a full big
       // jump lands too late), a BREATHER (long gap), or a NORMAL gap with a wide range. Average density ~ v97.
+      // v106: speeds and times here are the PLANNER's (g.v, g.t): the speed at this spot, not the speed right now.
       const baseFt = (L.gapStart + (L.gapEnd - L.gapStart) * along) * L.startSpeed * 1.075;   // v97's average gap in feet
-      const baseSec = Math.max(baseFt / st.speed, GAP_BASE_MIN);         // average seconds between obstacles right now
+      const baseSec = Math.max(baseFt / g.v, GAP_BASE_MIN);             // average seconds between obstacles at this spot
       let sec;
-      const h = heat(), bMin = BURST_MIN - BURST_TIGHTEN * h, bRange = BURST_RANGE - 0.01 * h;   // v100
+      const h = g.ot ? 1 : Math.min(1, Math.max(0, (g.v - HEAT_LO) / (HEAT_HI - HEAT_LO)));   // heat() at this spot
+      const bMin = BURST_MIN - BURST_TIGHTEN * h, bRange = BURST_RANGE - 0.01 * h;   // v100
       const burstP = BURST_P + (BURST_P_HOT - BURST_P) * h;
       if (st.burstLeft > 0) {                                            // still inside a cluster
         st.burstLeft--; sec = bMin + wRnd() * bRange;
       } else {
         const p = wRnd();                                                // shared in multiplayer (wRnd), same on every device
         if (p < burstP) {                                                // cluster of 2, 3 or (hot) 4
-          const q = wRnd();
-          st.burstLeft = q < BURST4_P_HOT * h ? 2 : q < 0.6 - 0.2 * h ? 0 : 1;
+          const qq = wRnd();
+          st.burstLeft = qq < BURST4_P_HOT * h ? 2 : qq < 0.6 - 0.2 * h ? 0 : 1;
           sec = bMin + wRnd() * bRange;
         }
         else if (p < burstP + BREATHER_P) sec = Math.min(baseSec * (1.3 + wRnd() * 0.3), baseSec + 0.7);   // v99: was 1.7-2.5x (up to 4 s at race speeds)
@@ -3834,14 +3920,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (kind === 'combo') { st.burstLeft = 0; sec = Math.max(sec, baseSec); }   // a combo is already a cluster: no tight gap after it
       // v99: if the next obstacle would land in the speed-up's clear zone, pull it in to just before the zone when
       // that still leaves a safe gap, instead of pushing it past (push + clear zone = a lone obstacle with holes around it).
-      const arriveThis = st.levelTime + (st.nextSpawn - wRef()) / w;
-      const zoneA = upAt - zoneBefore();
-      if (!extraAfter && arriveThis + sec > zoneA && arriveThis + sec < upAt + quiet() && zoneA - 0.02 - arriveThis >= BURST_MIN + 0.1) {
-        sec = zoneA - 0.02 - arriveThis - 0.8 / st.speed;
+      const zoneA = upAt - zb;
+      if (!extraAfter && g.t + sec > zoneA && g.t + sec < upAt + q && zoneA - 0.02 - g.t >= BURST_MIN + 0.1) {
+        sec = zoneA - 0.02 - g.t - 0.8 / g.v;
       }
       st.tightPrev = sec < baseSec * 0.75;                               // no combo right after a tight gap
-      const gap = st.speed * sec + 0.8;                                  // +0.8 ft: room to land and reset
-      st.nextSpawn += ft(gap + extraAfter);
+      st.nextSpawn += planAdvance(sec + 0.8 / g.v + extraAfter);         // +0.8 ft: room to land and reset
     }
   }
 
@@ -4017,7 +4101,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v34: the player is the only duck left: keep racing (and speeding up faster) until washed out.
     // The player's own wash-out then ends the race through the normal overtime path.
     if (alive.length === 1 && alive[0].isPlayer) {
-      if (!st.solo) { st.solo = true; player.survivor = true; st.stepTimer = 0; lastDuckPop(); $('gold').classList.add('x2'); }   // v68: glow + explode + 2x bonus
+      if (!st.solo) { st.solo = true; st.plan.solo = true; player.survivor = true; st.stepTimer = 0; lastDuckPop(); $('gold').classList.add('x2'); }   // v68: glow + explode + 2x bonus
       return;
     }
     st.ending = true;
@@ -4035,7 +4119,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v103-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v108-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -4327,6 +4411,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  toggle on, and EVERY run in a session where god mode was switched on at any point.
   //  Session = one page load (tele.session).
   // =====================================================================
+  // v108 EGG RESET: every egg balance starts over at 0 once (shop prices come later). The first load of this build on a
+  // device sets that device's saved count to 0 and remembers the reset, so it never happens twice. Bump EGG_RESET to
+  // reset again. The Discord build's real count is on the race server (reset there with Admin-JDF-Players option 8).
+  // "Eggs = total earned" in My bests is a stat, not a balance: it's kept.
+  const EGG_RESET = '2026-10-12';
+  try { if (localStorage.getItem('jdf-egg-reset') !== EGG_RESET) { localStorage.setItem('jdf-gold', '0'); localStorage.setItem('jdf-egg-reset', EGG_RESET); } } catch (e) {}
   const BOARD_KEY = 'jdf-board', ACC_MIN = 20;   // accuracy shows once 20+ obstacles are counted
   let board = null, boardTab = 'friends', friends = { state: 'idle', runs: [], sort: 'dodges', err: '' }, lastRun = null;
   let boardCtx = 'result', friendsReq = 0;   // v47: 'result' (after a race) or 'title' (Leaderboard button)
@@ -5907,10 +5997,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     };
     const accentRow = { key: 'accent', label: 'Accessory color', pal: PAL.cloth, match: 'Default' };
     const TABS = [
-      { id: 'colors', label: 'Colors', rows: [{ key: 'body', label: 'Body', pal: PAL.body }, { key: 'head', label: 'Head', pal: PAL.body, match: 'Match body' },
+      { id: 'colors', label: 'Colors', rows: [{ key: 'body', label: 'Duck color', pal: PAL.body },   // v104: one color for the whole duck (Head row removed for now)
         { key: 'bill', label: 'Bill & feet', pal: PAL.bill }, { key: 'iris', label: 'Eyes', pal: PAL.iris }] },
       { id: 'head', label: 'Head', slot: 'head' },
-      { id: 'hair', label: 'Hair', slot: 'hair', rows: [{ key: 'hairColor', label: 'Hair color', pal: PAL.hair, match: 'Match head' }] },
+      { id: 'hair', label: 'Hair', slot: 'hair', rows: [{ key: 'hairColor', label: 'Hair color', pal: PAL.hair, match: 'Match duck' }] },
       { id: 'hat', label: 'Hat', slot: 'hat', rows: [accentRow] },
       { id: 'face', label: 'Face', slot: 'face', rows: [{ ...accentRow, label: 'Frame color (glasses)' }] },
       { id: 'neck', label: 'Neck', slot: 'neck', rows: [accentRow] },
@@ -5959,7 +6049,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     $('czApply').onclick = () => { const L = decode($('czCode').value); if (!L) return toastCz('That code didn’t work'); look = L; rebuild(); drawPanel(); toastCz('Look applied'); };
     $('czRand').onclick = () => {
       const pick = a => a[Math.floor(Math.random() * a.length)], some = (slot, pNone) => Math.random() < pNone ? 'none' : pick(CATALOG[slot].filter(i => i.id !== 'none')).id;
-      look = cleanLook({ body: pick(PAL.body)[0], head: Math.random() < 0.75 ? 'match' : pick(PAL.body)[0], bill: pick(PAL.bill)[0], iris: pick(PAL.iris)[0],
+      look = cleanLook({ body: pick(PAL.body)[0], bill: pick(PAL.bill)[0], iris: pick(PAL.iris)[0],
         headType: Math.random() < 0.5 ? 'duck' : pick(CATALOG.head).id, hair: some('hair', 0.15), hairColor: Math.random() < 0.4 ? 'match' : pick(PAL.hair)[0],
         hat: some('hat', 0.4), face: some('face', 0.6), neck: some('neck', 0.5), outfit: some('outfit', 0.4), outfitColor: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0],
         pattern: Math.random() < 0.6 ? 'default' : pick(Object.keys(PATTERNS)), back: some('back', 0.6), feet: some('feet', 0.6), accent: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0] });
@@ -6212,14 +6302,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (mode === 'play') {
         st.levelTime += simDt;
         st.stepTimer += simDt;
-        // Speed-ups only happen in a quiet stretch: nothing within ~1 s of the duck.
-        if (st.stepTimer >= stepEvery()) {
-          if (quietAroundPlayer(st.overtime ? 0.5 : 0.7, 0.3)) {   // v99: 1.0/0.6 -> 0.7/0.5 (must stay below quiet())
-            st.stepTimer = 0; st.tier++;
-            st.targetSpeed *= stepMult(); st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
-            awardsOnSpeed();   // v51
-            // (no on-screen cue: the speed-up is felt, and seen in the chevrons, not announced)
-          } else st.stepTimer = stepEvery();   // wait for the gap
+        // v106: speed-ups fire at the spots the course planner left clear for them (see planAdvance), so the
+        // obstacles laid out up the tree were spaced for exactly this speed. (Was: every stepEvery() s, when quiet.)
+        const at = !MP.on && eliminated(player) ? st.theta : wRef();
+        while (st.marks.length && at >= st.marks[0].theta) {
+          const mk = st.marks.shift();
+          st.stepTimer = 0; st.tier++;
+          st.targetSpeed = mk.speed; st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
+          awardsOnSpeed();   // v51
+          // (no on-screen cue: the speed-up is felt, and seen in the chevrons, not announced)
         }
         // Ease into the new speed over about a second instead of jumping
         st.speed += (st.targetSpeed - st.speed) * Math.min(1, simDt * 2.5);
@@ -6289,7 +6380,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const phi = o.theta - theta;
       o.mesh.position.set(RT * Math.sin(phi), K * phi, RT * Math.cos(phi));
       o.mesh.rotation.y = phi;
-      if (o.seenAt == null && mode === 'play') markSeen(o);   // v70
+      const up = phi > SIGN_PHI;   // v107: still on a lap above -> sign; on your lap -> the real obstacle
+      if (up !== o.up) { o.up = up; o.real.visible = !up; o.sign.visible = up; }
+      if (o.seenAt == null && mode === 'play' && !up) markSeen(o);   // v70 (v107: the sign doesn't count as seeing it)
       if (o.hint && !o.hinted && phi < 1.15 && mode === 'play') { o.hinted = true; toast(st.level.intro.hint, '#ffb020'); }
       if (phi < LEFT_EDGE - 0.7) { obsGroup.remove(o.mesh); st.obs.splice(i, 1); }
     }
