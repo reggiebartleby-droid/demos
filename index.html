@@ -2669,6 +2669,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   });
   haloTex.wrapS = haloTex.wrapT = THREE.ClampToEdgeWrapping;
   const GLOW_GOLD = new THREE.Color(0xffb020);
+  const RIM_ALPHA = 0.8;   // v102: streak-aura edge 20% more see-through than v100/v101 (1 = v101 look)
   // v100 streak-aura rim color: the duck's feather color pulled 40% toward warm gold, a bit richer and darker,
   // so the edge outside the ink outline looks like glowing feathers instead of a white line.
   const rimTint = (feather, out) => {
@@ -3213,7 +3214,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         this.halo.scale.setScalar((1.9 + 0.3 * lvl) * pulse);
       }
       if (aura && this._rimFor !== this.bodyColor) { this._rimFor = this.bodyColor; rimTint(this.bodyColor, this.rimMat.color); }   // v100
-      this.rimMat.opacity = aura ? Math.min(0.9, 0.5 + 0.08 * lvl) * (0.8 + 0.2 * pulse) : 0;
+      this.rimMat.opacity = aura ? RIM_ALPHA * Math.min(0.9, 0.5 + 0.08 * lvl) * (0.8 + 0.2 * pulse) : 0;   // v102: x RIM_ALPHA
       for (const r of this.rims) r.visible = aura;
       const nMotes = aura ? Math.min(this.motes.length, 4 + 2 * lvl) : 0;   // 6 motes at level 1, 16 at level 6
       this.motes.forEach((sp, i) => {
@@ -4034,7 +4035,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v101-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v102-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
