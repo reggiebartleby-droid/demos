@@ -118,7 +118,11 @@ window.JDF_DISCORD = (function () {
         const { status: code, j } = await post('report', { token, report: Object.assign({ rid: next.rid }, next.report) });
         if (code === 401) { d.save = 'sign-in expired'; return false; }   // keep the queue for next sign-in
         queue = queue.filter(x => x.rid !== next.rid); saveQ();   // ok, or rejected as bad data (would fail forever)
-        if (j.ok) gotPlayer(j.player); else console.warn('[JDF Discord] report rejected:', j.error, next);
+        if (j.ok) {
+          gotPlayer(j.player);
+          // v96: bonus eggs and new trophies the server gave for this race (rid tells the game which race)
+          if (j.got) window.dispatchEvent(new CustomEvent('jdf-reward', { detail: Object.assign({ rid: next.rid }, j.got) }));
+        } else console.warn('[JDF Discord] report rejected:', j.error, next);
       }
       return false;
     })().catch(e => {
@@ -130,10 +134,12 @@ window.JDF_DISCORD = (function () {
     return flushing;
   }
   window.addEventListener('online', () => flush());
-  d.report = r => {   // r = {level, place, dodges, stumbles, streak, speed, eggs, credits}
-    if (!d.user) return;   // guest: nothing is saved
-    queue.push({ uid: d.user.id, rid: newRid(), report: r }); saveQ();
+  d.report = r => {   // r = {level, place, dodges, stumbles, streak, speed, eggs, credits, humans, beat, boss, day}
+    if (!d.user) return '';   // guest: nothing is saved
+    const rid = newRid();   // v96: returned so the game can match the 'jdf-reward' reply to this race
+    queue.push({ uid: d.user.id, rid, report: r }); saveQ();
     flush();
+    return rid;
   };
   // v93: unfinished multiplayer race. The game keeps it up to date while racing (raceOpen) and clears it when the
   // race ends (raceClose). If the Activity was closed mid-race it's still here at the next sign-in, and goes into
@@ -721,6 +727,36 @@ window.JDF_DISCORD = (function () {
   .playarea.on { display: block; }
   .playarea span { position: absolute; left: 4px; top: 3px; font: 600 11px/1.2 "Space Grotesk", system-ui, sans-serif;
     color: #fff; background: rgba(255,61,245,.85); padding: 1px 5px; border-radius: 4px; }
+  /* v96 EGGS AND TROPHIES: bonus eggs + new trophies on the results card, and the trophy case */
+  .rewards { margin: 10px 0 2px; text-align: center; }
+  .rewards .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .rewards .chip { font: 600 13px/1.2 "Space Grotesk", system-ui, sans-serif; color: #2a1a00; background: #ffd23f; border-radius: 999px;
+    padding: 4px 10px; box-shadow: 0 0 10px rgba(255,210,63,.45); animation: rwPop .45s cubic-bezier(.2,1.6,.4,1) both; }
+  .rewards .wait { font-size: 13px; color: var(--ink-dim); }
+  .rewards .newt { display: flex; align-items: center; gap: 10px; margin: 10px auto 0; max-width: 300px; text-align: left; padding: 8px 12px;
+    border-radius: 14px; background: linear-gradient(135deg, rgba(255,210,63,.22), rgba(255,106,43,.18)); border: 2px solid #ffd23f;
+    box-shadow: 0 0 18px rgba(255,210,63,.5); animation: rwPop .6s cubic-bezier(.2,1.6,.4,1) both; }
+  .rewards .newt i { font-style: normal; font-size: 34px; line-height: 1; filter: drop-shadow(0 0 6px rgba(255,210,63,.9)); }
+  .rewards .newt b { display: block; font: 400 15px/1.1 "Bungee", "Impact", sans-serif; color: var(--butter); }
+  .rewards .newt b.icons { font-size: 22px; letter-spacing: 2px; margin: 2px 0; }
+  .rewards .newt small { display: block; font-size: 12px; color: var(--ink-dim); }
+  .rewards .newt em { font-style: normal; font-size: 10px; letter-spacing: .08em; color: #ffd23f; }
+  @keyframes rwPop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .rewards .chip, .rewards .newt { animation: none; } }
+  #result .card.tight .rewards { margin-top: 6px; }
+  #result .card.tight .rewards .newt { margin-top: 6px; padding: 5px 10px; }
+  #trophies .card { max-height: calc(100% - 24px); overflow-y: auto; }
+  .tcase { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 6px; }
+  .tcase .tr { position: relative; text-align: center; padding: 10px 4px 8px; border-radius: 14px; background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,226,168,.25); }
+  .tcase .tr i { display: block; font-style: normal; font-size: 32px; line-height: 1.1; }
+  .tcase .tr b { display: block; font: 600 12px/1.2 "Space Grotesk", system-ui, sans-serif; color: var(--butter); margin-top: 4px; }
+  .tcase .tr small { display: block; font-size: 10.5px; line-height: 1.25; color: var(--ink-dim); margin-top: 2px; }
+  .tcase .tr.got { border-color: #ffd23f; box-shadow: 0 0 12px rgba(255,210,63,.3) inset; }
+  .tcase .tr.gilt.got { background: linear-gradient(160deg, rgba(255,210,63,.3), rgba(255,255,255,.04)); }
+  .tcase .tr:not(.got) i { filter: grayscale(1); opacity: .35; }
+  .tcase .tr:not(.got) b { color: var(--ink-dim); }
+  .tcase .tr .x { position: absolute; top: 4px; right: 6px; font: 600 11px/1 "Space Grotesk", system-ui, sans-serif; color: #ffd23f; }
 </style>
 </head>
 <body>
@@ -787,7 +823,10 @@ window.JDF_DISCORD = (function () {
       <button class="btn ghost" id="levelsBtn">Choose a level</button>
       <button class="btn ghost" id="boardBtn">Leaderboard</button>
     </div>
-    <button class="btn ghost" id="customBtn">Customize your duck</button>   <!-- v90 -->
+    <div class="btn-row">   <!-- v96: Trophies beside Customize -->
+      <button class="btn ghost" id="customBtn">Customize your duck</button>   <!-- v90 -->
+      <button class="btn ghost" id="trophyBtn">Trophies</button>
+    </div>
   </div>
 </div>
 
@@ -830,6 +869,16 @@ window.JDF_DISCORD = (function () {
     <div class="cz-panel" id="czPanel" role="tabpanel"></div>
     <div class="cz-share hidden" id="czShare"><input id="czCode" aria-label="Look code" spellcheck="false" autocomplete="off"><button class="cz-pill" id="czCopy">Copy</button><button class="cz-pill" id="czApply">Apply</button></div>
     <div class="cz-foot"><button class="btn ghost" id="czRand">Random</button><button class="btn ghost" id="czReset">Reset</button><button class="btn ghost" id="czShareBtn">Share</button><button class="btn" id="czDone">Save</button></div>
+  </div>
+</div>
+
+<!-- v96 TROPHY CASE from the title screen -->
+<div class="overlay hidden" id="trophies">
+  <div class="card">
+    <h1>Trophies</h1>
+    <p class="sub" id="trophySub"></p>
+    <div class="tcase" id="trophyCase"></div>
+    <button class="btn ghost" id="trophyBack">Back</button>
   </div>
 </div>
 
@@ -881,6 +930,7 @@ window.JDF_DISCORD = (function () {
       <div><b id="rSpeed">0</b><span>top ft/s</span></div>
       <div><b id="rStumbles">0</b><span id="rThird">stumbles</span></div>
     </div>
+    <div class="rewards hidden" id="resReward" aria-live="polite"></div>   <!-- v96: bonus eggs and new trophies -->
     <button class="btn hidden" id="resPrimary" disabled>Next level</button>   <!-- v45: removed for now; Choose a level is the way on -->
     <button class="btn ghost" id="resSecondary">Choose a level</button>
     <!-- v44 SCOREBOARD: My bests (this browser) and Friends (Google Sheet, github.io copy only) -->
@@ -3476,6 +3526,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
     const el = id => document.getElementById(id);
     let ws = null, tries = 0, syncAt = 0, lastRx = 0;   // v89: lastRx = when anything last came in from the server
+    // v95: reconnect grace. A dropped player has up to GRACE ms (from the last thing heard) to come back and keep
+    // racing. lostAt = lastRx when this device lost the server (0 = connected). While lost, this device's race
+    // reports wait in outbox and go out on reconnect; the server replays what others sent meanwhile (since lastQ).
+    const GRACE = 4000;
+    let lostAt = 0, sockAt = 0, lastTick = performance.now();
+    m.lastQ = 0; m.outbox = [];
     const now = () => Date.now() + m.offset;
     m.now = now;
     const mulberry32 = a => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
@@ -3490,37 +3546,62 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const myName = () => (testUrl ? q.get('name') : ((window.JDF_DISCORD.user && window.JDF_DISCORD.user.name) || testerName)) || 'Duck';
     const urls = () => testUrl ? [testUrl] : ['wss://' + location.host + '/.proxy/race/ws', 'wss://' + location.host + '/race/ws'];
     const hostName = () => { const h = m.roster.find(p => p.seat === m.host); return h ? h.name : 'the host'; };
-    function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+    function send(o) {
+      if (ws && ws.readyState === 1) { ws.send(JSON.stringify(o)); return; }
+      // v95: lost the server mid-race: keep this race's results (not button presses or position syncs) for the reconnect
+      if (o.t === 'ev' && lostAt && m.on && m.race && !m.solo && mode === 'play' && !['b', 'sync', 'state'].includes(o.k) && m.outbox.length < 300) m.outbox.push(o);
+    }
 
     function connect() {
       const list = urls(), base = list[tries % list.length];
       const url = base + '?instance=' + encodeURIComponent(instance) + '&uid=' + encodeURIComponent(myUid()) + '&name=' + encodeURIComponent(myName());
-      let opened = false;
-      try { ws = new WebSocket(url); } catch (e) { tries++; setTimeout(connect, 2000); return; }
-      ws.onopen = () => {
-        opened = true; m.linked = true; m.bestRtt = 1e9;
+      let opened = false, sock;
+      try { sock = ws = new WebSocket(url + '&since=' + m.lastQ); } catch (e) { tries++; setTimeout(connect, lostAt ? 400 : 2000); return; }
+      sockAt = performance.now();   // v95: a socket that hasn't opened in 2.5 s (dead network) is given up on (see the 1 s check)
+      sock.onopen = () => {
+        if (ws !== sock) return;
+        opened = true; m.linked = true; m.bestRtt = 1e9; lastRx = performance.now();
         for (let i = 0; i < 6; i++) setTimeout(ping, i * 250);
         m.setState(m.on && mode === 'play' ? 'race' : 'idle');
         ui();
       };
-      ws.onmessage = e => { lastRx = performance.now(); if (m.on && m.race && mode === 'play') m.rxStep = stepNow(); let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };   // v89: rxStep = race step of the last thing heard
-      ws.onclose = ev => {
-        const wasOpen = opened; ws = null; m.linked = false;
-        if (wasOpen) goSolo();   // v89: lost the race server mid-race: you're out of this race
-        if (!wasOpen) tries++;
-        if (ev.code === 4001) m.full = true;
-        ui();
-        if (ev.code === 4001 || ev.code === 4000) return;   // race full / this player opened the game again elsewhere
-        setTimeout(connect, wasOpen ? 1500 : Math.min(15000, 1000 * tries));
-      };
+      sock.onmessage = e => { if (ws !== sock) return; lastRx = performance.now(); if (m.on && m.race && mode === 'play') m.rxStep = stepNow(); let d; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.t === 'string') onMsg(d); };   // v89: rxStep = race step of the last thing heard
+      sock.onclose = ev => { if (ws === sock) drop(sock, ev.code, opened); };
+    }
+    // v95: this socket is finished (closed, silent or never opened). Start the grace clock and try again quickly.
+    function drop(sock, code, wasOpen) {
+      sock.onopen = sock.onmessage = sock.onclose = null;
+      try { sock.close(); } catch (e) {}
+      if (ws === sock) ws = null;
+      m.linked = false;
+      if (wasOpen && !lostAt) lostAt = lastRx || performance.now();
+      if (!wasOpen) tries++;
+      if (code === 4001) m.full = true;
+      ui();
+      if (code === 4001 || code === 4000) return;   // race full / this player opened the game again elsewhere
+      setTimeout(connect, lostAt && performance.now() - lostAt < GRACE ? 300 : wasOpen ? 1500 : Math.min(15000, 1000 * tries));
+    }
+    // v95: grace is up and still not back: out of this race (same as before v95, just 4 s later)
+    function graceCheck() {
+      if (lostAt && !m.linked && m.on && m.race && !m.solo && mode === 'play' && performance.now() - lostAt > GRACE) goSolo();
+    }
+    // v95: on reconnect after this device already counted itself out: tell the others, so they count it out too
+    function tellQuit() {
+      if (!m.race || m.quitStep == null || player.seat == null) return;
+      send({ t: 'ev', k: 'quit', s: player.seat, es: m.quitStep, r: m.race.seed });
     }
     function ping() { send({ t: 'ping', c: Date.now() }); }
-    // v89: ping every 2 s (the server drops anyone silent for 7 s). If nothing comes back for 6 s, this device
-    // has lost the connection (phone lost signal: the socket may never close by itself), so close it here.
+    // v89: ping often (the server drops anyone silent for its grace time). If nothing comes back, this device
+    // has lost the connection (phone lost signal: the socket may never close by itself), so drop it here.
+    // v95: ping every 1 s (was 2 s); give up on a silent socket after 3 s (was 6 s) so the reconnect fits in the 4 s grace.
     setInterval(() => {
+      const t = performance.now(), froze = t - lastTick > 2000; lastTick = t;
       ping();
-      if (ws && ws.readyState === 1 && lastRx && performance.now() - lastRx > 6000) { try { ws.close(); } catch (e) {} }
-    }, 2000);
+      if (froze) return;   // v95: this device just froze (busy, or in the background): judge on the next tick, after waiting messages are read
+      if (ws && ws.readyState === 1 && lastRx && t - lastRx > 3000) drop(ws, 0, true);
+      else if (ws && ws.readyState === 0 && t - sockAt > 2500) drop(ws, 0, false);
+      graceCheck();
+    }, 1000);
     // Wait for Discord sign-in (so we join with the Discord user id and name), but not forever
     let waited = 0;
     setTimeout(function waitAuth() {   // starts after the page script has finished loading
@@ -3535,16 +3616,43 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (rtt >= 0 && rtt <= m.bestRtt * 1.25 + 5) { m.bestRtt = Math.min(m.bestRtt, rtt); m.offset = d.s - (d.c + rtt / 2); }
         return;
       }
-      if (d.t === 'hello') { m.seat = d.seat; setRoster(d.roster, d.host); return; }   // v89: server sends the host (longest connected)
+      if (d.t === 'hello') {   // v89: server sends the host (longest connected)
+        const back = lostAt; lostAt = 0;
+        const racing = back && m.on && m.race && mode === 'play';
+        if (racing && !m.solo && !(d.resumed && d.seat === m.seat)) goSolo();   // v95: back too late: the race already counted you out
+        m.seat = d.seat;
+        if (racing && !m.solo) {   // v95: back in time: send what happened here while cut off, then carry on
+          for (const o of m.outbox) send(o);
+          syncAt = 0;
+          toast('Reconnected', '#5dff7a');
+        } else if (racing) tellQuit();
+        m.outbox = [];
+        setRoster(d.roster, d.host);
+        return;
+      }
       if (d.t === 'roster') { setRoster(d.roster, d.host); return; }
       if (d.t === 'full') { m.full = true; ui(); return; }
       if (d.t === 'err') { toast(d.why === 'only the host can start' ? 'Only the host can start the race' : 'Race server: ' + d.why, '#ffb020'); return; }
       if (d.t === 'start') { onStart(d); return; }
-      if (d.t === 'ev') onEv(d);
+      if (d.t === 'ev') {
+        if (d.q) { if (d.q <= m.lastQ) return; m.lastQ = d.q; }   // v95: numbered by the server; skip anything already seen (replays)
+        onEv(d);
+      }
     }
     function setRoster(list, host) {
       m.roster = (Array.isArray(list) ? list : []).filter(p => p && p.seat >= 0 && p.seat < 4)
-        .map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20), uid: String(p.uid || '') }));
+        .map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20), uid: String(p.uid || ''), away: !!p.away }));
+      // v95: someone lost their connection (the server holds their seat for the grace time) or came back
+      const awayNow = new Set(m.roster.filter(p => p.away).map(p => p.seat)), awayWas = m.awaySeats || new Set();
+      if (m.on && m.race && !m.solo && mode === 'play') {
+        for (const p of m.roster) if (p.seat !== m.seat) {
+          const r = racers.find(x => x.seat === p.seat && x.human && x.remote);
+          if (!r || eliminated(r)) continue;
+          if (awayNow.has(p.seat) && !awayWas.has(p.seat)) toast(`${p.name} lost connection…`, '#ffb020');
+          else if (!awayNow.has(p.seat) && awayWas.has(p.seat)) toast(`${p.name} is back`, '#5dff7a');
+        }
+      }
+      m.awaySeats = awayNow;
       m.host = host != null ? host : (m.roster.length ? m.roster[0].seat : -1);
       const live = new Set(m.roster.map(p => p.seat));
       for (const s of Object.keys(m.states)) if (!live.has(+s)) delete m.states[s];
@@ -3561,7 +3669,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       m.race = { seed: d.seed, level: Math.min(d.level | 0, LEVELS.length - 1), at: d.at,
                  roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
       m.rng = mulberry32(d.seed);
-      m.on = true; m.solo = false; m.rxStep = 0; m.heard = {};
+      m.on = true; m.solo = false; m.rxStep = 0; m.heard = {}; m.quitStep = null; m.outbox = [];   // v95
       startLevelNow(m.race.level);
     }
     function onEv(d) {
@@ -3572,6 +3680,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (!r || !r.remote || r.out) return;   // v89: a duck that already left/washed out takes no more reports (e.g. a late 'fin')
       if (r.human ? d.from !== d.s : d.from !== m.host) return;   // a human moves only their own duck; the host moves the bots
       if (r.human) m.heard[r.seat] = stepNow();   // v89: last time this player was heard from (their wash-out time if they drop)
+      if (d.k === 'quit') {   // v95: that player came back after counting themselves out: out from the step they said
+        if (r.human && Number.isInteger(+d.es)) m.heard[r.seat] = +d.es;
+        if (r.human) dropOut(r);
+        return;
+      }
       const o = d.o != null ? st.obs.find(x => x.id === d.o) : null;
       if (d.k === 'b') {
         if (d.b === 'U') {
@@ -3628,6 +3741,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (!eliminated(p)) {
         p.quitter = true;   // v92: QUITTER stamp on your own step too, same as the other screens show
         p.elimT = Math.min(stepNow(), m.rxStep || 0);
+        m.quitStep = p.elimT;   // v95: sent to the others if this device reconnects later (tellQuit)
         noteElimination(p);
         p.elimT = null;
         p.fall = null; p.out = true;
@@ -3660,7 +3774,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         pb.disabled = false;
         return;
       }
-      const names = m.roster.map(p => (p.seat === m.seat ? 'You' : p.name) + (p.seat === m.host ? ' (host)' : '')
+      const names = m.roster.map(p => (p.seat === m.seat ? 'You' : p.name) + (p.seat === m.host ? ' (host)' : '') + (p.away ? ' (reconnecting)' : '')
         + (p.seat !== m.seat && m.states[p.seat] === 'race' ? ' (racing)' : '')).join(', ');
       const nb = 4 - m.roster.length;
       info.textContent = `Racers: ${names}${nb ? ` + ${nb} bot${nb > 1 ? 's' : ''}` : ''}`;
@@ -3677,7 +3791,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v87: this device's duck crossed the arch at race time t (shared clock): everyone ranks finishes by these times
     m.fin = (r, step) => { if (mine(r)) send({ t: 'ev', k: 'fin', s: r.seat, fs: step | 0, r: m.race.seed }); };   // v88: step number, exact on every device
     m.tick = () => {
-      if (m.on && mode === 'play' && !m.linked && !m.solo) goSolo();   // v89: connection dropped during the countdown
+      graceCheck();   // v95: was: out the moment the connection dropped (v89); now after the 4 s grace
       if (!m.on || mode !== 'play' || performance.now() < syncAt) return;
       syncAt = performance.now() + 500;
       for (const r of racers) if (!r.remote && r.seat != null && !eliminated(r))
@@ -4044,7 +4158,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v94d-2026-10-11';   // Discord build of v94-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v96d-2026-10-11';   // Discord build of v96-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -4060,7 +4174,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         const res = await fetch(location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' });
         const m = (await res.text()).match(/const BUILD = '([^']+)'/);
         if (m && m[1] !== BUILD) {
-          if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'result') {
+          if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'result' || mode === 'trophies') {
             if (sessionStorage.getItem('jdf-reloaded') === m[1]) return;   // already tried this build: no reload loop
             sessionStorage.setItem('jdf-reloaded', m[1]);
             { const p = new URLSearchParams(location.search); p.set('v', m[1]);   // Discord build: keep frame_id etc.
@@ -4146,7 +4260,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const place = eliminated(player) ? (player.podium || racers.length) : player.finished ? (player.place || 1)
       : Math.max(1, racers.length - st.elimCount);
     D.raceOpen({ level: lvCode(tele.run.level), place, dodges: player.cleared || 0, stumbles: player.stumbles || 0,
-      streak: player.bestStreak || 0, speed: +st.topSpeed.toFixed(2) || 0, eggs: tele.run.gold || 0, credits: 0 }, fresh);
+      streak: player.bestStreak || 0, speed: +st.topSpeed.toFixed(2) || 0, eggs: tele.run.gold || 0, credits: 0,
+      humans: rwHumans(), beat: 0, boss: false, day: rwDay() }, fresh);   // v96
   }
   function teleEnd(result) {
     const r = tele.run; if (!r || r.ended) return;
@@ -4181,10 +4296,19 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v92: a duck that didn't reach the arch (washed out, or lost the connection) counts as its podium step, the same place
     // the race screen shows, so dropping out of a losing race still counts as the loss.
     if (window.JDF_DISCORD && window.JDF_DISCORD.raceClose) window.JDF_DISCORD.raceClose();   // v93: race ended here, so drop the unfinished-race copy
-    if (window.JDF_DISCORD && window.JDF_DISCORD.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
-      window.JDF_DISCORD.report({ level: lvCode(r.level), place: result === 'abandoned' ? 0 : (doc.place || player.podium || 0), dodges: doc.dodges || 0,
-        stumbles: doc.stumbles || 0, streak: doc.bestStreak || 0, speed: doc.topSpeed || 0, eggs: doc.eggs || 0, credits: 0 });
+    // v96: + the facts the bonus eggs and trophies are worked out from (humans, beat, boss, day)
+    const rwPlace = result === 'abandoned' ? 0 : (doc.place || player.podium || 0);
+    const rw = { place: rwPlace, humans: rwHumans(), beat: rwBeat(rwPlace), streak: doc.bestStreak || 0,
+                 boss: !!(doc.boss && doc.finishOk && result !== 'abandoned'), day: rwDay() };
+    rwShown = null;
+    const D = window.JDF_DISCORD;
+    if (D && D.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
+      const rid = D.report({ level: lvCode(r.level), place: rwPlace, dodges: doc.dodges || 0,
+        stumbles: doc.stumbles || 0, streak: doc.bestStreak || 0, speed: doc.topSpeed || 0, eggs: doc.eggs || 0, credits: 0,
+        humans: rw.humans, beat: rw.beat, boss: rw.boss, day: rw.day });
+      if (rid) rwShown = { rid, wait: rwPlace > 0, place: rwPlace };   // signed in: the server works out the rewards (see 'jdf-reward')
     }
+    if (!rwShown && !doc.godMode && rwPlace > 0) rwShown = Object.assign(localRewards(rw), { place: rwPlace });   // GitHub copy and Discord guests: this device
     sheetSend(doc);   // v40: GitHub copy also sends a row to the test-runs Google Sheet
     if (!tele.db) { tele.lastSave = 'off'; return; }
     tele.lastSave = 'saving';
@@ -4581,7 +4705,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  UI
   // =====================================================================
   const $ = id => document.getElementById(id);
-  const overlays = ['title', 'select', 'boards', 'paused', 'result', 'customize'];   // v90: + customize
+  const overlays = ['title', 'select', 'boards', 'paused', 'result', 'customize', 'trophies'];   // v90: + customize; v96: + trophies
   // v39 MASCOT: Sarge, the game's army duck. Original drawing, made from shapes so it stays sharp at any size.
   // Poses: 'salute' (title), 'cheer' (won), 'sad' (lost), 'halt' (paused).
   function mascotSVG(pose) {
@@ -4636,7 +4760,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
   function showOverlay(id) {
     overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
-    const menu = id === 'title' || id === 'select' || id === 'boards' || id === 'customize';   // v47: + leaderboard; v90: + customize
+    const menu = id === 'title' || id === 'select' || id === 'boards' || id === 'customize' || id === 'trophies';   // v47: + leaderboard; v90: + customize; v96: + trophies
     if (menu && window.__jdfPile) window.__jdfPile.reset();   // v51: the loot pile stays through the results, gone on the menus
     $('hud').classList.toggle('hidden', menu);
     $('tracker').classList.toggle('hidden', menu);
@@ -5475,6 +5599,123 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (msg) setTimeout(() => { if (runId === myRun && mode === 'play') toast(msg, L.boss ? '#ff6a2b' : '#ffb020'); }, 1100);
   }
 
+  // =====================================================================
+  //  v96 EGGS AND TROPHIES
+  //  Bonus eggs on every finished race: 1st +50, 2nd +30, 3rd +15, 4th +0; +10 per other real player in the
+  //  race; +25 for your first race of the day (your local date). Not doubled by the last-duck bonus.
+  //  Trophies are only won, never bought. Discord (signed in): the race server works all of this out from the
+  //  race report and keeps it (the game can't set it); the reply arrives as a 'jdf-reward' event. GitHub copy
+  //  and Discord guests: the same rules, kept on this device (localStorage).
+  // =====================================================================
+  const TROPHIES = [
+    { id: 'first_splash', icon: '💦', name: 'First Splash', how: 'Finish your first race' },
+    { id: 'winner',       icon: '🥇', name: 'Winner',       how: 'Take 1st place' },
+    { id: 'hat_trick',    icon: '🎩', name: 'Hat Trick',    how: 'Win 3 races in a row' },
+    { id: 'social_duck',  icon: '🤝', name: 'Social Duck',  how: 'Race with another real player' },
+    { id: 'duck_hunter',  icon: '🎯', name: 'Duck Hunter',  how: 'Finish ahead of a real player' },
+    { id: 'streak_50',    icon: '🔥', name: 'Streak 50',    how: 'Dodge 50 in a row' },
+    { id: 'egg_hoarder',  icon: '🥚', name: 'Egg Hoarder',  how: 'Have 1,000 eggs' },
+    { id: 'boss_slayer',  icon: '👑', name: 'Boss Slayer',  how: 'Beat a boss level' },
+    { id: 'golden_duck',  icon: '🦆', name: 'Golden Duck',  how: 'Rare drop, 1 in 50 races', gilt: true },
+  ];
+  const trophyOf = id => TROPHIES.find(t => t.id === id);
+  let rwShown = null;   // this race's rewards for the results card: {bonus, trophies} or, signed in, {rid, wait} until the server answers
+  const rwDay = () => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); };
+  const rwHumans = () => (MP.on && MP.race ? Math.max(0, Math.min(3, MP.race.roster.length - 1)) : 0);
+  // Real players who ended below you. One still racing ends below you if you reached the arch (the steps
+  // left are under yours), above you if you washed out (wash-outs fill the steps from the bottom).
+  function rwBeat(myPlace) {
+    if (!myPlace || !MP.on || !MP.race) return 0;
+    return racers.filter(r => r !== player && r.human && r.remote).filter(r => {
+      const p = r.place || r.podium || 0;
+      return p ? p > myPlace : !!player.finished;
+    }).length;
+  }
+  const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  // Same rules as the race server (race-worker index.js, Players.report)
+  function localRewards(r) {
+    const s = lsGet('jdf-trophy-state', { items: {}, winRun: 0, lastDaily: '' });
+    const bonus = { place: [0, 50, 30, 15, 0][r.place] || 0, mp: 10 * r.humans, daily: r.day > s.lastDaily ? 25 : 0 };
+    if (bonus.daily) s.lastDaily = r.day;
+    s.winRun = r.place === 1 ? s.winRun + 1 : 0;
+    const add = bonus.place + bonus.mp + bonus.daily;
+    if (add) { gold += add; saveGold(); showGold(); }
+    const earned = [], give = (id, ok, again) => { if (ok && (again || !s.items[id])) { s.items[id] = (s.items[id] || 0) + 1; earned.push(id); } };
+    give('first_splash', true);
+    give('winner', r.place === 1);
+    give('hat_trick', s.winRun >= 3);
+    give('social_duck', r.humans > 0);
+    give('duck_hunter', r.beat > 0);
+    give('streak_50', r.streak >= 50);
+    give('egg_hoarder', gold >= 1000);
+    give('boss_slayer', r.boss);
+    give('golden_duck', Math.random() < 1 / 50, true);
+    lsSet('jdf-trophy-state', s);
+    return { bonus, trophies: earned };
+  }
+  // Trophies you have: the server's copy when signed in to Discord, else this device's
+  function myTrophies() {
+    const D = window.JDF_DISCORD;
+    if (D && D.inDiscord && D.user) return D.player ? (D.player.items || {}) : null;   // null = not loaded yet
+    return lsGet('jdf-trophy-state', { items: {} }).items || {};
+  }
+  function rwRender() {
+    const box = $('resReward'), R = rwShown;
+    box.textContent = '';
+    box.classList.toggle('hidden', !R || (!R.wait && !R.bonus));
+    if (!R) return;
+    if (R.wait) { box.append(el('div', 'Saving your race…', 'wait')); return; }
+    if (!R.bonus) return;
+    const chips = el('div', null, 'chips'), b = R.bonus;
+    if (b.place) chips.append(el('span', `+${b.place} 🥚 ${ordinal(R.place)} place`, 'chip'));
+    if (b.mp) chips.append(el('span', `+${b.mp} 🥚 racing ${b.mp / 10} real player${b.mp > 10 ? 's' : ''}`, 'chip'));
+    if (b.daily) chips.append(el('span', `+${b.daily} 🥚 first race today`, 'chip'));
+    chips.querySelectorAll('.chip').forEach((c, i) => { c.style.animationDelay = (0.15 * i) + 's'; });
+    if (chips.children.length) box.append(chips);
+    const won = (R.trophies || []).map(trophyOf).filter(Boolean);
+    if (won.length > 2) {   // several at once (e.g. a first win): one card, so the results card doesn't get too tall
+      const d = el('div', null, 'newt'); d.style.animationDelay = '0.45s';
+      const tx = el('div');
+      tx.append(el('em', `${won.length} NEW TROPHIES!`), el('b', won.map(t => t.icon).join(' '), 'icons'), el('small', won.map(t => t.name).join(' · ')));
+      d.append(tx); box.append(d);
+    } else won.forEach((t, i) => {
+      const d = el('div', null, 'newt'); d.style.animationDelay = (0.45 + 0.25 * i) + 's';
+      const ic = el('i', t.icon), tx = el('div');
+      tx.append(el('em', t.id === 'golden_duck' && (myTrophies() || {})[t.id] > 1 ? 'TROPHY AGAIN!' : 'NEW TROPHY!'), el('b', t.name), el('small', t.how));
+      d.append(ic, tx); box.append(d);
+    });
+    box.classList.toggle('hidden', !box.children.length);
+  }
+  // Signed in: the server's answer for a race (usually within a second). This race's results card shows it;
+  // an older race's (sent late, e.g. after being offline) just gets a toast for any new trophy.
+  window.addEventListener('jdf-reward', e => {
+    const g = e.detail || {};
+    if (rwShown && rwShown.rid === g.rid) {
+      rwShown = { rid: g.rid, place: rwShown.place, bonus: g.bonus || null, trophies: g.trophies || [] };
+      if (mode === 'result') { rwRender(); resultLayout(); return; }
+    }
+    const t = (g.trophies || []).map(trophyOf).filter(Boolean);
+    if (t.length) toast(`New trophy: ${t.map(x => x.icon + ' ' + x.name).join(', ')}`, '#ffd23f');
+  });
+  function openTrophies() {
+    mode = 'trophies';
+    const have = myTrophies(), box = $('trophyCase');
+    box.textContent = '';
+    const n = have ? TROPHIES.filter(t => have[t.id]).length : 0;
+    $('trophySub').textContent = have ? `${n} of ${TROPHIES.length} won. Trophies are only won in races, never bought.` : 'Loading your trophies…';
+    for (const t of TROPHIES) {
+      const c = have && have[t.id] || 0;
+      const d = el('div', null, 'tr' + (c ? ' got' : '') + (t.gilt ? ' gilt' : ''));
+      d.append(el('i', t.icon), el('b', t.name), el('small', t.how));
+      if (c > 1) d.append(el('span', '×' + c, 'x'));
+      d.setAttribute('aria-label', `${t.name}: ${c ? 'won' : 'not won yet'}. ${t.how}`);
+      box.append(d);
+    }
+    $('trophies').querySelector('.card').scrollTop = 0;
+    showOverlay('trophies');
+  }
+  window.addEventListener('jdf-player', () => { if (mode === 'trophies') openTrophies(); });   // signed-in copy just loaded
   function showResult(how) {
     podiumFinal();
     // The sim stops on the results screen, so a duck still swimming would freeze in the pool: put it on its step now.
@@ -5539,6 +5780,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     $('resSecondary').onclick = openSelect;
     // v39 mascot reacts: cheers when you advance (or survive overtime), droops when you have to retry
     setMascot('mascotResult', (how === 'won' || (how === 'overtime' && st.finishOk)) ? 'cheer' : 'sad');
+    rwRender();   // v96
     showOverlay('result');
     resultLayout();   // v45
     setTimeout(resultLayout, 400);   // again once the champion picture has loaded and settled
@@ -5796,6 +6038,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     return { show, get look() { return look; }, set: L => { look = cleanLook(L); rebuild(); drawPanel(); }, pose: p => { pose = p; }, view: v => { view = v; }, angle: a => { ang = a; idleT = -1e9; } };
   })();
   $('customBtn').addEventListener('click', () => { if (mode === 'title') CZ.show(); });
+  $('trophyBtn').addEventListener('click', () => { if (mode === 'title') openTrophies(); });   // v96
+  $('trophyBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   window.__jdfLook = CZ;   // v90: for testing
   $('unlockAll').addEventListener('click', () => { saveUnlocked(LEVELS.length - 1); buildSelect(); });
   $('pauseBtn').addEventListener('click', pause);
@@ -6065,7 +6309,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (mode === 'play') hudFrame();
     } else if (mode === 'dying') {
       simStep(simDt, dt);
-    } else if (mode === 'title' || mode === 'select' || mode === 'boards') {
+    } else if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'trophies') {
       st.theta += 0.3 * dt;
     }
 
