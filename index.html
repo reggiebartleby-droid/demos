@@ -401,6 +401,16 @@
   #customize .cz-share input { flex: 1; min-width: 0; font: 12px ui-monospace, monospace; color: var(--ink); background: rgba(255,226,168,.08); border: 1px solid rgba(255,226,168,.3); border-radius: 8px; padding: 8px; }
   #customize .cz-foot { display: flex; gap: 6px; flex: none; }
   #customize .cz-foot .btn { margin-top: 0; flex: 1 1 0; min-width: 0; font-size: 14px; padding: 10px 4px; white-space: nowrap; }
+  /* v110 EGG SHOP: locked items show their price; tapping one tries it on, and the buy bar sells what you're trying on */
+  #customize .cz-eggs { margin-left: auto; margin-right: 10px; font: 600 16px "Space Grotesk", system-ui, sans-serif; color: var(--butter); white-space: nowrap; }
+  #customize .cz-chip.locked { border-style: dashed; }
+  #customize .cz-chip .cz-price { font-size: 11px; font-weight: 600; margin-left: 5px; opacity: .8; white-space: nowrap; }
+  #customize .cz-buy { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  #customize .cz-buy.hidden { display: none !important; }
+  #customize .cz-buybtn { font: 600 14px "Space Grotesk", system-ui, sans-serif; color: #2a1660; background: linear-gradient(#ffe38a, #ffc23c); border: 2px solid #ffe9a8; border-radius: 12px; padding: 9px 10px; cursor: pointer; }
+  #customize .cz-buybtn.armed { background: linear-gradient(#a8f58f, #5fd46a); border-color: #d8ffcc; }
+  #customize .cz-buybtn:disabled { color: var(--ink-dim); background: rgba(255,226,168,.08); border: 1px dashed rgba(255,226,168,.35); cursor: default; }
+  #customize .cz-buynote { color: var(--ink-dim); font-size: 13px; text-align: center; margin: 0; }
   #title #customBtn { font-size: 15px; padding: 10px 8px; margin-top: 8px; }
   #title .btn-row .btn { flex: 1 1 0; min-width: 0; font-size: 15px; padding: 10px 8px; }
   /* v47 RESULTS FIT: tighter spacing when the card is too tall for the space above the podium */
@@ -551,6 +561,40 @@
   .tcase .tr:not(.got) i { filter: grayscale(1); opacity: .35; }
   .tcase .tr:not(.got) b { color: var(--ink-dim); }
   .tcase .tr .x { position: absolute; top: 4px; right: 6px; font: 600 11px/1 "Space Grotesk", system-ui, sans-serif; color: #ffd23f; }
+  /* v113 TWISTS: HUD chip, reel, ghost/vote panel, settings screen */
+  .tw-chip { margin-top: 6px; font: 600 12px/1.2 "Space Grotesk", system-ui, sans-serif; color: #ffe27a; background: rgba(20,16,58,.6);
+    border: 1px solid rgba(255,226,122,.45); border-radius: 999px; padding: 3px 9px; display: inline-block; white-space: nowrap; }
+  .tw-chip.hidden { display: none; }
+  .tw-reel { position: fixed; left: 50%; top: 47%; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; text-align: center; width: min(92cqw, 420px); }
+  .tw-reel.hidden { display: none; }
+  .tw-reel-lbl { font: 400 15px/1 "Bungee", "Impact", sans-serif; letter-spacing: .2em; color: #ff8fd0; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  .tw-reel-win { margin: 6px auto 0; padding: 8px 12px; border-radius: 14px; background: rgba(20,16,58,.82); border: 2px solid rgba(255,226,122,.55);
+    box-shadow: 0 6px 18px rgba(0,0,0,.35); overflow: hidden; }
+  #twReelName { font: 400 clamp(18px, 6cqw, 28px)/1.15 "Bungee", "Impact", sans-serif; color: #fff4e0; white-space: nowrap; }
+  #twReelName.spin { animation: twSpin .09s ease-out; }
+  @keyframes twSpin { from { transform: translateY(-60%); opacity: .3; } to { transform: none; opacity: 1; } }
+  .tw-reel.landed .tw-reel-win { border-color: #ffd23f; animation: twLand .5s ease-out; }
+  .tw-reel.landed #twReelName { color: #ffd23f; }
+  @keyframes twLand { 0% { transform: scale(1.25); } 60% { transform: scale(.96); } 100% { transform: none; } }
+  #twReelDesc { margin-top: 6px; font: 600 14px/1.3 "Space Grotesk", system-ui, sans-serif; color: #fff4e0; text-shadow: 0 2px 3px rgba(0,0,0,.7); }
+  .tw-panel { position: fixed; left: 50%; top: 40%; transform: translateX(-50%); z-index: 3; width: min(94cqw, 440px); box-sizing: border-box; text-align: center;
+    background: rgba(20,16,58,.82); border: 2px solid rgba(215,196,255,.55); border-radius: 16px; padding: 8px 10px 10px; }
+  .tw-panel.hidden { display: none; }
+  .tw-ph { font: 400 14px/1.2 "Bungee", "Impact", sans-serif; color: #e3d6ff; }
+  .tw-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 7px; }
+  .tw-b { font: 600 14px/1 "Space Grotesk", system-ui, sans-serif; color: #14103a; background: #e3d6ff; border: 0; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+  .tw-b:disabled { opacity: .45; cursor: default; }
+  .tw-b.on { background: #ffd23f; opacity: 1; }
+  .tw-skip { margin-top: 8px; font: 600 12px/1 "Space Grotesk", system-ui, sans-serif; color: var(--ink-dim, #bbb); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+  #twists .card { max-height: calc(100% - 24px); overflow-y: auto; }
+  .tw-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; text-align: left; }
+  .tw-list.off { opacity: .45; }
+  .tw-item { display: flex; gap: 10px; align-items: flex-start; padding: 7px 9px; border-radius: 12px; background: rgba(255,244,224,.06); cursor: pointer; }
+  .tw-item input { width: 20px; height: 20px; margin-top: 2px; accent-color: #ffd23f; flex: none; }
+  .tw-item b { display: block; font-size: 15px; }
+  .tw-item small { display: block; color: var(--ink-dim, #bbb); font-size: 12.5px; line-height: 1.3; }
+  .tw-force { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--ink-dim, #bbb); }
+  .tw-force select { flex: 1; min-width: 0; font: 600 14px "Space Grotesk", system-ui, sans-serif; padding: 7px; border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -563,6 +607,7 @@
     <button class="pause" id="pauseBtn" aria-label="Pause"><span></span><span></span></button>
     <div>
       <div class="lvl-label" id="lvlLabel">Level 1-1</div>
+      <div class="tw-chip hidden" id="twChip"></div>   <!-- v113: this race's twist -->
       <div class="prog" aria-hidden="true"><div id="progFill"></div></div>
       <div class="small" id="scoreLine">0 dodged</div>
       <div class="gold" id="gold" aria-label="Golden eggs"><i></i><span id="goldAmt">0</span></div>
@@ -594,6 +639,8 @@
 <div class="playarea" id="playArea" aria-hidden="true"><span id="playAreaLbl">Play area</span></div>
 <div class="flash" id="flash"></div>
 <div class="toast" id="toast"></div>
+<div class="tw-reel hidden" id="twReel" aria-live="polite"><div class="tw-reel-lbl">TWIST!</div><div class="tw-reel-win"><div id="twReelName"></div></div><div id="twReelDesc"></div></div>   <!-- v113 -->
+<div class="tw-panel hidden" id="twPanel"></div>   <!-- v113: ghost / vote buttons after you wash out -->
 <div class="ver" id="ver" aria-hidden="true"></div>
 <div class="sizedbg" id="sizeDbg" aria-hidden="true"></div>   <!-- v57 TEMP: screen-size readout for the Discord zoom bug -->
 
@@ -613,6 +660,7 @@
       <p class="tester-err hidden" id="testerErr">Enter a name first, so your runs show up under it.</p>
     </div>
     <button class="btn" id="playBtn">Play</button>
+    <button class="btn ghost" id="twistBtn">🎲 Twists</button>   <!-- v113 -->
     <div class="btn-row">   <!-- v47: Leaderboard beside a smaller Choose a level -->
       <button class="btn ghost" id="levelsBtn">Choose a level</button>
       <button class="btn ghost" id="boardBtn">Leaderboard</button>
@@ -631,6 +679,7 @@
     <div id="chapters"></div>
     <button class="btn ghost" id="selectBack">Back</button>
     <button class="linkish" id="unlockAll">Unlock all levels (for testing)</button>
+    <button class="linkish" id="testEggs">+1,000 eggs (for testing)</button>   <!-- v110: GitHub copy only (removed in Discord) -->
   </div>
 </div>
 
@@ -647,7 +696,7 @@
 <!-- v90 CUSTOMIZE: dress your duck (colors, head, hair, hat, face, neck, outfit, back, feet). -->
 <div class="overlay hidden" id="customize">
   <div class="cz">
-    <div class="cz-head"><h1>Your duck</h1><button class="cz-x" id="czCancel" aria-label="Close without saving">&#x2715;</button></div>
+    <div class="cz-head"><h1>Your duck</h1><span class="cz-eggs" id="czEggs" aria-label="Your eggs"></span><button class="cz-x" id="czCancel" aria-label="Close without saving">&#x2715;</button></div>
     <div class="cz-stage" id="czStage">
       <div class="cz-over">
         <div class="cz-grp" role="group" aria-label="Pose">
@@ -662,6 +711,7 @@
     <div class="cz-tabs" id="czTabs" role="tablist" aria-label="Parts"></div>
     <div class="cz-panel" id="czPanel" role="tabpanel"></div>
     <div class="cz-share hidden" id="czShare"><input id="czCode" aria-label="Look code" spellcheck="false" autocomplete="off"><button class="cz-pill" id="czCopy">Copy</button><button class="cz-pill" id="czApply">Apply</button></div>
+    <div class="cz-buy hidden" id="czBuy" aria-live="polite"></div>   <!-- v110: egg shop -->
     <div class="cz-foot"><button class="btn ghost" id="czRand">Random</button><button class="btn ghost" id="czReset">Reset</button><button class="btn ghost" id="czShareBtn">Share</button><button class="btn" id="czDone">Save</button></div>
   </div>
 </div>
@@ -673,6 +723,19 @@
     <p class="sub" id="trophySub"></p>
     <div class="tcase" id="trophyCase"></div>
     <button class="btn ghost" id="trophyBack">Back</button>
+  </div>
+</div>
+
+<!-- v113 TWISTS: on/off, which twists can come up, and (for testing) always one -->
+<div class="overlay hidden" id="twists">
+  <div class="card">
+    <h1>Twists</h1>
+    <p class="sub" id="twNote"></p>
+    <button class="btn" id="twOnBtn">Twists: On</button>
+    <div class="tw-force"><label for="twForce">Testing: always</label><select id="twForce"></select></div>
+    <div class="btn-row"><button class="btn ghost" id="twAll">All</button><button class="btn ghost" id="twNone">None</button></div>
+    <div class="tw-list" id="twList"></div>
+    <button class="btn ghost" id="twBack">Back</button>
   </div>
 </div>
 
@@ -2867,6 +2930,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const st = { obs: [], theta: 0 };
   let rivalHeat = 0;   // adaptive rival difficulty: -0.5 (go easy) .. +0.3 (push harder)
   let mode = 'title', time = 0, levelIdx = 0, runId = 0;
+  let strideT = 0;   // v111: running-animation phase (see SMOOTH SPEED-UPS by the main loop)
   // v38 TESTING: rival ducks wash out after one fewer miss. v69: the toggle (buttons + B key) is removed;
   // botMinus stays as an always-off constant so saved runs still carry botMinus: false and the checks below stay valid.
   const botMinus = false;
@@ -2874,6 +2938,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   let godMode = false;   // Y key: the player's duck can't be hit (testing / fun). Runs played with it are tagged.
   const ease3 = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
   const easeOut = x => 1 - Math.pow(1 - x, 3);
+  const PHI_W = 4.2, PHI_W_BACK = 8;   // v112: spring stiffness for moving up / sliding back (higher = quicker); ~1 s and ~0.5 s
   // v86 knockback slide: half smoothstep + half ease-out. Starts moving right away but without the jolt of a
   // cubic ease-out (start speed 1x the average instead of 3x), then glides to a stop.
   const slideEase = x => 0.5 * (x * x * (3 - 2 * x)) + 0.5 * (1 - (1 - x) * (1 - x));
@@ -2947,10 +3012,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
     reset(L) {
       Object.assign(this, {
-        phi: 0, jumpY: 0, jumpV: 0, boost: -1, upHeld: false, upBuffer: 0, lag: 0, jumpPower: 0, peak: 0, takeoff: 0,
+        phi: 0, phiV: 0, jumpY: 0, jumpV: 0, boost: -1, upHeld: false, upBuffer: 0, lag: 0, jumpPower: 0, peak: 0, takeoff: 0,
         duckHeld: false, ducking: false, pos: 0, maxStumbles: botMisses(this, L.stumblesAllowed),
         stumbleBack: -LEFT_EDGE / botMisses(this, L.stumblesAllowed), pending: 0, streak: 0, bestStreak: 0, cleared: 0, stumbles: 0, gains: { clutch: 0, shared: 0, streak: 0 },
         fall: null, fallOff: 0, tilt: 0, land: 0, invuln: 0, hitTint: 0, out: false, finished: false, place: 0, stumbleLog: [],
+        duckT: 0, twShield: false, swNow: false, egNow: false, elimProg: null,   // v113
       });
       this.wave.t = -1; this.wave.group.visible = false;
       if (this.brain) this.brain.reset(L);
@@ -2997,7 +3063,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     launch() {
       probe.mark(this.isPlayer ? 'jump' : 'botjump');   // v59
       if (this.isPlayer) { this.teleJump = teleLaunch(); this.upPressedAt = st.levelTime; }
-      this.jumpV = Math.sqrt(2 * GRAVITY * HOP_H);   // v = sqrt(2gh)
+      this.jumpV = Math.sqrt(2 * PHY.g * PHY.hop);   // v = sqrt(2gh); v113: twist physics (Moon, Heavy)
       this.jumpY = 0.0001; this.peak = 0;
       this.boost = this.upHeld ? 0 : -1;
       this.takeoff = 0.1; this.upBuffer = 0;
@@ -3005,11 +3071,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
     physics(simDt, dt) {
       if (this.jumpY > 0 || this.jumpV > 0) {
-        let g = GRAVITY;
+        let g = PHY.g;   // v113
         if (this.boost >= 0) {
           this.boost += simDt;
           if (this.boost >= BOOST_TIME + BOOST_DELAY || this.jumpV <= 0) this.boost = -1;
-          else if (this.boost >= BOOST_DELAY) g = GRAVITY * BOOST_GRAV;
+          else if (this.boost >= BOOST_DELAY) g = PHY.g * BOOST_GRAV;
         }
         this.jumpV -= g * simDt; this.jumpY += this.jumpV * simDt;
         this.peak = Math.max(this.peak, this.jumpY);
@@ -3017,7 +3083,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (this.jumpY <= 0) {
           probe.mark(this.isPlayer ? 'land' : 'botland');   // v59
           this.jumpY = 0; this.jumpV = 0; this.boost = -1;
-          this.jumpPower = Math.min(1, Math.max(0, (this.peak - HOP_H) / (BIG_H - HOP_H)));
+          this.jumpPower = Math.min(1, Math.max(0, (this.peak - PHY.hop) / (PHY.big - PHY.hop)));
           this.lag = LAND_LAG_HOP + (LAND_LAG_BIG - LAND_LAG_HOP) * this.jumpPower;
           this.land = this.lag + 0.06;
         }
@@ -3028,7 +3094,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (this.grounded && this.lag <= 0) this.launch();
         else if (!this.fall && this.lag <= 0) this.upBuffer -= simDt;   // the buffer waits out landing lag and the stumble lock
       }
-      this.ducking = this.duckHeld && this.grounded && this.lag <= 0;
+      this.duckT = this.duckHeld ? this.duckT + simDt : 0;   // v113: Heavy Duck takes a moment to get down
+      this.ducking = this.duckHeld && this.grounded && this.lag <= 0 && this.duckT >= PHY.duckDelay;
       if (this.invuln > 0 && !this.fall) this.invuln -= simDt;
     }
 
@@ -3049,6 +3116,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           if (hit && this.isPlayer && godMode) { st.godUsed = true; (o.spared || (o.spared = []))[this.slot] = true; continue; }
           if (hit && this.invuln > 0) { (o.spared || (o.spared = []))[this.slot] = true; continue; }
           // v36 GLOW SHIELD (player only): a glowing duck that gets hit loses the glow instead of a stumble
+          if (hit && this.twShield) { this.twShieldBreak(o); MP.res(this, 'tshield', o); continue; }   // v113: Bounty shield
           if (hit && this.isPlayer && this.streak >= GLOW_STREAK) { this.shieldBreak(o); MP.res(this, 'shield', o); continue; }
           if (hit) { o.res[this.slot] = true; o.hit[this.slot] = true; if (this.isPlayer) teleObstacle(o, true, phi); this.stumble(); MP.hit(this, o); return; }
         }
@@ -3082,9 +3150,26 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       toast('Glow shield! No ground lost', '#ffe27a');
       hud();
     }
+    twShieldBreak(o) {   // v113: one-hit twist shield: no ground lost, no stumble
+      (o.spared || (o.spared = []))[this.slot] = true;
+      this.twShield = false; this.invuln = 0.6;
+      twShieldFx(this);
+    }
     // A mini wave washes the duck back down the slide.
     stumble() {
       this.pos -= this.stumbleBack; this.stumbles++; this.streak = 0;
+      this.swNow = this.egNow = false;   // v113: set below for this hit only (sent with the hit in Discord)
+      if (!this.remote && TW.id === 'hotegg' && TW.egg === twId(this) && this.pos > LEFT_EDGE + 1e-6) {   // v113 Hot Egg: double knockback
+        this.pos -= this.stumbleBack; this.egNow = true;
+        const p = this.model.base.position.clone(); p.y += 0.8; burst(p, [0xff6a2b, 0xffd23f, 0x333333], 7, 30, 2);
+        toast(this.isPlayer ? '💣 Hot egg blast!' : `💣 ${this.name}: hot egg blast!`, '#ffb020');
+      }
+      if (!this.remote && TW.id === 'second' && !TW.swUsed && st.elimCount === 0 && this.pos <= LEFT_EDGE + 1e-6) {   // v113 Second Wind
+        TW.swUsed = true; this.swNow = true;
+        this.pos = LEFT_EDGE + 2 * this.stumbleBack;
+        const p = this.model.base.position.clone(); p.y += 0.8; burst(p, [0xa8f58f, 0xffffff, 0x5dff7a], 7, 34, 2);
+        toast(this.isPlayer ? '💨 Second wind! Back in the race' : `💨 ${this.name} got a second wind!`, '#a8f58f');
+      }
       probe.mark(this.isPlayer ? 'hit' : 'bothit');   // v59
       this.stumbleLog.push({ atSec: +st.levelTime.toFixed(1), speed: +st.speed.toFixed(2), overtime: !!st.overtime });
       this.jumpY = 0; this.jumpV = 0; this.boost = -1; this.lag = 0;
@@ -3101,11 +3186,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         st.shake = 0.4; st.hitstop = 0.09; flash();
         if (out) {
           noteElimination(this);
-          if (!st.overtime && !MP.on) mode = 'dying';   // v85: multiplayer keeps racing (you watch)
+          if (!st.overtime && !MP.on && !twWatch()) mode = 'dying';   // v85: multiplayer keeps racing (you watch); v113: so do Ghost/Vote races alone
           // v36: overtime wash-out no longer pops results 0.5 s after the hit; the swim's arrival
           // on the podium (updateFall) schedules them, RESULT_DELAY s after the duck is seated.
         }
-        else toast(this.missesLeft === 1 ? 'One more and you swim' : 'Washed back!', '#6fd3ff');
+        else if (!this.swNow && !this.egNow) toast(this.missesLeft === 1 ? 'One more and you swim' : 'Washed back!', '#6fd3ff');   // v113: keep the twist's toast
         hud();
       }
     }
@@ -3115,8 +3200,22 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         // Moved up (clutch, streak or shared miss): paddle forward to the new spot, only on the ground.
         // Still being pushed back (a stumble cut short by a jump/duck): keep sliding back, even in the air.
         if (this.out) return;
-        const back = this.phi > this.home() + 1e-6;
-        if (back || this.grounded) this.phi += (this.home() - this.phi) * Math.min(1, simDt * (back ? 6 : 2.5));
+        // v112 SMOOTH MOVES: a spring (critically damped, no overshoot) instead of "close X% of the gap each frame".
+        // The old way started at full speed the instant a duck was moved up or a stumble was cut short, and froze
+        // dead when the duck jumped mid-move; together with a speed-up it looked like the ducks were being shoved.
+        // Now a move eases in AND out, keeps the speed it already had (e.g. sliding back from a cut-short stumble),
+        // and in the air it coasts to a gentle stop instead of freezing. Same overall timing as before.
+        const tgt = this.home(), back = this.phi > tgt + 1e-6;
+        if (back || this.grounded) {
+          const w = back ? PHI_W_BACK : PHI_W;
+          this.phiV += (w * w * (tgt - this.phi) - 2 * w * this.phiV) * simDt;
+          this.phi += this.phiV * simDt;
+          if ((this.phiV > 0 && this.phi > tgt) || (this.phiV < 0 && this.phi < tgt)) { this.phi = tgt; this.phiV = 0; }
+        } else if (this.phiV) {   // in the air while moving up: coast to a stop (never past the new spot)
+          this.phiV *= Math.exp(-6 * simDt);
+          this.phi = Math.min(tgt, this.phi + this.phiV * simDt);
+        }
+        if (Math.abs(tgt - this.phi) < 1e-5 && Math.abs(this.phiV) < 1e-4) { this.phi = tgt; this.phiV = 0; }
         return;
       }
       f.t += simDt;
@@ -3125,13 +3224,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const k = Math.min(1, f.t / f.dur);
       if (!f.swim) {
         // Pushed hard at first, then the wave runs out of energy (ease-out)
+        const was = this.phi;   // v112: remember the slide's speed (see SMOOTH MOVES)
         this.phi = f.from + (f.to - f.from) * (f.out ? easeOut(Math.min(1, k * 1.15)) : slideEase(Math.min(1, k * 1.15)));   // v86: eased slide
+        if (simDt > 0) this.phiV = (this.phi - was) / simDt;
         const wobble = 0.14 * Math.sin(k * 26) * (1 - k);
         this.tilt = (f.out ? 0.6 : 0.55 * Math.sin(Math.PI * k)) + wobble;  // rocked back, nose up
         this.fallOff = 0.26 * Math.sin(Math.PI * Math.min(1, k * 1.3));       // lifted on the wave
       }
       if (!f.out) {
-        if (k >= 1) { this.fall = null; this.tilt = 0; this.fallOff = 0; this.phi = f.to; this.land = 0.2; }
+        if (k >= 1) { this.fall = null; this.tilt = 0; this.fallOff = 0; this.phi = f.to; this.phiV = 0; this.land = 0.2; }
       } else if (!f.swim) {
         if (K * this.phi + 0.15 < WATER_Y || k >= 1) {
           const dp = this.phi, r = this.r;
@@ -3160,7 +3261,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           this.fall = null; this.out = true;
           podiumSeat(this, this.podium);
           this.model.base.visible = false; if (this.tag) this.tag.visible = false;
-          if (this.isPlayer && MP.on) { if (!st.ending) toast('Out! Watching the rest of the race', '#ffe2a8'); }   // v85
+          if (this.isPlayer && MP.on) { if (!st.ending) toast(TW.id === 'ghost' ? '👻 Out! You\'re a ghost now' : TW.id === 'vote' ? '🗳️ Out! Vote on the next hazard' : 'Out! Watching the rest of the race', '#ffe2a8'); }   // v85
+          else if (this.isPlayer && twWatch()) { if (!st.ending) toast(TW.id === 'ghost' ? '👻 Out! You\'re a ghost now' : '🗳️ Out! Vote on the next hazard', '#d7c4ff'); }   // v113: keep watching
           else if (this.isPlayer) {
             if (st.overtime) {
               if (FEATURES.spectate) {
@@ -3203,7 +3305,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       body.scale.x += (tX - body.scale.x) * Math.min(1, dt * 22);
       const onGround = !this.jumpY && !f;
       const runAnim = onGround && mode !== 'paused' && mode !== 'result' && mode !== 'countdown';
-      const stride = time * (st.speed || 4.6) * (mode === 'cleared' ? st.coast : 1) * 2.4 + this.lane;
+      const stride = strideT + this.lane;   // v111: was time * speed: every speed change made the legs spin wildly for ~1 s
       body.position.y = -0.55 + (runAnim ? Math.abs(Math.sin(stride)) * 0.07 : 0);
       const pad = swim ? Math.sin(time * 14) * 0.1 : runAnim ? Math.sin(stride) * 0.12 : 0;
       m.feet[0].position.x = 0.05 + pad; m.feet[1].position.x = 0.05 - pad;
@@ -3315,7 +3417,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       for (const o of st.obs) {
         const rel = o.theta - d.progress;
         if (rel < -d.hitAngle) continue;
-        if (o.theta - st.theta > BOT_SIGHT) break;    // not visible yet (obstacles are in order)
+        if (o.theta - st.theta > botSight()) break;    // not visible yet (obstacles are in order); v113: less in Fog
+        if (o.only != null && o.only !== twId(d)) continue;   // v113: a one-lane hazard for someone else
         let plan = o.plan[d.slot];
         if (!plan) {
           const warning = rel / w;                     // seconds of warning when first seen
@@ -3342,9 +3445,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         }
         if (plan.done) continue;
         const tta = rel / w;                           // time until it reaches the duck
-        if (o.type === 'low' && tta <= HOP_LEAD + plan.shift) { d.pressUp(); d.releaseUp(); plan.done = true; }
-        else if (o.type === 'tall' && tta <= BIG_LEAD + plan.shift) { d.pressUp(); this.holdT = BIG_HOLD; plan.done = true; }
-        else if (o.type === 'high' && tta <= DUCK_LEAD + plan.shift) { d.pressDown(); this.duckFor = o; plan.done = true; }
+        const ak = PHY.airK;   // v113: jump timing scales with the twist's physics
+        if (o.type === 'low' && tta <= HOP_LEAD * ak + plan.shift) { d.pressUp(); d.releaseUp(); plan.done = true; }
+        else if (o.type === 'tall' && tta <= BIG_LEAD * ak + plan.shift) { d.pressUp(); this.holdT = BIG_HOLD * ak; plan.done = true; }
+        else if (o.type === 'high' && tta <= DUCK_LEAD + PHY.duckDelay + plan.shift) { d.pressDown(); this.duckFor = o; plan.done = true; }
       }
     }
   }
@@ -3387,7 +3491,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const m = { on: false, linked: false, full: false, seat: -1, host: -1, roster: [], states: {}, race: null,
                 rng: Math.random, offset: 0, bestRtt: 1e9, dressed: false, FIX,
                 now: () => Date.now(), ui() {}, btn() {}, res() {}, hit() {}, fin() {}, tick() {}, checkEnd() {}, setState() {},
-                restore() {}, requestStart() {} };
+                restore() {}, requestStart() {}, twSend() {} };
     if (!instance || !/^[\w.-]{1,120}$/.test(instance) || (!inDiscord && !testUrl)) return m;
 
     const el = id => document.getElementById(id);
@@ -3540,12 +3644,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
                  roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
       m.rng = mulberry32(d.seed);
       m.on = true; m.solo = false; m.rxStep = 0; m.heard = {}; m.quitStep = null; m.outbox = [];   // v95
+      TW.next = typeof d.twist === 'string' ? d.twist : '';   // v113: the host's twist ('' if the race server is older)
       startLevelNow(m.race.level);
     }
     function onEv(d) {
       if (d.k === 'state') { if (d.from >= 0 && d.from < 4) { m.states[d.from] = d.st === 'race' ? 'race' : 'idle'; ui(); } return; }
       const R = m.race;
       if (!m.on || !R || m.solo || d.r !== R.seed || mode !== 'play') return;   // v89: solo = cut off from this race
+      if (d.k === 'tw') { twApply(d); return; }   // v113: twist events (hazards, hot egg, votes...)
       const r = racers.find(x => x.seat === d.s);
       if (!r || !r.remote || r.out) return;   // v89: a duck that already left/washed out takes no more reports (e.g. a late 'fin')
       if (r.human ? d.from !== d.s : d.from !== m.host) return;   // a human moves only their own duck; the host moves the bots
@@ -3571,6 +3677,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         r.stumbles = Math.max(0, (d.stu | 0) - 1);
         r.pos = Math.max(-3, Math.min(3, +d.pos)) + r.stumbleBack;   // stumble() takes one step back from here
         if (Number.isInteger(+d.es)) r.elimT = +d.es;   // v87: if this washes it out, use the owner's time for the order (v88: step number)
+        if (d.sw) { TW.swUsed = true; toast(`💨 ${r.name} got a second wind!`, '#a8f58f'); }   // v113
+        if (d.eg) toast(`💣 ${r.name}: hot egg blast!`, '#ffb020');   // v113
         r.stumble();
         r.elimT = null;
       } else if (d.k === 'fin') {   // v87: the owner's device says when this duck crossed the arch
@@ -3583,6 +3691,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       } else if (d.k === 'shield') {
         if (o) (o.spared || (o.spared = []))[r.slot] = true;
         r.streak = 0;
+      } else if (d.k === 'tshield') {   // v113: a twist shield (Bounty) took the hit
+        if (o) (o.spared || (o.spared = []))[r.slot] = true;
+        r.twShield = false; twShieldFx(r);
       } else if (d.k === 'sync') {
         if (!r.fall && !eliminated(r) && Number.isFinite(+d.pos)) r.pos = Math.max(-3, Math.min(3, +d.pos));
         r.stumbles = d.stu | 0; r.streak = d.str | 0; r.bestStreak = Math.max(r.bestStreak, d.best | 0); r.cleared = d.clr | 0;
@@ -3657,7 +3768,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const mine = r => m.on && m.race && !r.remote && r.seat != null && mode === 'play';
     m.btn = (r, b) => { if (mine(r)) send({ t: 'ev', k: 'b', s: r.seat, b, lt: +st.levelTime.toFixed(4), r: m.race.seed }); };
     m.res = (r, k, o) => { if (mine(r)) send({ t: 'ev', k, s: r.seat, o: o.id, r: m.race.seed }); };
-    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, es: Math.round(st.levelTime / FIX), r: m.race.seed }); };   // v88: wash-out step (whole 1/240 s steps)
+    m.hit = (r, o) => { if (mine(r)) send({ t: 'ev', k: 'hit', s: r.seat, o: o.id, pos: +r.pos.toFixed(5), stu: r.stumbles, es: Math.round(st.levelTime / FIX), r: m.race.seed, sw: r.swNow ? 1 : undefined, eg: r.egNow ? 1 : undefined }); r.swNow = r.egNow = false; };   // v113: + second wind / hot egg flags   // v88: wash-out step (whole 1/240 s steps)
     // v87: this device's duck crossed the arch at race time t (shared clock): everyone ranks finishes by these times
     m.fin = (r, step) => { if (mine(r)) send({ t: 'ev', k: 'fin', s: r.seat, fs: step | 0, r: m.race.seed }); };   // v88: step number, exact on every device
     m.tick = () => {
@@ -3668,6 +3779,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         send({ t: 'ev', k: 'sync', s: r.seat, pos: +r.pos.toFixed(5), stu: r.stumbles, str: r.streak, best: r.bestStreak, clr: r.cleared, r: m.race.seed });
     };
     m.setState = s => send({ t: 'ev', k: 'state', st: s });
+    m.twSend = o => { if (m.on && m.race && !m.solo) send(Object.assign({ t: 'ev', k: 'tw', r: m.race.seed }, o)); };   // v113 twist events
     // Fixed-step sim on the shared clock: every device steps the world identically
     m.run = () => {
       const target = (now() - m.race.at) / 1000;
@@ -3704,7 +3816,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (ws) drop(ws, 0, ws.readyState === 1);
         return;
       }
-      send({ t: 'start', level: idx });
+      send({ t: 'start', level: idx, twist: twPick() });   // v113: the host picks the twist
       const myAsk = m.startAsk = performance.now();
       setTimeout(() => {
         if (m.startAsk !== myAsk || mode !== 'title') return;   // the race started (or something else happened)
@@ -3756,12 +3868,513 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   })();
 
   // =====================================================================
+  //  v113 TWISTS: a random rule change before each race (on/off and per-twist switches on the 🎲 Twists screen).
+  //  Single player: picked on this device. Discord: the HOST picks it and the race server sends it to everyone
+  //  with the start message, so every screen runs the same twist.
+  //  Staying in sync (the multiplayer rules from v85 still hold: every device steps the same world):
+  //   - Things that only change the rules (physics, speed waves, a longer/shorter race) come from the twist id
+  //     and the race clock, so they're identical everywhere with no messages.
+  //   - Wash-out speed-ups (Rush) fire at the wash-out's race step + 1.5 s, worked out the same on every device.
+  //   - Everything random during the race (hawks, the hot egg, shields, votes, bot ghosts) is decided by ONE
+  //     device, the "director" (the host; you in single player), and sent to the others ('tw' events).
+  //   - Hazards in one lane are placed at an exact spot on the slide (theta) about 2 s ahead, so the message
+  //     has time to arrive and every screen shows it in the same place.
+  // =====================================================================
+  const TWISTS = [
+    { id: 'rush',   icon: '⏩', name: 'Elimination Rush', desc: 'Every wash-out speeds the slide up 15%' },
+    { id: 'surge',  icon: '🌊', name: 'Surge',            desc: 'The speed rises and falls in waves' },
+    { id: 'photo',  icon: '📸', name: 'Photo Finish',     desc: 'Starts at top speed. A short, wild race' },
+    { id: 'hawk',   icon: '🦅', name: 'Hawk Strike',      desc: 'Hawks dive into random lanes. Watch for the red shadow' },
+    { id: 'fog',    icon: '🌫️', name: 'Fog',              desc: 'Obstacles only show up when they\'re close' },
+    { id: 'combo',  icon: '🔗', name: 'Combo Course',     desc: 'Lots of hop-then-duck pairs' },
+    { id: 'moon',   icon: '🌙', name: 'Moon Gravity',     desc: 'Floaty, slow jumps' },
+    { id: 'heavy',  icon: '🪨', name: 'Heavy Duck',       desc: 'Short, quick hops and a slow duck' },
+    { id: 'flip',   icon: '🔄', name: 'Backwards Day',    desc: 'Jump and Duck are swapped' },
+    { id: 'ghost',  icon: '👻', name: 'Ghost Ducks',      desc: 'Washed-out ducks drop obstacles into living ducks\' lanes' },
+    { id: 'vote',   icon: '🗳️', name: 'Spectator Vote',  desc: 'Washed-out ducks vote on the next hazard' },
+    { id: 'bounty', icon: '👑', name: 'Bounty',           desc: 'Hawks hunt the leader. Last place gets a shield' },
+    { id: 'hotegg', icon: '💣', name: 'Hot Egg',          desc: 'The egg jumps between ducks. Hit while holding it = double knockback' },
+    { id: 'teams',  icon: '🤝', name: 'Teams',            desc: 'Team Sun vs Team Sea. The last duck standing wins it for the team' },
+    { id: 'second', icon: '💨', name: 'Second Wind',      desc: 'The first duck to wash out comes back once' },
+    { id: 'golden', icon: '✨', name: 'Golden Match',     desc: 'Double eggs!' },
+  ];
+  const twOf = id => TWISTS.find(t => t.id === id);
+  const TW_KEY = 'jdf-twists';
+  const twCfg = (() => {
+    const d = { on: true, off: [], force: '' };
+    try { const s = JSON.parse(localStorage.getItem(TW_KEY)); if (s && typeof s === 'object') Object.assign(d, s); } catch (e) {}
+    if (!Array.isArray(d.off)) d.off = [];
+    return d;
+  })();
+  const twSave = () => { try { localStorage.setItem(TW_KEY, JSON.stringify(twCfg)); } catch (e) {} };
+  const twPool = () => TWISTS.filter(t => !twCfg.off.includes(t.id));
+  function twPick() {   // the twist for the next race ('' = none)
+    if (!twCfg.on) return '';
+    if (twCfg.force && twOf(twCfg.force)) return twCfg.force;
+    const pool = twPool();
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)].id : '';
+  }
+
+  // This race's twist state. TW.next = the twist the next race will use (set just before it starts).
+  const TW = { id: '', next: '', n: 0, speedQ: [], fogUntil: -1, flipUntil: -1, egg: null, vote: null, votedAt: -1,
+               t: {}, ghostAt: 0, swUsed: false, fogK: 0, flipShown: null };
+  const twId = r => r.seat != null ? r.seat : r.slot;          // same duck on every screen: seat in Discord, slot alone
+  const twRacer = id => racers.find(r => twId(r) === id);
+  const twDirector = () => !MP.on || MP.solo || MP.seat === MP.host;
+  const twMine = r => !r.remote;                               // ducks this device runs (you, plus the bots on the host)
+  const twFogOn = () => TW.id === 'fog' || st.levelTime < TW.fogUntil;
+  const twFlipOn = () => (mode === 'play' || mode === 'countdown' || mode === 'paused') && (TW.id === 'flip' || st.levelTime < TW.flipUntil);
+  const twWatch = () => !MP.on && (TW.id === 'ghost' || TW.id === 'vote');   // single player: keep watching after you wash out
+  const botSight = () => twFogOn() ? 0.75 : BOT_SIGHT;
+
+  // Physics for this race. airK = how much longer a jump takes than normal (the course spaces clusters by it).
+  const PHY = { g: GRAVITY, hop: HOP_H, big: BIG_H, duckDelay: 0, airK: 1 };
+  function twPhysics() {
+    Object.assign(PHY, { g: GRAVITY, hop: HOP_H, big: BIG_H, duckDelay: 0 });
+    if (TW.id === 'moon') PHY.g = GRAVITY * 0.6;
+    if (TW.id === 'heavy') { PHY.g = GRAVITY * 1.6; PHY.hop = HOP_H * 0.85; PHY.big = BIG_H * 0.85; PHY.duckDelay = 0.12; }
+    PHY.airK = Math.sqrt((PHY.hop / HOP_H) / (PHY.g / GRAVITY));
+  }
+  const spaceK = () => Math.max(1, PHY.airK);   // course spacing: only ever stretched (Moon), never squeezed
+
+  // The level, adjusted for this race's twist (a copy: LEVELS itself is never changed)
+  function twLevel(L) {
+    if (TW.id === 'photo') return Object.assign({}, L, { startSpeed: L.startSpeed * 1.8, lengthCoils: L.lengthCoils * 0.55, warmup: 2.5 });
+    if (TW.id === 'combo') return Object.assign({}, L, { combos: Math.max(L.combos || 0, 0.4), intro: null });
+    return L;
+  }
+  function twReset(id) {
+    TW.id = id && twOf(id) ? id : '';
+    Object.assign(TW, { n: 0, speedQ: [], fogUntil: -1, flipUntil: -1, egg: null, vote: null, votedAt: -1, t: {}, ghostAt: 0, swUsed: false, fogK: 0 });
+    scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34;   // no fog left over from the last race
+    twPhysics();
+    twPanel(null);
+  }
+  // After the racers are set up: teams, shields
+  function twAfterReset() {
+    racers.forEach(r => { r.twShield = false; r.team = TW.id === 'teams' ? twId(r) % 2 : null; r.ghostNext = 0; });
+  }
+  // Speed target with the Surge wave on top (simStep eases toward this)
+  function twTarget() {
+    let t = st.targetSpeed;
+    if (TW.id === 'surge') t *= 1 + 0.15 * Math.sin(st.levelTime * TAU / 9);
+    return t;
+  }
+  // Scale the whole slide's speed, including the speed-ups already planned up the tree, so they stay speed-ups
+  function twScaleSpeed(f) {
+    st.targetSpeed *= f; st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
+    for (const mk of st.marks) mk.speed *= f;
+    st.plan.v *= f;
+  }
+  function twQueueSpeed(at, f, why) {
+    TW.speedQ.push({ at, f, why }); TW.speedQ.sort((a, b) => a.at - b.at);
+  }
+  // Rush: called from noteElimination (same step on every device: the owner's wash-out step + 1.5 s)
+  function twOnElim(r) {
+    r.elimProg = r.progress;   // how far it got (the slide keeps moving while you watch)
+    if (TW.id === 'rush' && !r.quitter) twQueueSpeed(r.elimStep + 360, 1.15, 'rush');
+    if (TW.id === 'hotegg' && TW.egg === twId(r)) TW.egg = null;   // the director passes it on next tick
+  }
+
+  // ---------- one-lane hazards (hawks, ghost drops) ----------
+  const twIconTex = {};
+  function twIcon(ch) {
+    if (!twIconTex[ch]) twIconTex[ch] = canvasTex(96, 96, (c) => { c.font = '72px serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(ch, 48, 54); });
+    return twIconTex[ch];
+  }
+  const twShadowMat = new THREE.MeshBasicMaterial({ color: 0xff2040, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide });
+  const twShadowGeo = new THREE.CircleGeometry(0.36, 24);
+  function makeLaneMesh(type, src) {
+    const g = new THREE.Group(), real = new THREE.Group();
+    const wid = LANE_W * 0.92;
+    if (type === 'low') {
+      const b = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.2, LOW_H, wid), mats.low));
+      b.position.y = LOW_H / 2; real.add(b);
+    } else {
+      const barH = 0.3 * DS;
+      const bar = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.24, barH, wid), mats.high));
+      bar.position.y = HIGH_BOTTOM + barH / 2; real.add(bar);
+      for (const s of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, HIGH_BOTTOM + barH, 0.1), mats.post);
+        post.position.set(0, (HIGH_BOTTOM + barH) / 2, s * (wid / 2 - 0.05)); real.add(post);
+      }
+    }
+    const ic = new THREE.Sprite(new THREE.SpriteMaterial({ map: twIcon(src === 'ghost' ? '👻' : '🦅'), transparent: true, depthWrite: false }));
+    ic.scale.set(0.95, 0.95, 1); ic.position.y = (type === 'low' ? LOW_H : HIGH_BOTTOM + 0.36) + 0.45; real.add(ic);
+    const sh = new THREE.Mesh(twShadowGeo, twShadowMat);
+    sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; sh.scale.set(0.6, 1.4, 1);
+    g.add(real, sh);
+    return { g, real, sh };
+  }
+  // Where to put a one-lane hazard for duck t, about `lead` seconds ahead of it, clear of other obstacles in its lane
+  function twLaneTheta(t, lead) {
+    const w = Math.max(0.5, st.speed) / RP;
+    let th = t.progress + w * lead;
+    for (let k = 0; k < 8; k++) {
+      const clash = st.obs.find(o => (o.only == null || o.only === twId(t)) && Math.abs(o.theta - th) / w < 0.62)
+        || st.marks.find(mk => Math.abs(mk.theta - th) / w < 0.5);
+      if (!clash) return th >= st.finishTheta - 0.3 && th <= st.finishTheta + 0.3 && !st.overtime ? null : th;
+      th = clash.theta + w * 0.75;
+    }
+    return null;
+  }
+  function twAddLane(ev) {
+    if (st.obs.some(o => o.id === ev.id)) return;   // already have it (replayed message)
+    const tgt = twRacer(ev.s), th = +ev.th;
+    if (!tgt || !Number.isFinite(th) || eliminated(tgt)) return;
+    const type = ev.ty === 'high' ? 'high' : 'low', src = ev.src === 'ghost' ? 'ghost' : 'hawk';
+    const m = makeLaneMesh(type, src);
+    m.real.position.z = tgt.r - RT; m.sh.position.z = tgt.r - RT;   // into the target's lane (lanes differ per screen)
+    obsGroup.add(m.g);
+    const o = { id: ev.id, theta: th, type, mesh: m.g, real: m.real, sign: new THREE.Group(), sh: m.sh, up: false, hint: false, hinted: true,
+                combo: false, res: [], hit: [], plan: [], settled: true, only: ev.s, src, born: st.levelTime, laneObj: true };
+    for (const r of racers) if (r !== tgt) { o.res[r.slot] = true; o.hit[r.slot] = null; }
+    // Arrived too late to dodge fairly (slow message): it doesn't count for this duck
+    if (!tgt.remote && (th - tgt.progress) / (Math.max(0.5, st.speed) / RP) < 0.45) { o.res[tgt.slot] = true; o.hit[tgt.slot] = null; o.late = true; }
+    let i = st.obs.length; while (i > 0 && st.obs[i - 1].theta > th) i--;   // keep st.obs in slide order (bots rely on it)
+    st.obs.splice(i, 0, o);
+    if (tgt === player && src === 'ghost' && ev.by != null) { const g = twRacer(ev.by); toast(`👻 ${g ? g.name : 'A ghost'} dropped a ${type === 'low' ? 'hurdle' : 'bar'} on you!`, '#d7c4ff'); }
+  }
+  function twLaneEvent(tgt, lead, src, by) {
+    const th = twLaneTheta(tgt, lead);
+    if (th == null) return false;
+    const pre = src === 'ghost' ? 'G' + (MP.on ? MP.seat : 'x') : 'D' + (MP.on ? MP.seat : 'x');
+    twEmit({ e: 'lane', id: pre + '_' + (++TW.n) + '_' + Math.round(th * 1000), s: twId(tgt), th: +th.toFixed(5),
+             ty: Math.random() < 0.5 ? 'low' : 'high', src, by: by != null ? by : undefined });
+    return true;
+  }
+
+  // ---------- events: applied here and (in Discord) sent to the other screens ----------
+  function twEmit(ev) {
+    twApply(ev);
+    if (MP.on && !MP.solo) MP.twSend(ev);
+  }
+  const VOTE_OPTS = [
+    { id: 'hawks', icon: '🦅', name: 'Hawk barrage' }, { id: 'fog', icon: '🌫️', name: 'Fog bank' },
+    { id: 'flip', icon: '🔄', name: 'Backwards' }, { id: 'speed', icon: '⏩', name: 'Speed burst' },
+  ];
+  function twApply(ev) {
+    if (!ev || typeof ev.e !== 'string' || !TW.id || mode !== 'play') return;
+    const now = st.levelTime;
+    if (ev.e === 'lane') twAddLane(ev);
+    else if (ev.e === 'speed') { if (Number.isFinite(+ev.at) && +ev.f > 1 && +ev.f < 1.5) twQueueSpeed(+ev.at, +ev.f, ev.why || 'vote'); }
+    else if (ev.e === 'fx') {
+      const dur = Math.min(10, Math.max(1, +ev.dur || 6));
+      if (ev.fx === 'fog') { TW.fogUntil = now + dur; toast('🌫️ Fog bank!', '#cfe3ff'); }
+      if (ev.fx === 'flip') { TW.flipUntil = now + dur; }
+    } else if (ev.e === 'vote') {
+      if (!Array.isArray(ev.opts)) return;
+      TW.vote = { id: ev.id, opts: ev.opts.filter(o => VOTE_OPTS.some(v => v.id === o)).slice(0, 3), end: now + 5, ballots: {}, mine: null };
+      twPanelRefresh();
+    } else if (ev.e === 'ballot') {
+      if (TW.vote && TW.vote.id === ev.id && TW.vote.opts.includes(ev.c)) TW.vote.ballots[ev.s] = ev.c;
+    } else if (ev.e === 'voted') {
+      const v = VOTE_OPTS.find(o => o.id === ev.c);
+      if (v) toast(`🗳️ Spectators chose: ${v.name}!`, '#ffe27a');
+      TW.vote = null; TW.votedAt = now; twPanelRefresh();
+    } else if (ev.e === 'egg') {
+      const was = TW.egg; TW.egg = ev.s;
+      if (ev.s === twId(player) && was !== ev.s && !eliminated(player)) toast('💣 You\'ve got the hot egg!', '#ffb020');
+    } else if (ev.e === 'shield') {
+      const r = twRacer(ev.s);
+      if (r && !eliminated(r)) { r.twShield = true; if (r === player) toast('🛡️ Last place: you get a shield', '#8fe3ff'); }
+    }
+  }
+
+  // ---------- every sim step (all devices), then the director's decisions ----------
+  function twTick() {
+    if (!TW.id || mode !== 'play') return;
+    const t = st.levelTime, step = stepNow();
+    while (TW.speedQ.length && step >= TW.speedQ[0].at) {
+      const q = TW.speedQ.shift(); twScaleSpeed(q.f);
+      toast(q.why === 'rush' ? '⏩ Rush! +15% speed' : '⏩ Speed burst!', '#a8f58f');
+    }
+    if (st.ending || !twDirector()) return;
+    const T = TW.t, alive = racers.filter(r => !eliminated(r));
+    if (!alive.length || t < st.level.warmup + 0.5) return;
+    const due = (k, gap) => { if (T[k] == null) T[k] = t + gap * (0.5 + Math.random() * 0.5); if (t < T[k]) return false; T[k] = t + gap * (0.8 + Math.random() * 0.4); return true; };
+    const pickAlive = (not) => { const a = alive.filter(r => r !== not); return a.length ? a[Math.floor(Math.random() * a.length)] : null; };
+    if (TW.id === 'hawk' && due('hawk', 5.5)) { const r = pickAlive(); if (r) twLaneEvent(r, 1.8, 'hawk'); }
+    if (TW.id === 'bounty') {
+      if (alive.length > 1 && due('bounty', 6)) twLaneEvent(alive.reduce((a, b) => b.progress > a.progress ? b : a), 1.8, 'hawk');
+      if (alive.length > 1 && due('shield', 9)) {
+        const last = alive.reduce((a, b) => b.progress < a.progress ? b : a);
+        if (!last.twShield) twEmit({ e: 'shield', s: twId(last) });
+      }
+    }
+    if (TW.id === 'hotegg') {
+      const holder = TW.egg != null ? twRacer(TW.egg) : null;
+      if (!holder || eliminated(holder)) { const r = pickAlive(); if (r) { twEmit({ e: 'egg', s: twId(r) }); T.egg = t + 7; } }
+      else if (alive.length > 1 && due('egg', 7)) { const r = pickAlive(holder); if (r) twEmit({ e: 'egg', s: twId(r) }); }
+    }
+    if (TW.id === 'ghost') {   // washed-out BOTS haunt too (human ghosts use the panel)
+      for (const g of racers) {
+        if (g.human || g.isPlayer || !eliminated(g) || g.elimAt === undefined) continue;
+        if (!g.ghostNext) g.ghostNext = t + 3 + Math.random() * 3;
+        if (t < g.ghostNext) continue;
+        g.ghostNext = t + 5 + Math.random() * 3;
+        const r = pickAlive(); if (r) twLaneEvent(r, 2.2, 'ghost', twId(g));
+      }
+    }
+    if (TW.id === 'vote') {
+      const outs = racers.filter(r => eliminated(r));
+      if (!TW.vote && outs.length && (TW.t.vote == null || t >= TW.t.vote)) {
+        if (TW.t.vote == null) TW.t.vote = t + 2;   // first vote 2 s after the first wash-out
+        else {
+          const opts = VOTE_OPTS.slice().sort(() => Math.random() - 0.5).slice(0, 3).map(o => o.id);
+          twEmit({ e: 'vote', id: 'V' + (++TW.n), opts });
+          for (const b of outs) if (!b.human && !b.isPlayer) TW.vote.ballots[twId(b)] = opts[Math.floor(Math.random() * 3)];
+        }
+      }
+      if (TW.vote && t >= TW.vote.end) {
+        const V = TW.vote, count = {};
+        for (const c of Object.values(V.ballots)) count[c] = (count[c] || 0) + 1;
+        const best = Math.max(0, ...Object.values(count));
+        const top = best ? V.opts.filter(o => count[o] === best) : V.opts;
+        const c = top[Math.floor(Math.random() * top.length)];
+        twEmit({ e: 'voted', id: V.id, c });
+        TW.t.vote = t + 7;   // next vote 7 s after this one closes
+        if (c === 'hawks') { const a = pickAlive(), b = pickAlive(); if (a) twLaneEvent(a, 1.8, 'hawk'); if (b) twLaneEvent(b, 2.7, 'hawk'); }
+        else if (c === 'fog') twEmit({ e: 'fx', fx: 'fog', dur: 7 });
+        else if (c === 'flip') twEmit({ e: 'fx', fx: 'flip', dur: 6 });
+        else if (c === 'speed') twEmit({ e: 'speed', at: step + 240, f: 1.12, why: 'vote' });
+      }
+    }
+  }
+
+  // ---------- the ghost / vote panel (washed-out players), and spectating alone ----------
+  function twPanel(kind) {
+    const p = $('twPanel'); if (!p) return;
+    p.dataset.kind = kind || '';
+    p.classList.toggle('hidden', !kind);
+    if (kind) twPanelRefresh(true);
+  }
+  let twPanelKey = '';
+  function twPanelRefresh(force) {
+    const p = $('twPanel'); if (!p || p.classList.contains('hidden')) return;
+    const kind = p.dataset.kind, t = st.levelTime;
+    const V = TW.vote, ghostWait = Math.max(0, Math.ceil(TW.ghostAt - t));
+    const alive = racers.filter(r => !eliminated(r) && r !== player);
+    const key = [kind, V ? V.id + (V.mine || '') : '', ghostWait, alive.map(r => r.slot).join(), st.ending].join('|');
+    if (!force && key === twPanelKey) return;
+    twPanelKey = key;
+    p.textContent = '';
+    if (kind === 'ghost') {
+      p.append(el('div', ghostWait ? `👻 Haunt again in ${ghostWait}…` : '👻 Ghost: drop an obstacle on…', 'tw-ph'));
+      const row = el('div', null, 'tw-row');
+      for (const r of alive) {
+        const b = el('button', r.name, 'tw-b'); b.disabled = ghostWait > 0;
+        b.addEventListener('click', () => {
+          if (st.levelTime < TW.ghostAt || eliminated(r)) return;
+          if (twLaneEvent(r, 2.2, 'ghost', twId(player))) { TW.ghostAt = st.levelTime + 4; toast(`👻 Dropped one on ${r.name}`, '#d7c4ff'); }
+          else toast('No room in that lane right now', '#ffe2a8');
+          twPanelRefresh(true);
+        });
+        row.append(b);
+      }
+      p.append(row);
+    }
+    if (kind === 'vote') {
+      if (V) {
+        p.append(el('div', V.mine ? '🗳️ Voted! Waiting for the others…' : '🗳️ Vote: what hits them next?', 'tw-ph'));
+        const row = el('div', null, 'tw-row');
+        for (const id of V.opts) {
+          const o = VOTE_OPTS.find(x => x.id === id), b = el('button', o.icon + ' ' + o.name, 'tw-b' + (V.mine === id ? ' on' : ''));
+          b.disabled = !!V.mine;
+          b.addEventListener('click', () => {
+            if (!TW.vote || TW.vote.id !== V.id || V.mine) return;
+            V.mine = id;
+            const ev = { e: 'ballot', id: V.id, c: id, s: twId(player) };
+            if (twDirector()) twApply(ev); else MP.twSend(ev);
+            twPanelRefresh(true);
+          });
+          row.append(b);
+        }
+        p.append(row);
+      } else p.append(el('div', '🗳️ The next vote opens soon…', 'tw-ph'));
+    }
+    if (twWatch() && !st.ending) {
+      const sk = el('button', 'Skip to results', 'tw-skip');
+      sk.addEventListener('click', twSkipWatch);
+      p.append(sk);
+    }
+  }
+  function twShieldFx(r) {
+    const p = r.model.base.position.clone(); p.y += 0.6 * DS;
+    burst(p, [0x8fe3ff, 0xffffff, 0x39d0ff], 6, 26, 1.6);
+    if (r === player) { st.shake = 0.2; toast('🛡️ Shield! No ground lost', '#8fe3ff'); }
+  }
+  function twSkipWatch() {
+    if (st.ending || mode !== 'play') return;
+    st.ending = true; twPanel(null);
+    showResult(player.finished ? 'overtime' : 'splash');
+  }
+  // Single-player spectating (Ghost Ducks / Spectator Vote): the race goes on without you until the bots are done
+  function twWatchCheck() {
+    if (!twWatch() || st.ending || mode !== 'play' || !eliminated(player)) return;
+    if (racers.every(r => eliminated(r))) {
+      st.ending = true; twPanel(null);
+      const myRun = runId;
+      setTimeout(() => { if (runId === myRun && mode === 'play') showResult(player.finished ? 'overtime' : 'splash'); }, 1500);
+    }
+  }
+
+  // ---------- per-frame looks: fog, swapped pads, crown, egg, shield, team rings, hazard dives ----------
+  const TEAM = [{ name: 'Sun', color: 0xffd23f, css: '#ffd23f' }, { name: 'Sea', color: 0x39d0ff, css: '#7fe3ff' }];
+  const twCrownTex = () => twIcon('👑'), twEggTex = () => twIcon('💣');
+  function twDeco(r) {
+    if (r.twDeco) return r.twDeco;
+    const top = new THREE.Sprite(new THREE.SpriteMaterial({ map: twCrownTex(), transparent: true, depthWrite: false }));
+    top.scale.set(0.62, 0.62, 1); top.position.set(0, 1.42, 0); top.visible = false; r.model.lean.add(top);
+    const bub = new THREE.Mesh(new THREE.SphereGeometry(0.72, 20, 14), new THREE.MeshBasicMaterial({ color: 0x8fe3ff, transparent: true, opacity: 0.22, depthWrite: false }));
+    bub.position.y = 0.62; bub.visible = false; r.model.lean.add(bub);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.7, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; ring.visible = false; r.model.lean.add(ring);
+    return (r.twDeco = { top, bub, ring, kind: '' });
+  }
+  function twFrame(dt) {
+    // fog eases in and out
+    const fk = (mode === 'play' || mode === 'dying' || mode === 'countdown' || mode === 'paused') && twFogOn() ? 1 : 0;
+    TW.fogK += (fk - TW.fogK) * Math.min(1, dt * 3);
+    if (TW.fogK > 0.002 || scene.fog.far !== CAM_D + 34) {
+      scene.fog.near = CAM_D - 2 + (CAM_D - 3.5 - (CAM_D - 2)) * TW.fogK;
+      scene.fog.far = CAM_D + 34 + (CAM_D - 0.5 - (CAM_D + 34)) * TW.fogK;
+      if (TW.fogK <= 0.002) { scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34; }
+    }
+    // swapped pads (Backwards Day)
+    const flip = twFlipOn();
+    if (flip !== TW.flipShown) {
+      if (TW.flipShown != null || flip) {
+        const jp = $('jumpPad'), dp = $('duckPad');
+        jp.querySelector('b').textContent = flip ? 'Duck' : 'Jump'; dp.querySelector('b').textContent = flip ? 'Jump' : 'Duck';
+        jp.querySelector('span').innerHTML = flip ? 'hold' : 'tap hop<br>hold big'; dp.querySelector('span').innerHTML = flip ? 'tap hop<br>hold big' : 'hold';
+        jp.classList.toggle('jump', !flip); jp.classList.toggle('duck', flip); dp.classList.toggle('duck', !flip); dp.classList.toggle('jump', flip);
+        if (mode === 'play' && TW.flipShown != null) toast(flip ? '🔄 Backwards! Buttons swapped' : 'Buttons back to normal', flip ? '#ffb020' : '#a8f58f');
+      }
+      TW.flipShown = flip;
+    }
+    // ducks: crown (Bounty leader), hot egg, shield bubble, team ring
+    const inRace = mode === 'play' || mode === 'countdown' || mode === 'paused';
+    let leader = null;
+    if (inRace && TW.id === 'bounty') for (const r of racers) if (!eliminated(r) && (!leader || r.progress > leader.progress)) leader = r;
+    for (const r of [player, ...bots]) {
+      if (!r.twDeco && !(inRace && TW.id)) continue;
+      const d = twDeco(r), on = inRace && r.active && racers.includes(r) && !eliminated(r);
+      const egg = on && TW.id === 'hotegg' && TW.egg === twId(r), crown = on && r === leader;
+      const kind = egg ? 'egg' : crown ? 'crown' : '';
+      if (kind !== d.kind) { d.kind = kind; if (kind) { d.top.material.map = kind === 'egg' ? twEggTex() : twCrownTex(); d.top.material.needsUpdate = true; } }
+      d.top.visible = !!kind;
+      if (egg) d.top.scale.setScalar(0.6 + 0.08 * Math.sin(time * 14));
+      else d.top.scale.setScalar(0.62);
+      d.bub.visible = on && !!r.twShield;
+      if (d.bub.visible) d.bub.material.opacity = 0.18 + 0.08 * Math.sin(time * 5);
+      d.ring.visible = on && r.team != null;
+      if (d.ring.visible) d.ring.material.color.setHex(TEAM[r.team].color);
+    }
+    // one-lane hazards drop in from above over 0.6 s; their red shadow pulses
+    for (const o of st.obs) {
+      if (!o.laneObj) continue;
+      const a = Math.max(0, 1 - (st.levelTime - o.born) / 0.6);
+      o.real.position.y = 3.2 * a * a;
+      o.real.visible = o.src === 'ghost' ? true : a < 0.999;
+      o.sh.material = twShadowMat;
+      o.sh.scale.set(0.6 * (1 + 0.15 * Math.sin(time * 12)), 1.4, 1);
+    }
+    twChip();
+    // washed out in a Ghost / Vote race: the panel (Discord, or watching alone)
+    const p = $('twPanel');
+    if (p) {
+      const want = mode === 'play' && !st.ending && player.out && (MP.on || twWatch()) && (TW.id === 'ghost' || TW.id === 'vote') ? TW.id : '';
+      if ((p.dataset.kind || '') !== want) twPanel(want || null);
+      else if (want) twPanelRefresh();
+    }
+  }
+  // HUD chip: the twist's name during the race
+  function twChip() {
+    const c = $('twChip'); if (!c) return;
+    const T = twOf(TW.id);
+    let s = T ? T.icon + ' ' + T.name : '';
+    if (T && TW.id === 'teams' && player.team != null) s += ` · Team ${TEAM[player.team].name}`;
+    if (T && TW.vote && !eliminated(player)) s += ' · voting…';
+    if (c.textContent !== s) c.textContent = s;
+    c.classList.toggle('hidden', !s);
+  }
+
+  // ---------- slot-machine reel during the countdown ----------
+  function twReel(id) {
+    const box = $('twReel'); if (!box) return;
+    clearTimeout(twReel.t); box.classList.add('hidden'); box.classList.remove('landed');
+    const T = twOf(id); if (!T) return;
+    const myRun = runId, nameEl = $('twReelName'), descEl = $('twReelDesc');
+    box.classList.remove('hidden'); descEl.textContent = '';
+    const seq = [];
+    for (let i = 0; i < 14; i++) seq.push(TWISTS[Math.floor(Math.random() * TWISTS.length)]);
+    seq.push(T);
+    let i = 0;
+    const tick = () => {
+      if (runId !== myRun) { box.classList.add('hidden'); return; }
+      const s = seq[i]; nameEl.textContent = s.icon + ' ' + s.name;
+      nameEl.classList.remove('spin'); void nameEl.offsetWidth; nameEl.classList.add('spin');
+      if (++i < seq.length) twReel.t = setTimeout(tick, 45 + i * i * 1.2);
+      else {
+        box.classList.add('landed'); descEl.textContent = T.desc;
+        twReel.t = setTimeout(() => { if (runId === myRun) box.classList.add('hidden'); }, 3200);
+      }
+    };
+    tick();
+  }
+
+  // ---------- 🎲 Twists screen (from the title) ----------
+  function twBtnText() {
+    const b = $('twistBtn'); if (!b) return;
+    const n = twPool().length, f = twOf(twCfg.force);
+    b.textContent = !twCfg.on ? '🎲 Twists: Off' : f ? `🎲 Twist: always ${f.name}` : `🎲 Twists: On (${n} of ${TWISTS.length})`;
+  }
+  function openTwists() {
+    mode = 'twists';
+    const box = $('twList'); box.textContent = '';
+    const mpNote = $('twNote');
+    mpNote.textContent = MP.linked && !MP.full && MP.seat !== MP.host ? 'In a Discord race the host\'s twist settings are used.' : 'A random twist from the ones ticked here spins up before each race.';
+    const on = $('twOnBtn');
+    const paint = () => {
+      on.textContent = twCfg.on ? 'Twists: On' : 'Twists: Off'; on.classList.toggle('ghost', !twCfg.on);
+      box.classList.toggle('off', !twCfg.on);
+      $('twForce').value = twCfg.force || '';
+      twBtnText();
+    };
+    for (const T of TWISTS) {
+      const lab = el('label', null, 'tw-item'), cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !twCfg.off.includes(T.id);
+      cb.addEventListener('change', () => {
+        twCfg.off = twCfg.off.filter(x => x !== T.id); if (!cb.checked) twCfg.off.push(T.id);
+        twSave(); twBtnText();
+      });
+      const tx = el('span'); tx.append(el('b', T.icon + ' ' + T.name), el('small', T.desc));
+      lab.append(cb, tx); box.append(lab);
+    }
+    const sel = $('twForce');
+    if (!sel.dataset.filled) {
+      sel.dataset.filled = '1';
+      sel.append(new Option('Random (normal)', ''));
+      for (const T of TWISTS) sel.append(new Option(T.icon + ' ' + T.name, T.id));
+      sel.addEventListener('change', () => { twCfg.force = sel.value; twSave(); paint(); });
+      on.addEventListener('click', () => { twCfg.on = !twCfg.on; twSave(); paint(); });
+      $('twAll').addEventListener('click', () => { twCfg.off = []; twSave(); openTwists(); });
+      $('twNone').addEventListener('click', () => { twCfg.off = TWISTS.map(t => t.id); twSave(); openTwists(); });
+      $('twBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
+    }
+    paint();
+    $('twists').querySelector('.card').scrollTop = 0;
+    showOverlay('twists');
+  }
+
+  // =====================================================================
   //  LEVEL FLOW
   // =====================================================================
   function resetFor(L) {
     for (const o of st.obs) obsGroup.remove(o.mesh);
     Object.assign(st, {
-      godUsed: godMode, level: L, theta: 0, speed: L.startSpeed, targetSpeed: L.startSpeed, topSpeed: L.startSpeed, stepTimer: 0, tier: 0,
+      godUsed: godMode, level: L, theta: 0, speed: L.startSpeed, speedV: 0, targetSpeed: L.startSpeed, topSpeed: L.startSpeed, stepTimer: 0, tier: 0,
       finishTheta: L.lengthCoils * TAU, finishCount: 0, lastPlace: 1, lastPassToast: 0,
       hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1, burstLeft: 0, tightPrev: false,
       nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
@@ -3878,14 +4491,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (!g.ot && st.nextSpawn >= stopAt) continue;
       } else if (!st.introDone) {
         kind = wRnd() < 0.5 ? 'low' : 'high';
-      } else if (L.combos && !st.tightPrev && !(g.t + COMBO_GAP > upAt - zb && g.t < upAt + q) && wRnd() < L.combos) {
+      } else if (L.combos && !st.tightPrev && !(g.t + COMBO_GAP * spaceK() > upAt - zb && g.t < upAt + q) && wRnd() < L.combos) {
         kind = 'combo';
       } else {
         kind = pickType(L.mix);
       }
       if (kind === 'combo') {
         addObstacle(st.nextSpawn, 'low', hint);
-        const cg = planAdvance(COMBO_GAP);   // no speed-up inside a combo (checked above)
+        const cg = planAdvance(COMBO_GAP * spaceK());   // no speed-up inside a combo (checked above); v113: Moon jumps take longer
         addObstacle(st.nextSpawn + cg, 'high', false, true);
         st.nextSpawn += cg;
       } else {
@@ -3900,10 +4513,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       // jump lands too late), a BREATHER (long gap), or a NORMAL gap with a wide range. Average density ~ v97.
       // v106: speeds and times here are the PLANNER's (g.v, g.t): the speed at this spot, not the speed right now.
       const baseFt = (L.gapStart + (L.gapEnd - L.gapStart) * along) * L.startSpeed * 1.075;   // v97's average gap in feet
-      const baseSec = Math.max(baseFt / g.v, GAP_BASE_MIN);             // average seconds between obstacles at this spot
+      const baseSec = Math.max(baseFt / g.v, GAP_BASE_MIN * spaceK());   // average seconds between obstacles at this spot
       let sec;
       const h = g.ot ? 1 : Math.min(1, Math.max(0, (g.v - HEAT_LO) / (HEAT_HI - HEAT_LO)));   // heat() at this spot
-      const bMin = BURST_MIN - BURST_TIGHTEN * h, bRange = BURST_RANGE - 0.01 * h;   // v100
+      const bMin = (BURST_MIN - BURST_TIGHTEN * h) * spaceK(), bRange = (BURST_RANGE - 0.01 * h) * spaceK();   // v100; v113: x Moon
       const burstP = BURST_P + (BURST_P_HOT - BURST_P) * h;
       if (st.burstLeft > 0) {                                            // still inside a cluster
         st.burstLeft--; sec = bMin + wRnd() * bRange;
@@ -4022,6 +4635,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const live = racers.filter(r => !eliminated(r));
     const movers = live.filter(r => r.pending > 1e-9);
     if (!movers.length || !live.every(r => r.grounded && r.lag <= 0)) return;
+    if (TW.id !== 'surge' && st.targetSpeed - st.speed > 0.03 * st.targetSpeed) return;   // v112: not during a speed-up (no stacked motion); v113: Surge is always moving
     const w = st.speed / RP;
     if (player.progress + w * FINISH_FREEZE >= st.finishTheta) return;   // final stretch: positions frozen
     for (const r of movers) {
@@ -4043,7 +4657,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     for (const r of racers) {
       if (eliminated(r)) continue;
       r.pending = 0;
-      if (!r.fall) r.pos = r.phi;
+      if (!r.fall) { r.pos = r.phi; r.phiV = 0; }   // v112: no leftover glide
     }
     // Everyone still racing gets a fresh set of OT_STUMBLES misses and regroups at the front.
     // Each miss pushes a duck back (and down) a quarter of the way to the pool; the last one washes it in.
@@ -4077,6 +4691,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     r.elimAt = MP.on && r.elimT != null ? r.elimT / 240 : st.levelTime;   // v87: remote wash-outs use the owner's race time
     r.elimStep = r.elimT != null ? r.elimT : stepNow();                  // v88: whole step, used for the order
     r.elimSpeed = st.speed; r.elimOrder = ++st.elimCount;
+    twOnElim(r);   // v113
     podiumElim(r);
     reorderElims();
     st.elims.push({ name: r.name, atSec: +st.levelTime.toFixed(1), speed: +st.speed.toFixed(2), afterFinish: !!st.overtime });
@@ -4095,12 +4710,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
   function checkOvertimeEnd() {
     if (!st.overtime || st.ending) return;
-    if (!FEATURES.spectate && !MP.on && eliminated(player)) return;   // player's own splash ends the race
+    if (!FEATURES.spectate && !MP.on && eliminated(player) && !twWatch()) return;   // player's own splash ends the race (v113: not while watching alone)
     const alive = racers.filter(r => !eliminated(r));
     if (alive.length > 1) return;
     // v34: the player is the only duck left: keep racing (and speeding up faster) until washed out.
     // The player's own wash-out then ends the race through the normal overtime path.
-    if (alive.length === 1 && alive[0].isPlayer) {
+    if (alive.length === 1 && alive[0].isPlayer && !(twWatch() && eliminated(player))) {
       if (!st.solo) { st.solo = true; st.plan.solo = true; player.survivor = true; st.stepTimer = 0; lastDuckPop(); $('gold').classList.add('x2'); }   // v68: glow + explode + 2x bonus
       return;
     }
@@ -4108,10 +4723,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     podiumFinal();
     const myRun = runId, last = alive[0];
     if (last) { last.survivor = true; toast(last.isPlayer ? 'Last duck standing!' : `${last.name} is the last duck standing`, last.isPlayer ? '#ffe2a8' : '#a8f58f'); }
+    const how = twWatch() && !player.finished ? 'splash' : 'overtime';   // v113: watched alone after washing out before the arch
     setTimeout(() => {
       if (runId !== myRun || mode !== 'play') return;
-      if (lootOpen) lootThen = () => showResult('overtime');   // chest already up: results come after Collect
-      else maybeLoot(() => showResult('overtime'));
+      if (lootOpen) lootThen = () => showResult(how);   // chest already up: results come after Collect
+      else maybeLoot(() => showResult(how));
     }, ELIM_POPUP * 1000);
   }
 
@@ -4119,7 +4735,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v109-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v113-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -4698,7 +5314,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  UI
   // =====================================================================
   const $ = id => document.getElementById(id);
-  const overlays = ['title', 'select', 'boards', 'paused', 'result', 'customize', 'trophies'];   // v90: + customize; v96: + trophies
+  const overlays = ['title', 'select', 'boards', 'paused', 'result', 'customize', 'trophies', 'twists'];   // v113: + twists   // v90: + customize; v96: + trophies
   // v39 MASCOT: Sarge, the game's army duck. Original drawing, made from shapes so it stays sharp at any size.
   // Poses: 'salute' (title), 'cheer' (won), 'sad' (lost), 'halt' (paused).
   function mascotSVG(pose) {
@@ -4753,7 +5369,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
   function showOverlay(id) {
     overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
-    const menu = id === 'title' || id === 'select' || id === 'boards' || id === 'customize' || id === 'trophies';   // v47: + leaderboard; v90: + customize; v96: + trophies
+    const menu = id === 'title' || id === 'select' || id === 'boards' || id === 'customize' || id === 'trophies' || id === 'twists';   // v113: + twists   // v47: + leaderboard; v90: + customize; v96: + trophies
     if (menu && window.__jdfPile) window.__jdfPile.reset();   // v51: the loot pile stays through the results, gone on the menus
     $('hud').classList.toggle('hidden', menu);
     $('tracker').classList.toggle('hidden', menu);
@@ -5028,6 +5644,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v68 BONUS: while you're the last duck standing every reward is doubled, and twice as many eggs fall
     // (1 dodge = 2 eggs; award drops double their egg count, capped at 30 so the screen doesn't flood)
     if (st.solo) { n *= 2; if (drop) drop = Object.assign({}, drop, { count: Math.min(30, drop.count * 2) }); }
+    if (TW.id === 'golden' && mode === 'play') { n *= 2; if (drop) drop = Object.assign({}, drop, { count: Math.min(30, drop.count * 2) }); }   // v113 Golden Match
     gold += n;
     probe.mark('eggs');   // v59
     if (OFF.has('save')) { if (!saveGoldT) saveGoldT = setTimeout(saveGold, 1000); }   // v59 A/B: batch the save
@@ -5598,6 +6215,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   function startLevel(idx) {
     if (MP.linked && !MP.full) { MP.requestStart(idx); return; }
     MP.restore();
+    TW.next = twPick();   // v113
     startLevelNow(idx);
   }
   function startLevelNow(idx) {
@@ -5605,9 +6223,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned');
     teleNext(idx === levelIdx ? 'retry' : idx === levelIdx + 1 ? 'next' : 'other level');
     levelIdx = Math.min(idx, LEVELS.length - 1);
-    const L = LEVELS[levelIdx];
+    twReset(TW.next); TW.next = '';   // v113: this race's twist
+    const L = twLevel(LEVELS[levelIdx]);
     runId++;
     resetFor(L);
+    twAfterReset();
     podiumReset();
     pile.reset(); awardsReset();   // v51: empty loot pile, fresh award baselines
     mode = 'countdown';
@@ -5617,6 +6237,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     hud();
     $('place').textContent = '';
     toast(L.boss ? `Boss ${L.chapter}` : levelName(L), L.boss ? '#ff6a2b' : '#ffe2a8');
+    twReel(TW.id);   // v113
   }
 
   function onGo() {
@@ -5829,7 +6450,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         $('resMsg').textContent = `This race needs ${L.mustPlace === 1 ? 'first place' : ordinal(L.mustPlace) + ' or better'}.`;
       } else {
         $('resTitle').textContent = 'Splash!';
-        $('resMsg').textContent = `Washed into the pool ${Math.round(100 * Math.max(0, player.progress) / st.finishTheta)}% of the way to the arch.`;
+        $('resMsg').textContent = `Washed into the pool ${Math.round(100 * Math.max(0, player.elimProg != null ? player.elimProg : player.progress) / st.finishTheta)}% of the way to the arch.`;   // v113: elimProg (the slide keeps going while you watch)
       }
       $('resPrimary').textContent = 'Try again';
       $('resPrimary').onclick = () => startLevel(levelIdx);
@@ -5838,6 +6459,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       $('resTitle').textContent = 'Connection lost';
       $('resMsg').textContent = how === 'overtime' ? 'Lost the race server, so you\'re out from that moment. ' + $('resMsg').textContent
         : `Lost the race server ${Math.round(100 * Math.max(0, Math.min(1, player.progress / st.finishTheta)))}% of the way to the arch, so you're out from that moment.`;
+    }
+    {   // v113: the twist (and, for Teams, which team won)
+      const T = twOf(TW.id);
+      if (T) {
+        let line = ` Twist: ${T.icon} ${T.name}.`;
+        if (TW.id === 'teams') { const top = standings()[0]; if (top && top.team != null) line += ` Team ${TEAM[top.team].name} wins` + (player.team === top.team ? ' (your team)!' : '.'); }
+        $('resMsg').textContent += line;
+      }
+      twPanel(null);
     }
     $('resSecondary').onclick = openSelect;
     // v39 mascot reacts: cheers when you advance (or survive overtime), droops when you have to retry
@@ -5946,6 +6576,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     playTap();
   }, true);
   $('levelsBtn').addEventListener('click', () => { if (testerReady()) openSelect(); });
+  $('twistBtn').addEventListener('click', openTwists); twBtnText();   // v113
   setupTester();   // v40
   $('selectBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   // v47 LEADERBOARD from the title screen: same scoreboard, moved into its own card
@@ -5956,6 +6587,90 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     showOverlay('boards'); boardShow('title');
   });
   $('boardsBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
+  // ===================== v110 EGG SHOP =====================
+  // Customizer items cost eggs. Strictly cosmetic: nothing bought helps you race. Buy once, keep forever.
+  // Item keys: 'slot:id' (LOOKS.CATALOG) or 'pattern:<name>'. Anything not in SHOP_PRICE is free (the starter set:
+  // Duck head, Classic tuft, Ball cap, T-shirt, Sneakers, Solid pattern, every color, and every "None").
+  // Common 150, Rare 500, Epic 1,500. MUST MATCH SHOP_PRICES in race-worker\src\index.js (the Discord build buys there).
+  // Trophies are never sold. Where purchases live:
+  //   GitHub copy and Discord guests: this device (localStorage jdf-owned), paid from this device's eggs.
+  //   Discord, signed in: the race server (player.owned); the server checks the price and the egg balance.
+  // Grandfathering: the items in the look you already wore are yours. GitHub copy: the first load of v110 on a device.
+  // Discord: one claim per player saved before the shop (server decides who may, once).
+  const SHOP_PRICE = {
+    'head:cat': 500, 'head:frog': 500, 'head:bear': 500, 'head:bunny': 500, 'head:robot': 1500,
+    'hair:mohawk': 150, 'hair:spiky': 150, 'hair:quiff': 150, 'hair:afro': 500,
+    'hat:beanie': 150, 'hat:party': 150, 'hat:tophat': 500, 'hat:cowboy': 500, 'hat:viking': 500, 'hat:propeller': 500, 'hat:helmet': 500, 'hat:crown': 1500,
+    'face:specs': 150, 'face:shades': 150, 'face:patch': 150, 'face:monocle': 500,
+    'neck:scarf': 150, 'neck:bowtie': 150, 'neck:collar': 150, 'neck:chain': 1500,
+    'outfit:sweater': 150, 'outfit:vest': 500, 'outfit:jacket': 500, 'outfit:tutu': 500,
+    'back:backpack': 150, 'back:cape': 500, 'back:shell': 500, 'back:jetpack': 1500,
+    'feet:boots': 150,
+    'pattern:stripes': 150, 'pattern:dots': 150, 'pattern:checks': 150, 'pattern:camo': 500,
+  };
+  const SHOP = (() => {
+    const { SLOT_KEY, CATALOG, LOOK_DEFAULT, cleanLook } = LOOKS;
+    const KEY = 'jdf-owned', INIT = 'jdf-shop-init';
+    const price = k => SHOP_PRICE[k] || 0;
+    const D = () => window.JDF_DISCORD;
+    const onServer = () => { const d = D(); return !!(d && d.inDiscord && d.user); };
+    // the priced items a look wears (a pattern only counts when there's an outfit to show it)
+    const lookKeys = L => {
+      const ks = Object.entries(SLOT_KEY).map(([slot, k]) => slot + ':' + L[k]);
+      if (L.outfit !== 'none') ks.push('pattern:' + L.pattern);
+      return ks.filter(price);
+    };
+    let local = lsGet(KEY, []); if (!Array.isArray(local)) local = [];
+    if (!lsGet(INIT, 0)) {   // first load of v110 on this device: what you already wear is yours
+      local = [...new Set(local.concat(lookKeys(playerLook)))]; lsSet(KEY, local); lsSet(INIT, 1);
+    }
+    function ownedList() {   // null = signed in to Discord but the server copy isn't here yet
+      if (!onServer()) return local;
+      const p = D().player; return p && Array.isArray(p.owned) ? p.owned : null;
+    }
+    const owns = k => !price(k) || (ownedList() || []).includes(k);
+    const missing = L => lookKeys(L).filter(k => !owns(k));
+    const waiting = () => ownedList() === null || (onServer() && !!D().player.canClaim);
+    function name(k) {
+      const [slot, id] = k.split(':');
+      if (slot === 'pattern') return id.charAt(0).toUpperCase() + id.slice(1) + ' pattern';
+      const it = CATALOG[slot] && CATALOG[slot].find(x => x.id === id); return it ? it.name : k;
+    }
+    async function buy(k) {   // -> {ok} or {ok:false, error:'not_enough'|'offline'|...}
+      const p = price(k);
+      if (!p || owns(k)) return { ok: true };
+      if (onServer()) return D().buy ? D().buy(k) : { ok: false, error: 'offline' };   // gold follows the 'jdf-player' reply
+      if (gold < p) return { ok: false, error: 'not_enough' };
+      gold -= p; saveGold(); showGold();
+      local = local.concat(k); lsSet(KEY, local);
+      return { ok: true };
+    }
+    // Your racer can only wear what you own: anything else goes back to the starter choice (only on the title screen)
+    function enforce() {
+      if (waiting() || mode !== 'title') return;
+      const miss = missing(playerLook); if (!miss.length) return;
+      const L = { ...playerLook };
+      for (const k of miss) { const slot = k.split(':')[0]; if (slot === 'pattern') L.pattern = LOOK_DEFAULT.pattern; else L[SLOT_KEY[slot]] = LOOK_DEFAULT[SLOT_KEY[slot]]; }
+      playerLook = cleanLook(L);
+      try { localStorage.setItem(LOOK_KEY, JSON.stringify(playerLook)); } catch (e) {}
+      player.restyle(playerLook);
+    }
+    let claiming = false;
+    async function maybeClaim() {   // Discord: grandfather the look worn before the shop (the server allows it once)
+      const d = D();
+      if (!onServer() || !d.player || !d.player.canClaim || claiming || !d.claim) return;
+      claiming = true;
+      try { await d.claim(lookKeys(playerLook)); } finally { claiming = false; }
+      enforce();
+    }
+    window.addEventListener('jdf-player', () => { maybeClaim(); enforce(); });
+    function start() { maybeClaim(); enforce(); }
+    return { price, owns, missing, waiting, name, buy, maybeClaim, enforce, start, lookKeys, get owned() { return ownedList(); } };
+  })();
+  window.__jdfShop = SHOP;   // v110: for testing
+  if (window.JDF_DISCORD && window.JDF_DISCORD.inDiscord) $('testEggs').remove();   // v110: test eggs only in the GitHub copy
+  else $('testEggs').addEventListener('click', () => { gold += 1000; saveGold(); showGold(); toast('+1,000 eggs (testing)', '#ffd23f'); });
+
   // ===================== v90 CUSTOMIZE SCREEN (from the title) =====================
   // Same preview as duck-customizer.html: drag to turn, test poses, then Save puts the look on your racer.
   const CZ = (() => {
@@ -6049,7 +6764,44 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       { id: 'feet', label: 'Feet', slot: 'feet', rows: [accentRow] },
     ];
     function set(k, v) { look = { ...look, [k]: v }; rebuild(); drawPanel(); }
-    function chip(label, on, fn) { const b = document.createElement('button'); b.className = 'cz-chip'; b.textContent = label; b.setAttribute('aria-pressed', on); b.onclick = fn; return b; }
+    function chip(label, on, fn, key) {   // v110: key = shop item; a locked one shows its price (tap = try it on)
+      const b = document.createElement('button'); b.className = 'cz-chip'; b.textContent = label; b.setAttribute('aria-pressed', on); b.onclick = fn;
+      if (key && !SHOP.owns(key)) {
+        b.classList.add('locked'); b.title = 'Try it on, then buy it below';
+        b.prepend('🔒 '); b.append(el('span', SHOP.price(key).toLocaleString() + ' 🥚', 'cz-price'));
+      }
+      return b;
+    }
+    // v110 EGG SHOP: buy bar = one button per locked item you're trying on. First tap arms it, second tap (within 3 s) buys.
+    let armed = '', buying = false;
+    function drawBuy() {
+      $('czEggs').textContent = '🥚 ' + gold.toLocaleString();
+      const box = $('czBuy'), miss = SHOP.missing(look);
+      box.textContent = ''; box.classList.toggle('hidden', !miss.length);
+      if (!miss.length) return;
+      if (SHOP.waiting()) { box.append(el('p', 'Getting your items from the server…', 'cz-buynote')); return; }
+      for (const k of miss) {
+        const p = SHOP.price(k), nm = SHOP.name(k), b = el('button', null, 'cz-buybtn');
+        if (p > gold) { b.disabled = true; b.textContent = `🔒 ${nm} · ${p.toLocaleString()} 🥚 (${(p - gold).toLocaleString()} more to go)`; }
+        else {
+          b.textContent = armed === k ? `Tap again to buy ${nm} for ${p.toLocaleString()} 🥚` : `Buy ${nm} · ${p.toLocaleString()} 🥚`;
+          b.classList.toggle('armed', armed === k); b.disabled = buying; b.onclick = () => buyTap(k);
+        }
+        box.append(b);
+      }
+      box.append(el('p', 'Locked items are only a preview until you buy them.', 'cz-buynote'));
+    }
+    async function buyTap(k) {
+      if (buying) return;
+      clearTimeout(buyTap.h);
+      if (armed !== k) { armed = k; buyTap.h = setTimeout(() => { armed = ''; if (open) drawBuy(); }, 3000); drawBuy(); return; }
+      armed = ''; buying = true; drawBuy();
+      let r; try { r = await SHOP.buy(k); } catch (e) { r = { ok: false, error: 'offline' }; }
+      buying = false;
+      if (r.ok) toastCz(`${SHOP.name(k)} is yours!`);
+      else toastCz(r.error === 'not_enough' ? 'Not enough eggs yet' : r.error === 'offline' ? 'Can’t reach the server. Try again.' : 'That didn’t work (' + r.error + ')');
+      if (open) { drawPanel(); }
+    }
     function drawTabs() {
       const box = $('czTabs'); box.innerHTML = '';
       for (const t of TABS) { const b = document.createElement('button'); b.className = 'cz-tab'; b.setAttribute('role', 'tab'); b.textContent = t.label;
@@ -6057,17 +6809,18 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
     function drawPanel() {
       const t = TABS.find(x => x.id === tab), box = $('czPanel'); box.innerHTML = '';
+      drawBuy();   // v110
       const row = title => { const r = document.createElement('div'); r.className = 'cz-row'; const h = document.createElement('h2'); h.textContent = title;
         const c = document.createElement('div'); c.className = 'cz-chips'; r.append(h, c); box.append(r); return c; };
       if (t.slot) {
         const c = row('Style'), key = SLOT_KEY[t.slot];
-        for (const it of CATALOG[t.slot]) c.append(chip(it.name, look[key] === it.id, () => set(key, it.id)));
+        for (const it of CATALOG[t.slot]) c.append(chip(it.name, look[key] === it.id, () => set(key, it.id), t.slot + ':' + it.id));
         if (t.slot === 'hair' && look.hat !== 'none' && !item('hat', look.hat).keepHair) {
           const p = document.createElement('p'); p.className = 'cz-note'; p.textContent = 'Hidden under the hat (only the crown shows hair).'; c.parentNode.append(p); }
       }
       for (const r of t.rows || []) {
         const c = row(r.label);
-        if (r.opts) { for (const [v, n] of r.opts) c.append(chip(n, look[r.key] === v, () => set(r.key, v))); continue; }
+        if (r.opts) { for (const [v, n] of r.opts) c.append(chip(n, look[r.key] === v, () => set(r.key, v), r.key + ':' + v)); continue; }
         if (r.match) c.append(chip(r.match, look[r.key] === LOOK_DEFAULT[r.key], () => set(r.key, LOOK_DEFAULT[r.key])));
         for (const [hx, n] of r.pal) { const b = document.createElement('button'); b.className = 'cz-sw'; b.style.background = hx; b.title = n; b.setAttribute('aria-label', n);
           b.setAttribute('aria-pressed', look[r.key].toLowerCase() === hx); b.onclick = () => set(r.key, hx); c.append(b); }
@@ -6087,15 +6840,21 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     $('czCopy').onclick = async () => { $('czCode').value = encode(look); try { await navigator.clipboard.writeText($('czCode').value); toastCz('Code copied'); } catch (e) { $('czCode').select(); toastCz('Select and copy the code'); } };
     $('czApply').onclick = () => { const L = decode($('czCode').value); if (!L) return toastCz('That code didn’t work'); look = L; rebuild(); drawPanel(); toastCz('Look applied'); };
     $('czRand').onclick = () => {
-      const pick = a => a[Math.floor(Math.random() * a.length)], some = (slot, pNone) => Math.random() < pNone ? 'none' : pick(CATALOG[slot].filter(i => i.id !== 'none')).id;
+      // v110: only items you own (falls back to 'none' if you own nothing in that slot)
+      const pick = a => a[Math.floor(Math.random() * a.length)], mine = slot => CATALOG[slot].filter(i => i.id !== 'none' && SHOP.owns(slot + ':' + i.id));
+      const some = (slot, pNone) => Math.random() < pNone || !mine(slot).length ? 'none' : pick(mine(slot)).id;
       look = cleanLook({ body: pick(PAL.body)[0], bill: pick(PAL.bill)[0], iris: pick(PAL.iris)[0],
-        headType: Math.random() < 0.5 ? 'duck' : pick(CATALOG.head).id, hair: some('hair', 0.15), hairColor: Math.random() < 0.4 ? 'match' : pick(PAL.hair)[0],
+        headType: Math.random() < 0.5 ? 'duck' : pick(CATALOG.head.filter(i => SHOP.owns('head:' + i.id))).id, hair: some('hair', 0.15), hairColor: Math.random() < 0.4 ? 'match' : pick(PAL.hair)[0],
         hat: some('hat', 0.4), face: some('face', 0.6), neck: some('neck', 0.5), outfit: some('outfit', 0.4), outfitColor: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0],
-        pattern: Math.random() < 0.6 ? 'default' : pick(Object.keys(PATTERNS)), back: some('back', 0.6), feet: some('feet', 0.6), accent: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0] });
+        pattern: Math.random() < 0.6 ? 'default' : pick(Object.keys(PATTERNS).filter(p => SHOP.owns('pattern:' + p))), back: some('back', 0.6), feet: some('feet', 0.6), accent: Math.random() < 0.5 ? 'default' : pick(PAL.cloth)[0] });
       rebuild(); drawPanel();
     };
     function close(save) {
-      open = false;
+      if (save && SHOP.missing(look).length) {   // v110: can't save a look with items you haven't bought
+        toastCz(SHOP.waiting() ? 'Still getting your items. Try again in a moment.' : 'Buy the 🔒 items first, or take them off');
+        drawBuy(); return;
+      }
+      open = false; armed = '';
       if (save) {
         playerLook = look;
         try { localStorage.setItem(LOOK_KEY, JSON.stringify(look)); } catch (e) {}
@@ -6108,15 +6867,18 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     $('czCancel').onclick = () => close(false);
     function show() {
       if (!R) setup();
-      look = playerLook; tab = 'colors'; pose = 'idle'; ang = -0.8; idleT = 0;
+      look = playerLook; tab = 'colors'; pose = 'idle'; ang = -0.8; idleT = 0; armed = '';
+      SHOP.maybeClaim();   // v110
       $('czShare').classList.add('hidden');
       rebuild(); drawTabs(); drawPanel();
       mode = 'customize'; showOverlay('customize');
       open = true; last = performance.now(); requestAnimationFrame(frame);
     }
-    return { show, get look() { return look; }, set: L => { look = cleanLook(L); rebuild(); drawPanel(); }, pose: p => { pose = p; }, view: v => { view = v; }, angle: a => { ang = a; idleT = -1e9; } };
+    return { show, redraw: () => { if (open) drawPanel(); }, get look() { return look; }, set: L => { look = cleanLook(L); rebuild(); drawPanel(); }, pose: p => { pose = p; }, view: v => { view = v; }, angle: a => { ang = a; idleT = -1e9; } };
   })();
   $('customBtn').addEventListener('click', () => { if (mode === 'title') CZ.show(); });
+  window.addEventListener('jdf-player', () => { if (mode === 'customize') CZ.redraw(); });   // v110: server eggs/items arrived
+  SHOP.start();   // v110: grandfather + make sure the racer only wears owned items
   $('trophyBtn').addEventListener('click', () => { if (mode === 'title') openTrophies(); });   // v96
   $('trophyBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   window.__jdfLook = CZ;   // v90: for testing
@@ -6132,7 +6894,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // =====================================================================
   const UP_KEYS = ['ArrowUp', 'KeyW', 'Space'], DOWN_KEYS = ['ArrowDown', 'KeyS'];
   const live = () => mode === 'play' && !eliminated(player);
-  const spectating = () => mode === 'play' && st.overtime && player.out && !st.ending && !MP.on;   // v85: no skipping in multiplayer
+  const spectating = () => mode === 'play' && st.overtime && player.out && !st.ending && !MP.on && !twWatch();   // v85: no skipping in multiplayer; v113: Ghost/Vote have their own Skip
+  // v113 BACKWARDS DAY: a press remembers what it did, so its release undoes the same thing even if the swap flips mid-hold
+  const inHeld = {};
+  function inPress(src, a) { const act = twFlipOn() ? (a === 'U' ? 'D' : 'U') : a; inHeld[src] = act; if (act === 'U') player.pressUp(); else player.pressDown(); }
+  function inRelease(src, a) { const act = inHeld[src] || a; delete inHeld[src]; if (act === 'U') player.releaseUp(); else player.releaseDown(); }
   const skipSpectate = () => { st.ending = true; showResult('overtime'); };
   // ---------- v26: PLAY AREA outline ----------
   // The play area = from the bottom of the duck tracker to the top of the Duck/Jump pads, edge to edge.
@@ -6188,13 +6954,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (lootOpen) { if ((gameKey || e.code === 'Enter') && !e.repeat) { e.preventDefault(); closeLoot(); } return; }
     if (gameKey && !e.repeat && spectating()) { skipSpectate(); return; }
     if (e.repeat || !live()) return;
-    if (UP_KEYS.includes(e.code)) player.pressUp();
-    if (DOWN_KEYS.includes(e.code)) player.pressDown();
+    if (UP_KEYS.includes(e.code)) inPress(e.code, 'U');
+    if (DOWN_KEYS.includes(e.code)) inPress(e.code, 'D');
   });
   window.addEventListener('keyup', e => {
     if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;   // v55
-    if (UP_KEYS.includes(e.code)) player.releaseUp();
-    if (DOWN_KEYS.includes(e.code)) player.releaseDown();
+    if (UP_KEYS.includes(e.code)) inRelease(e.code, 'U');
+    if (DOWN_KEYS.includes(e.code)) inRelease(e.code, 'D');
   });
   // Tapping the race area itself only skips the overtime spectate view; play input lives on the pads.
   $('touch').addEventListener('pointerdown', e => { e.preventDefault(); if (spectating()) skipSpectate(); });
@@ -6238,8 +7004,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     lastTouchEnd = now;
   }, { passive: false });
   ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));   // Safari pinch
-  makePad($('jumpPad'), () => player.pressUp(), () => player.releaseUp());
-  makePad($('duckPad'), () => player.pressDown(), () => player.releaseDown());
+  makePad($('jumpPad'), () => inPress('jumpPad', 'U'), () => inRelease('jumpPad', 'U'));   // v113: through the Backwards Day swap
+  makePad($('duckPad'), () => inPress('duckPad', 'D'), () => inRelease('duckPad', 'D'));
   const releasePads = () => pads.forEach(c => c());
   // A hold must never get stuck: drop every pad if the page loses focus or is hidden.
   window.addEventListener('blur', releasePads);
@@ -6336,6 +7102,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // =====================================================================
   const clock = new THREE.Clock();
   let frameDt = 0;
+  // v111 SMOOTH SPEED-UPS: the running animation's phase (legs, bob, wings, tail) now ADDS UP speed x dt each frame.
+  // Before, it was time-since-page-load x speed, so a speed-up of dv jumped the phase by time x dv: about 20+ extra
+  // strides crammed into the ~1 s ease, which looked like the ducks being shoved. Now only the stride RATE changes.
+  const SPEED_W = 5;   // v112: speed-up smoothness (see simStep)
   const SUB_FT = 0.15;   // max feet of travel per sim slice (hit window is 2 * HIT_HALF = 0.52 ft)
   function simStep(simDt, dt) {
     if (mode === 'play') {
@@ -6351,11 +7121,18 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           awardsOnSpeed();   // v51
           // (no on-screen cue: the speed-up is felt, and seen in the chevrons, not announced)
         }
-        // Ease into the new speed over about a second instead of jumping
-        st.speed += (st.targetSpeed - st.speed) * Math.min(1, simDt * 2.5);
+        // Ease into the new speed over about a second instead of jumping.
+        // v112: critically damped (eases in AND out). The old "close 2.5x the gap per second" hit full acceleration the
+        // instant a speed-up fired: a visible kick. Same lag as before (2/SPEED_W = 0.4 s), so the planned course still fits.
+        const tgt = twTarget();   // v113: = targetSpeed, plus the Surge wave
+        st.speedV += (SPEED_W * SPEED_W * (tgt - st.speed) - 2 * SPEED_W * st.speedV) * simDt;
+        st.speed += st.speedV * simDt;
+        if (st.speedV > 0 && st.speed > tgt) { st.speed = tgt; st.speedV = 0; }   // never overshoot (v113: only when rising; Surge also eases down)
+        st.topSpeed = Math.max(st.topSpeed, st.speed);
         st.theta += (st.speed / RP) * simDt;
         spawn();
-        if (MP.on && !st.overtime && st.theta >= st.finishTheta) startOvertime();   // v85
+        if ((MP.on || (twWatch() && eliminated(player))) && !st.overtime && st.theta >= st.finishTheta) startOvertime();   // v85; v113: watching alone
+        twTick();   // v113
     } else if (mode === 'cleared') {
       st.coast = Math.max(0.25, st.coast - dt * 0.6);
       st.theta += (st.speed * st.coast / RP) * dt;
@@ -6368,13 +7145,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       r.updateFall(simDt, dt);
     }
     if (mode === 'play' || mode === 'cleared') checkFinishes();
-    if (mode === 'play') { settleObstacles(); regroup(); checkOvertimeEnd(); MP.checkEnd(); }
+    if (mode === 'play') { settleObstacles(); regroup(); checkOvertimeEnd(); MP.checkEnd(); twWatchCheck(); }
   }
   function frame() {
     probe.start(mode === 'play', `${(st.speed || 0).toFixed(0)}ft/s eggs${pile.count()}`);   // v59: judges the previous frame
     const dt = Math.min(0.05, clock.getDelta());
     frameDt = dt;
     time += dt;
+    if (mode !== 'paused') strideT += dt * (st.speed || 4.6) * (mode === 'cleared' ? st.coast : 1) * 2.4;   // v111
     const running = mode !== 'paused';
     if (document.body.classList.contains('is-paused') === running) document.body.classList.toggle('is-paused', !running);   // v68
     const simDt = running && !(st.hitstop > 0) ? dt : 0;
@@ -6400,7 +7178,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (mode === 'play') hudFrame();
     } else if (mode === 'dying') {
       simStep(simDt, dt);
-    } else if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'trophies') {
+    } else if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'trophies' || mode === 'twists') {
       st.theta += 0.3 * dt;
     }
 
@@ -6432,6 +7210,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     finishArch.rotation.y = fphi;
 
     for (const r of [player, ...bots]) r.render(dt);
+    twFrame(dt);   // v113
 
     animateWater(time);
     waterLight.position.set(-4, WATER_Y + 1.8, RP);
