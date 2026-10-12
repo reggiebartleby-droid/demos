@@ -3478,8 +3478,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       ui();
     }
     function onStart(d) {
-      if (typeof d.seed !== 'number' || typeof d.at !== 'number' || !(d.level >= 0)) return;
-      if (!(d.roster || []).some(p => p.seat === m.seat)) return;   // joined after this start: wait for the next race
+      m.startAsk = 0;   // v101: the server answered
+      if (typeof d.seed !== 'number' || typeof d.at !== 'number' || !(d.level >= 0)) { toast('Race server sent a bad start. Tap Start again', '#ffb020'); return; }
+      if (!(d.roster || []).some(p => p.seat === m.seat)) {   // joined after this start: wait for the next race
+        if (m.seat === m.host) toast('Start didn\'t include you (seat changed?). Tap Start again', '#ffb020');   // v101: was silent
+        return;
+      }
       m.race = { seed: d.seed, level: Math.min(d.level | 0, LEVELS.length - 1), at: d.at,
                  roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
       m.rng = mulberry32(d.seed);
@@ -3641,7 +3645,22 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         return;
       }
       m.askedAt = 0;
+      // v101: never fail silently. Socket not open -> say so and reconnect. No 'start' back in 2.5 s -> say so and
+      // reconnect (a phone can keep a dead socket that still looks open), so the next tap works.
+      if (!ws || ws.readyState !== 1) {
+        toast('Not connected to the race server yet. Reconnecting, tap again in a moment', '#ffb020');
+        if (ws) drop(ws, 0, ws.readyState === 1);
+        return;
+      }
       send({ t: 'start', level: idx });
+      const myAsk = m.startAsk = performance.now();
+      setTimeout(() => {
+        if (m.startAsk !== myAsk || mode !== 'title') return;   // the race started (or something else happened)
+        m.startAsk = 0;
+        if (lastRx > myAsk) { toast('Still waiting for the race server. Tap Start again if nothing happens', '#ffb020'); return; }   // socket alive (pongs): don't cut it, a slow 'start' may still come
+        toast('The race server didn\'t answer. Reconnecting, tap Start again', '#ffb020');
+        if (ws) drop(ws, 0, true);
+      }, 4000);
     };
     // Seats -> ducks on this screen: you in lane 4, the other three seats in lanes 1-3 (seat order)
     m.buildRacers = () => {
@@ -4015,7 +4034,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v100-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v101-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -5759,7 +5778,23 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   function resume() { if (mode !== 'paused') return; mode = pausedFrom; showOverlay(null); clock.getDelta(); }
   const refreshPlay = () => { $('playBtn').textContent = unlocked > 0 ? `Play ${levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)])}` : 'Play'; MP.ui(); };
 
-  $('playBtn').addEventListener('click', () => { if (testerReady()) startLevel(Math.min(unlocked, LEVELS.length - 1)); });
+  let playTapAt = 0;   // v101
+  const playTap = () => { if (performance.now() - playTapAt < 600) return; playTapAt = performance.now(); if (testerReady()) startLevel(Math.min(unlocked, LEVELS.length - 1)); };
+  $('playBtn').addEventListener('click', playTap);
+  // v101 TAP-THROUGH: Start sometimes did nothing in Discord on a phone (not even the press animation), as if
+  // something invisible covered it. If a tap lands inside the Play button's box but the top element there is
+  // something else, start anyway and name the cover (toast) so it can be fixed for real.
+  document.addEventListener('pointerup', e => {
+    const pb = $('playBtn');
+    if (mode !== 'title' || pb.disabled || $('title').classList.contains('hidden') || !pb.offsetParent) return;
+    const r = pb.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+    const top = document.elementFromPoint(e.clientX, e.clientY);
+    if (!top || pb.contains(top)) return;   // normal tap: the click handler does it
+    const name = top.id ? '#' + top.id : top.tagName.toLowerCase() + (top.className && typeof top.className === 'string' ? '.' + top.className.trim().split(/\s+/).join('.') : '');
+    toast('Start was covered by ' + name.slice(0, 40) + ' (started anyway)', '#ffe2a8');
+    playTap();
+  }, true);
   $('levelsBtn').addEventListener('click', () => { if (testerReady()) openSelect(); });
   setupTester();   // v40
   $('selectBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
