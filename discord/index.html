@@ -3924,7 +3924,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     Object.assign(st, {
       godUsed: godMode, level: L, theta: 0, speed: L.startSpeed, targetSpeed: L.startSpeed, topSpeed: L.startSpeed, stepTimer: 0, tier: 0,
       finishTheta: L.lengthCoils * TAU, finishCount: 0, lastPlace: 1, lastPassToast: 0,
-      hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1,
+      hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1, burstLeft: 0, tightPrev: false,
       nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
       countdown: 3.2, countShown: 4, levelTime: 0,
       overtime: false, solo: false, ending: false, lootShown: false, crossedFinish: false, elimCount: 0, elims: [], finishOk: false, finishPlace: null, finWaitAt: null, otStart: 0, speedAtFinish: null,
@@ -3951,6 +3951,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const stepEvery = () => st.solo ? 5.5 : st.overtime ? 7 : st.level.stepEvery;   // v34 solo: every 5.5 s
   const stepMult = () => st.solo ? 1.18 : st.overtime ? 1.15 : st.level.stepMult;   // v34 solo: +18% per step   // overtime keeps ramping
   const quiet = () => st.overtime ? 0.8 : QUIET;
+  // v98 random rhythm (see spawn()): tune here.
+  const BURST_P = 0.22, BREATHER_P = 0.15;   // chance a gap starts a cluster / is a long breather
+  const BURST_MIN = 0.68, BURST_RANGE = 0.17; // cluster gaps 0.68-0.85 s (a hop is ~0.45 s in the air + landing)
+  const GAP_BASE_MIN = 1.1;                   // average gap never below 1.1 s (keeps ~48/min at high speed, like v97)
   function pickType(mix) {
     let r = wRnd() * Object.values(mix).reduce((a, b) => a + b, 0);
     for (const [k, w] of Object.entries(mix)) { if ((r -= w) <= 0) return k; }
@@ -3991,7 +3995,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (st.nextSpawn >= stopAt) break;
       } else if (!st.introDone) {
         kind = wRnd() < 0.5 ? 'low' : 'high';
-      } else if (L.combos && wRnd() < L.combos) {
+      } else if (L.combos && !st.tightPrev && wRnd() < L.combos) {
         kind = 'combo';
       } else {
         kind = pickType(L.mix);
@@ -4010,10 +4014,23 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       // feet as the slide speeds up, so faster = more obstacles per second. Floor: never closer than 1.0-1.5 s apart
       // (jumps take a fixed time: a hop is ~0.45 s in the air), so it stays possible at any speed.
       // (v85-v96: the gap was in SECONDS, so the same number of obstacles per second at any speed.)
-      const r = 0.6 + wRnd() * 0.95;                                     // v85: rand(0.6, 1.55), shared in multiplayer
-      const gapFt = (L.gapStart + (L.gapEnd - L.gapStart) * along) * L.startSpeed * r;
-      const floorSec = 1.0 + (r - 0.6) * 0.5;                            // 1.0-1.475 s, same random draw, so the rhythm still varies
-      const gap = Math.max(gapFt, st.speed * floorSec + 0.8);            // always room to land and reset
+      // v98 RANDOM RHYTHM: v97's 1.0-1.475 s floor took over at speed, so gaps were nearly even and players could
+      // time them. Now each gap is one of: a tight CLUSTER (2-3 obstacles ~0.7-0.85 s apart: hop-able, a full big
+      // jump lands too late), a BREATHER (long gap), or a NORMAL gap with a wide range. Average density ~ v97.
+      const baseFt = (L.gapStart + (L.gapEnd - L.gapStart) * along) * L.startSpeed * 1.075;   // v97's average gap in feet
+      const baseSec = Math.max(baseFt / st.speed, GAP_BASE_MIN);         // average seconds between obstacles right now
+      let sec;
+      if (st.burstLeft > 0) {                                            // still inside a cluster
+        st.burstLeft--; sec = BURST_MIN + wRnd() * BURST_RANGE;
+      } else {
+        const p = wRnd();                                                // shared in multiplayer (wRnd), same on every device
+        if (p < BURST_P) { st.burstLeft = wRnd() < 0.6 ? 0 : 1; sec = BURST_MIN + wRnd() * BURST_RANGE; }   // cluster of 2 (60%) or 3
+        else if (p < BURST_P + BREATHER_P) sec = baseSec * (1.7 + wRnd() * 0.8);
+        else sec = baseSec * (0.75 + wRnd() * 0.7);
+      }
+      if (kind === 'combo') { st.burstLeft = 0; sec = Math.max(sec, baseSec); }   // a combo is already a cluster: no tight gap after it
+      st.tightPrev = sec < baseSec * 0.75;                               // no combo right after a tight gap
+      const gap = st.speed * sec + 0.8;                                  // +0.8 ft: room to land and reset
       st.nextSpawn += ft(gap + extraAfter);
     }
   }
@@ -4208,7 +4225,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v97d-2026-10-11';   // Discord build of v97-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v98d-2026-10-11';   // Discord build of v98-2026-10-11 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
