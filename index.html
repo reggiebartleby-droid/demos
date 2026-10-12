@@ -2669,7 +2669,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   });
   haloTex.wrapS = haloTex.wrapT = THREE.ClampToEdgeWrapping;
   const GLOW_GOLD = new THREE.Color(0xffb020);
-  const RIM_ALPHA = 0.8;   // v102: streak-aura edge 20% more see-through than v100/v101 (1 = v101 look)
+  const RIM_ALPHA = 0.5;   // v103: streak-aura edge is a flat 50% see-through at every streak level (v102: 0.8 x a level ramp, up to ~72%)
   // v100 streak-aura rim color: the duck's feather color pulled 40% toward warm gold, a bit richer and darker,
   // so the edge outside the ink outline looks like glowing feathers instead of a white line.
   const rimTint = (feather, out) => {
@@ -3214,7 +3214,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         this.halo.scale.setScalar((1.9 + 0.3 * lvl) * pulse);
       }
       if (aura && this._rimFor !== this.bodyColor) { this._rimFor = this.bodyColor; rimTint(this.bodyColor, this.rimMat.color); }   // v100
-      this.rimMat.opacity = aura ? RIM_ALPHA * Math.min(0.9, 0.5 + 0.08 * lvl) * (0.8 + 0.2 * pulse) : 0;   // v102: x RIM_ALPHA
+      this.rimMat.opacity = aura ? RIM_ALPHA : 0;   // v103: flat 50% (user), no level ramp or pulse
       for (const r of this.rims) r.visible = aura;
       const nMotes = aura ? Math.min(this.motes.length, 4 + 2 * lvl) : 0;   // 6 motes at level 1, 16 at level 6
       this.motes.forEach((sp, i) => {
@@ -4035,7 +4035,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v102-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v103-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -4202,6 +4202,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // =====================================================================
   const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxCjlxxeGOslsrBM2gbaC2uJ8O5UWC1eqMAqIP2kkHDq2i1DylQdDuqVBcLAEpPyBA_jQ/exec';   // Apps Script web app (Manage deployments)
   const sheet = { on: location.hostname.endsWith('github.io') && SHEET_URL.startsWith('https://script.google.com/'), note: '' };
+  // v103: the Discord copy can't reach script.google.com itself (Discord only lets an Activity reach addresses set up
+  // in its URL Mappings), so it sends the same row to the race server, which passes it on to the Sheet (POST .../sheet/run).
+  // sheet.on stays GitHub-only: it also turns on the typed-name box, which Discord doesn't need (it uses the Discord name).
+  sheet.discord = !!(window.JDF_DISCORD && window.JDF_DISCORD.inDiscord);
   // v97: where the Top 10 comes from: 'sheet' = GitHub copy (Google Sheet), 'race' = Discord (runs saved on the race server), '' = preview
   const boardSrc = (window.JDF_DISCORD && window.JDF_DISCORD.inDiscord && window.JDF_DISCORD.board) ? 'race' : sheet.on ? 'sheet' : '';
   let testerName = '';
@@ -4245,7 +4249,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     return out.length <= DETAILS_MAX ? out : out.slice(0, DETAILS_MAX);   // last resort (should never happen)
   }
   function sheetSend(doc) {
-    if (!sheet.on) return;
+    if (!sheet.on && !sheet.discord) return;   // v103: + Discord (through the race server)
     const device = myDevice();
     const details = sheetDetails(doc);
     const row = {
@@ -4257,6 +4261,22 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       device, screen: `${screen.width}x${screen.height}`, session: doc.session, runInSession: doc.runInSession, details,
     };
     sheet.note = 'Sending run to the test sheet…';
+    if (sheet.discord) {   // v103: Discord: through the race server, which answers {ok} once the Sheet has replied
+      const body = JSON.stringify(row);
+      sheet.sending = (async () => {
+        for (const url of ['/.proxy/race/sheet/run', '/race/sheet/run']) {   // same two paths as the sign-in code tries
+          try {
+            const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, cache: 'no-store', keepalive: body.length < 60000 });
+            const j = await r.json().catch(() => null);
+            if (j && typeof j.ok === 'boolean') { if (j.ok) return; throw new Error(String(j.error || 'refused')); }
+          } catch (e) { if (e && e.message && !(e instanceof TypeError)) throw e; }
+        }
+        throw new Error('no path');
+      })()
+        .then(() => { sheet.note = 'Run sent to the test sheet.'; noteSave(); })
+        .catch(e => { sheet.note = 'This run couldn\'t be sent to the test sheet (' + String((e && e.message) || e).slice(0, 40) + ').'; noteSave(); });
+      return;
+    }
     sheet.sending = fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', keepalive: details.length < 60000,
                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(row) })
       .then(() => { sheet.note = 'Run sent to the test sheet.'; noteSave(); })
@@ -4568,7 +4588,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
   function noteSave() {
     const el = $('saveNote'); if (!el) return;
-    if (sheet.on) { el.textContent = sheet.note; return; }   // v40: the GitHub copy reports the sheet send instead
+    if (sheet.on || (sheet.discord && sheet.note)) { el.textContent = sheet.note; return; }   // v40: the GitHub copy reports the sheet send instead (v103: Discord too)
     el.textContent = tele.lastSave === 'saved' ? 'Run saved for Claude to analyze.'
       : tele.lastSave === 'saving' ? 'Saving run…'
       : tele.lastSave === 'failed' ? 'This run couldn\'t be saved.'
