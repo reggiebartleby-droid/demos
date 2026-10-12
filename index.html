@@ -4119,7 +4119,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v108-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v109-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -5134,6 +5134,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  Height = 9 x sqrt(worth) px, capped at 28% of the screen (max 240 px): early eggs show, big runs don't bury the buttons.
   //  Stages: Nest (first egg) -> Mound 15 -> Heap 60 (sparkles) -> Hoard 160 (crown). Each stage-up flashes its name.
   //  Award eggs (green speed, orange streak, big gold top 10) leave a gem in the hoard. Resets every race.
+  //  v109 FULL HOARD: the hoard stops getting taller at the Hoard stage (CAP_WORTH eggs, about 114 px), so a long run
+  //  can't bury the duck. After that, every egg that sinks in makes the hoard shake and spills a few gold eggs
+  //  down its sides and off onto the floor (decoration only; every egg still counts).
   // =====================================================================
   const pile = (() => {
     const cv = document.createElement('canvas'); cv.id = 'eggPile'; cv.setAttribute('aria-hidden', 'true');
@@ -5150,7 +5153,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v56 PERF: the packed-egg texture is painted ONCE (page load / resize) onto `field`; each hoard repaint just
     // cuts the mound shape out of it (1 drawing instead of up to 320).
     const field = document.createElement('canvas'), fctx = field.getContext('2d');
-    const MAXH = () => Math.min(H * 0.28, 240);   // tallest the hoard gets
+    const CAP_WORTH = 160;                          // v109: the hoard stops getting taller here (= the Hoard stage)
+    const MAXH = () => Math.min(H * 0.28, 240, 9 * Math.sqrt(CAP_WORTH));   // tallest the hoard gets
+    const SHAKE_T = 0.35, SPILL_MAX = 40;           // v109: shake length (s), most spilled eggs on screen at once
+    let shakeT = 0, spills = [];                    // v109
     let W = 0, H = 0, dpr = 1, drewLast = true;
     const rnd = s => { const x = Math.sin(s * 999.13) * 43758.5; return x - Math.floor(x); };   // same "random" every repaint
     const pileH = v => Math.min(MAXH(), 9 * Math.sqrt(v));
@@ -5280,10 +5286,31 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const before = stageOf(worth); worth += e.worth;
       if (e.special || e.r > R * 1.5) gems.push({ dx: (Math.random() - .5) * 1.3, dy: Math.random() * .6, kind: e.kind, size: e.r > R * 2 ? 1.5 : 1 });
       const after = stageOf(worth);
+      if (worth >= CAP_WORTH) spillOver(e);   // v109: full: shake and spill instead of growing
       if (after > before) { probe.mark('stage'); flash = { text: STAGES[after] + '!', age: 0 }; rings.push({ x: W / 2, y: H - pileH(worth), kind: 'gold', age: 0, life: .7 }); }
       dirty = true;   // repainted once at the end of this frame, however many eggs sank in
     }
+    function spillOver(e) {   // v109: the hoard shakes and 2-3 gold eggs tumble down its sides (more for award eggs)
+      shakeT = SHAKE_T;
+      const n = Math.min(SPILL_MAX - spills.length, (e.special || e.r > R * 1.5 ? 5 : 2) + (Math.random() < .5 ? 1 : 0));
+      const w = pileW(worth), cx = W / 2;
+      for (let i = 0; i < n; i++) {
+        const side = Math.random() < .5 ? -1 : 1, x = cx + side * Math.random() * w * .25;
+        spills.push({ x, y: surf(x) - R, vx: side * (60 + Math.random() * 120), vy: -160 - Math.random() * 160,
+                      rot: Math.random() * 6, vr: side * (4 + Math.random() * 6), age: 0, life: 1.6 + Math.random() * .6, bounced: 0 });
+      }
+    }
+    function spillStep(q, dt) {   // v109: roll down the hoard's slope, bounce on the floor, fade
+      q.age += dt; q.vy += G * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt;
+      const floor = surf(q.x) - R * .7;
+      if (q.y > floor && q.vy > 0) {
+        q.y = floor;
+        if (floor >= H - R) { q.vy = q.bounced++ < 2 ? -q.vy * .35 : 0; q.vx *= .8; }   // on the floor: small bounces
+        else { q.vy = -q.vy * .2; q.vx += Math.sign(q.vx || 1) * 220 * dt * 4; }      // on the slope: roll outward
+      }
+    }
     function reset() {
+      shakeT = 0; spills = []; bake.style.transform = '';   // v109
       eggs = []; bits = []; rings = []; gems = []; worth = 0; shown = false; flash = null; drewLast = true; dirty = false;
       ch = null; spl = []; for (const c of [cv, bake]) c.classList.remove('front', 'half');   // v63
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); redraw(true);
@@ -5324,11 +5351,18 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (flash && (flash.age += dt) > 1.6) flash = null;
         if (ch) champStep(dt);                                // v63
         for (const q of spl) splStep(q, dt);
+        for (const q of spills) spillStep(q, dt);                 // v109
+        spills = spills.filter(q => q.age < q.life && q.x > -20 && q.x < W + 20);
+        if (shakeT > 0) {                                         // v109: shake the hoard picture (a CSS move: no repaint)
+          shakeT = Math.max(0, shakeT - dt);
+          const k = shakeT / SHAKE_T, a = 3.5 * k;
+          bake.style.transform = shakeT > 0 ? `translate(${(Math.sin(tw * 90) * a).toFixed(1)}px, ${(Math.cos(tw * 70) * a * .5).toFixed(1)}px)` : '';
+        }
         spl = spl.filter(q => q.age < q.life);
         if (dirty && tw - lastPaint >= 0.1) { dirty = false; redraw(); }   // v56: at most 10 repaints a second
       }
       const stage = stageOf(worth);
-      const busy = eggs.length || rings.length || bits.length || flash || spl.length || (stage >= 2 && dt > 0)
+      const busy = eggs.length || rings.length || bits.length || flash || spl.length || spills.length || (stage >= 2 && dt > 0)
         || (ch && ch.phase !== 'wait' && dt > 0);              // v63: the champion breathes on the hoard
       if (!busy && !drewLast) return;                         // nothing moving and already cleared: skip the frame
       drewLast = !!busy;
@@ -5347,6 +5381,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           const x = cx - w * .8 + rnd(i + 200) * w * 1.6, y = surf(x) + 4 + rnd(i + 300) * 24, a = .5 + .5 * Math.sin(tw * 5 + i * 1.7);
           ctx.fillStyle = `rgba(255,248,214,${a.toFixed(2)})`; ctx.fillRect(x - 1, y - 5, 2, 10); ctx.fillRect(x - 5, y - 1, 10, 2);
         }
+      }
+      for (const q of spills) {                               // v109: spilled eggs (fade out at the end)
+        const w = R * 2 * .86, hgt = R * 2 * 1.06;
+        ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, (q.life - q.age) / .4)); ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+        ctx.drawImage(spr.gold, -w / 2, -hgt / 2, w, hgt); ctx.restore();
       }
       for (const e of eggs) paint(e);
       if (ch && ch.phase !== 'wait') drawChamp();             // v63: champion (in front of falling eggs)
