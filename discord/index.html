@@ -1091,7 +1091,8 @@ window.JDF_DISCORD = (function () {
 
   // Difficulty has two separate dials:
   //   SPEED   - how fast obstacles arrive (startSpeed, then speed-ups during the level)
-  //   DENSITY - how much time between obstacles (gapStart -> gapEnd, in seconds)
+  //   DENSITY - how far apart obstacles are (gapStart -> gapEnd, in seconds AT THE START SPEED; v97: kept as
+  //             that many feet as the slide speeds up, never closer than 1 s apart)
   // Each new chapter loosens density again (a "sawtooth" curve): learn the new thing
   // in easy conditions, then get squeezed.
   function buildLevel(ci, n) {
@@ -3222,6 +3223,21 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       for (const o of st.obs) {
         if (o.res[this.slot]) continue;
         const phi = o.theta - this.progress;   // angle from this duck to the obstacle
+        // v97 SWEPT CHECK: at very high speed (or on a laggy frame) one sim step can carry the duck clear across the
+        // 0.52 ft hit window, so it was never checked inside and got a free dodge. If it went from in front to behind
+        // without a check inside, run the hit test now, with the duck's current height and duck state.
+        const inside = Math.abs(phi) < this.hitAngle;
+        const skipped = phi < -this.hitAngle && !(o.inW && o.inW[this.slot]);
+        if ((inside || skipped) && !this.fall) {
+          (o.inW || (o.inW = []))[this.slot] = true;
+          const foot = this.jumpY, top = foot + (this.ducking ? DUCK_H : STAND_H);
+          const hit = o.type === 'low' ? foot < LOW_H : o.type === 'tall' ? foot < TALL_H : top > HIGH_BOTTOM;
+          if (hit && this.isPlayer && godMode) { st.godUsed = true; (o.spared || (o.spared = []))[this.slot] = true; continue; }
+          if (hit && this.invuln > 0) { (o.spared || (o.spared = []))[this.slot] = true; continue; }
+          // v36 GLOW SHIELD (player only): a glowing duck that gets hit loses the glow instead of a stumble
+          if (hit && this.isPlayer && this.streak >= GLOW_STREAK) { this.shieldBreak(o); MP.res(this, 'shield', o); continue; }
+          if (hit) { o.res[this.slot] = true; o.hit[this.slot] = true; if (this.isPlayer) teleObstacle(o, true, phi); this.stumble(); MP.hit(this, o); return; }
+        }
         if (phi < -this.hitAngle) {
           o.res[this.slot] = true;
           if (this.fall) continue;
@@ -3230,15 +3246,6 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
             o.hit[this.slot] = null; if (this.isPlayer) teleObstacle(o, false, phi, true); MP.res(this, 'spare', o);
           } else { o.hit[this.slot] = false; if (this.isPlayer) teleObstacle(o, false, phi); MP.res(this, 'dodge', o); this.dodged(); }
           continue;
-        }
-        if (Math.abs(phi) < this.hitAngle && !this.fall) {
-          const foot = this.jumpY, top = foot + (this.ducking ? DUCK_H : STAND_H);
-          const hit = o.type === 'low' ? foot < LOW_H : o.type === 'tall' ? foot < TALL_H : top > HIGH_BOTTOM;
-          if (hit && this.isPlayer && godMode) { st.godUsed = true; (o.spared || (o.spared = []))[this.slot] = true; continue; }
-          if (hit && this.invuln > 0) { (o.spared || (o.spared = []))[this.slot] = true; continue; }
-          // v36 GLOW SHIELD (player only): a glowing duck that gets hit loses the glow instead of a stumble
-          if (hit && this.isPlayer && this.streak >= GLOW_STREAK) { this.shieldBreak(o); MP.res(this, 'shield', o); continue; }
-          if (hit) { o.res[this.slot] = true; o.hit[this.slot] = true; if (this.isPlayer) teleObstacle(o, true, phi); this.stumble(); MP.hit(this, o); return; }
         }
       }
     }
@@ -3999,10 +4006,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       }
       st.spawned++;
       const along = Math.min(1, st.nextSpawn / st.finishTheta);          // 0 at start, 1 at finish
-      // Wider random spread so the rhythm is less predictable (the minimum below keeps it fair)
-      const gapSec = (L.gapStart + (L.gapEnd - L.gapStart) * along) * (0.6 + wRnd() * 0.95);   // v85: rand(0.6, 1.55), shared in multiplayer
-      let gap = st.speed * gapSec;                                       // seconds -> feet
-      gap = Math.max(gap, st.speed * 1.0 + 0.8);                         // always room to land and reset
+      // v97 SPACING BY TRACK LENGTH: the level's gap is turned into FEET at the level's start speed and stays that many
+      // feet as the slide speeds up, so faster = more obstacles per second. Floor: never closer than 1.0-1.5 s apart
+      // (jumps take a fixed time: a hop is ~0.45 s in the air), so it stays possible at any speed.
+      // (v85-v96: the gap was in SECONDS, so the same number of obstacles per second at any speed.)
+      const r = 0.6 + wRnd() * 0.95;                                     // v85: rand(0.6, 1.55), shared in multiplayer
+      const gapFt = (L.gapStart + (L.gapEnd - L.gapStart) * along) * L.startSpeed * r;
+      const floorSec = 1.0 + (r - 0.6) * 0.5;                            // 1.0-1.475 s, same random draw, so the rhythm still varies
+      const gap = Math.max(gapFt, st.speed * floorSec + 0.8);            // always room to land and reset
       st.nextSpawn += ft(gap + extraAfter);
     }
   }
@@ -6383,7 +6394,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     } else if (mode === 'play' || mode === 'cleared') {
       // Substeps: at high speed one frame could carry a duck past an obstacle's whole hit window
       // (0.52 ft), so the sim runs in slices of at most SUB_FT feet of travel.
-      const n = Math.min(8, Math.max(1, Math.ceil((st.speed || 0) * simDt / SUB_FT)));
+      const n = Math.min(64, Math.max(1, Math.ceil((st.speed || 0) * simDt / SUB_FT)));   // v97: cap 8 -> 64 (8 wasn't enough past ~80 ft/s on a laggy frame)
       for (let k = 0; k < n && (mode === 'play' || mode === 'cleared' || mode === 'dying'); k++) simStep(simDt / n, dt / n);
       if (mode === 'play') hudFrame();
     } else if (mode === 'dying') {
