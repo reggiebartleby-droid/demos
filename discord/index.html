@@ -4194,6 +4194,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
   const spaceK = () => Math.max(1, PHY.airK);   // course spacing: only ever stretched (Moon), never squeezed
 
+  // v114 DISCORD RACE SPACING: a multiplayer race uses these numbers instead of the host's level, so every race starts
+  // equally busy no matter how far the host has progressed (user: "sometimes in the beginning there are not enough
+  // obstacles"). Level 1-1 was gapStart 3.4 s (avg ~3.7 s at the start) + 3.5 s warm-up. Tune here.
+  const MP_SPACING = { gapStart: 2.4, gapEnd: 1.9, warmup: 2.5 };   // seconds; average start gap ~2.6 s (x1.075)
+  function raceLevel(L) {
+    return MP.on && !MP.solo ? Object.assign({}, L, MP_SPACING) : L;   // a copy: LEVELS itself is never changed
+  }
   // The level, adjusted for this race's twist (a copy: LEVELS itself is never changed)
   function twLevel(L) {
     if (TW.id === 'photo') return Object.assign({}, L, { startSpeed: L.startSpeed * 1.8, lengthCoils: L.lengthCoils * 0.55, warmup: 2.5 });
@@ -4992,7 +4999,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v113d-2026-10-12';   // Discord build of v113-2026-10-12 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v114d-2026-10-12';   // Discord build of v114-2026-10-12 (made by Make-JDF-Discord.ps1)   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -6484,7 +6491,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     teleNext(idx === levelIdx ? 'retry' : idx === levelIdx + 1 ? 'next' : 'other level');
     levelIdx = Math.min(idx, LEVELS.length - 1);
     twReset(TW.next); TW.next = '';   // v113: this race's twist
-    const L = twLevel(LEVELS[levelIdx]);
+    const L = twLevel(raceLevel(LEVELS[levelIdx]));   // v114: fixed spacing in Discord races
     runId++;
     resetFor(L);
     twAfterReset();
