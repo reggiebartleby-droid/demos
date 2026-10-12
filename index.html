@@ -2669,6 +2669,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   });
   haloTex.wrapS = haloTex.wrapT = THREE.ClampToEdgeWrapping;
   const GLOW_GOLD = new THREE.Color(0xffb020);
+  // v100 streak-aura rim color: the duck's feather color pulled 40% toward warm gold, a bit richer and darker,
+  // so the edge outside the ink outline looks like glowing feathers instead of a white line.
+  const rimTint = (feather, out) => {
+    out.set(feather).lerp(GLOW_GOLD, 0.4);
+    const hsl = {}; out.getHSL(hsl);
+    return out.setHSL(hsl.h, Math.min(1, hsl.s + 0.15), Math.min(0.58, hsl.l * 0.9));
+  };
   const waveMat = new THREE.MeshStandardMaterial({ color: 0x6fd3ff, emissive: 0x1b6a96, emissiveIntensity: 0.6, transparent: true, opacity: 0.82, roughness: 0.2 });
   const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   function makeWave() {
@@ -2841,7 +2848,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xffd23f, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       this.halo.position.set(0, 0.75, 0); this.halo.visible = false; this.model.lean.add(this.halo);
       // v32 hero aura (Octopath-style): bright gold rim around the body + light motes rising off the duck
-      this.rimMat = new THREE.MeshBasicMaterial({ color: 0xffd86a, transparent: true, opacity: 0, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false });
+      // v100: rim is no longer additive pale gold (it read as a white edge outside the ink outline); it's now a
+      // normal-blended warm tint of the duck's own feather color (see rimTint), set when the glow is on.
+      this.rimMat = new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false });
+      this._rimFor = null;
       this.rims = [];
       {   // v72: the new duck carries a ready-made rim shape (all body pieces, each grown 16%)
         const r = new THREE.Mesh(this.model.rimGeo, this.rimMat);
@@ -3202,7 +3212,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         this.halo.material.opacity = Math.min(1, 0.65 + 0.07 * lvl) * pulse;
         this.halo.scale.setScalar((1.9 + 0.3 * lvl) * pulse);
       }
-      this.rimMat.opacity = aura ? Math.min(0.95, 0.55 + 0.08 * lvl) * (0.8 + 0.2 * pulse) : 0;
+      if (aura && this._rimFor !== this.bodyColor) { this._rimFor = this.bodyColor; rimTint(this.bodyColor, this.rimMat.color); }   // v100
+      this.rimMat.opacity = aura ? Math.min(0.9, 0.5 + 0.08 * lvl) * (0.8 + 0.2 * pulse) : 0;
       for (const r of this.rims) r.visible = aura;
       const nMotes = aura ? Math.min(this.motes.length, 4 + 2 * lvl) : 0;   // 6 motes at level 1, 16 at level 6
       this.motes.forEach((sp, i) => {
@@ -3704,14 +3715,23 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const w = st.speed / RP;
     return !st.obs.some(o => { const t = (o.theta - wRef()) / w; return t < ahead && t > -behind; });
   }
-  const QUIET = 1.2;   // seconds kept clear on each side of a speed-up
+  const QUIET = 0.8;   // seconds kept clear on each side of a speed-up (v99: was 1.2; with the 0.55 s combo margin that left ~3 s holes)
   const stepEvery = () => st.solo ? 5.5 : st.overtime ? 7 : st.level.stepEvery;   // v34 solo: every 5.5 s
   const stepMult = () => st.solo ? 1.18 : st.overtime ? 1.15 : st.level.stepMult;   // v34 solo: +18% per step   // overtime keeps ramping
-  const quiet = () => st.overtime ? 0.8 : QUIET;
+  const quiet = () => st.overtime ? 0.6 : QUIET;   // v99: overtime 0.8 -> 0.6
+  // v99: clear time BEFORE a speed-up. The speed-up only needs nothing 0.3 s behind the duck, so 0.45 s (overtime 0.4) is
+  // enough; the old 1.2 s + 0.55 s combo margin made ~3 s holes. A combo that would overlap the zone becomes a single.
+  const zoneBefore = () => st.overtime ? 0.4 : 0.45;
   // v98 random rhythm (see spawn()): tune here.
-  const BURST_P = 0.22, BREATHER_P = 0.15;   // chance a gap starts a cluster / is a long breather
+  const BURST_P = 0.22, BREATHER_P = 0.08;   // chance a gap starts a cluster / is a longer breather (v99: 0.15 -> 0.08)
   const BURST_MIN = 0.68, BURST_RANGE = 0.17; // cluster gaps 0.68-0.85 s (a hop is ~0.45 s in the air + landing)
   const GAP_BASE_MIN = 1.1;                   // average gap never below 1.1 s (keeps ~48/min at high speed, like v97)
+  // v100 HEAT: clusters get more common, longer and a bit tighter as the slide gets faster (user: "still not multiple
+  // in a small period at higher speeds"). heat 0 at <= 9 ft/s, 1 at >= 15 ft/s; overtime counts as full heat.
+  //   cluster chance 0.22 -> 0.40 | size: 2/3 -> 2/3/4 (4 = 25% at full heat) | cluster gap 0.68-0.85 -> 0.62-0.78 s
+  //   (a hop is ~0.45 s in the air, so 0.62 s still lands and resets) | normal gaps stretch up to +15% to pay for it.
+  const HEAT_LO = 9, HEAT_HI = 15, BURST_P_HOT = 0.40, BURST_TIGHTEN = 0.06, BURST4_P_HOT = 0.25, NORMAL_STRETCH = 0.15;
+  const heat = () => st.overtime ? 1 : Math.min(1, Math.max(0, (st.speed - HEAT_LO) / (HEAT_HI - HEAT_LO)));
   function pickType(mix) {
     let r = wRnd() * Object.values(mix).reduce((a, b) => a + b, 0);
     for (const [k, w] of Object.entries(mix)) { if ((r -= w) <= 0) return k; }
@@ -3741,7 +3761,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const w = st.speed / RP;
       const upAt = st.levelTime + Math.max(0, stepEvery() - st.stepTimer);
       const arrive = st.levelTime + (st.nextSpawn - wRef()) / w;
-      if (arrive > upAt - quiet() - COMBO_GAP && arrive < upAt + quiet()) {
+      if (arrive > upAt - zoneBefore() && arrive < upAt + quiet()) {   // v99: before-side 0.45 s (was quiet + COMBO_GAP = 1.75 s)
         st.nextSpawn = wRef() + (upAt + quiet() + 0.05 - st.levelTime) * w;   // skip past the quiet zone
         continue;
       }
@@ -3752,7 +3772,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (st.nextSpawn >= stopAt) break;
       } else if (!st.introDone) {
         kind = wRnd() < 0.5 ? 'low' : 'high';
-      } else if (L.combos && !st.tightPrev && wRnd() < L.combos) {
+      } else if (L.combos && !st.tightPrev && !(arrive + COMBO_GAP > upAt - zoneBefore() && arrive < upAt + quiet()) && wRnd() < L.combos) {
         kind = 'combo';
       } else {
         kind = pickType(L.mix);
@@ -3777,15 +3797,28 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const baseFt = (L.gapStart + (L.gapEnd - L.gapStart) * along) * L.startSpeed * 1.075;   // v97's average gap in feet
       const baseSec = Math.max(baseFt / st.speed, GAP_BASE_MIN);         // average seconds between obstacles right now
       let sec;
+      const h = heat(), bMin = BURST_MIN - BURST_TIGHTEN * h, bRange = BURST_RANGE - 0.01 * h;   // v100
+      const burstP = BURST_P + (BURST_P_HOT - BURST_P) * h;
       if (st.burstLeft > 0) {                                            // still inside a cluster
-        st.burstLeft--; sec = BURST_MIN + wRnd() * BURST_RANGE;
+        st.burstLeft--; sec = bMin + wRnd() * bRange;
       } else {
         const p = wRnd();                                                // shared in multiplayer (wRnd), same on every device
-        if (p < BURST_P) { st.burstLeft = wRnd() < 0.6 ? 0 : 1; sec = BURST_MIN + wRnd() * BURST_RANGE; }   // cluster of 2 (60%) or 3
-        else if (p < BURST_P + BREATHER_P) sec = baseSec * (1.7 + wRnd() * 0.8);
-        else sec = baseSec * (0.75 + wRnd() * 0.7);
+        if (p < burstP) {                                                // cluster of 2, 3 or (hot) 4
+          const q = wRnd();
+          st.burstLeft = q < BURST4_P_HOT * h ? 2 : q < 0.6 - 0.2 * h ? 0 : 1;
+          sec = bMin + wRnd() * bRange;
+        }
+        else if (p < burstP + BREATHER_P) sec = Math.min(baseSec * (1.3 + wRnd() * 0.3), baseSec + 0.7);   // v99: was 1.7-2.5x (up to 4 s at race speeds)
+        else sec = baseSec * (0.8 + wRnd() * 0.6) * (1 + NORMAL_STRETCH * h);
       }
       if (kind === 'combo') { st.burstLeft = 0; sec = Math.max(sec, baseSec); }   // a combo is already a cluster: no tight gap after it
+      // v99: if the next obstacle would land in the speed-up's clear zone, pull it in to just before the zone when
+      // that still leaves a safe gap, instead of pushing it past (push + clear zone = a lone obstacle with holes around it).
+      const arriveThis = st.levelTime + (st.nextSpawn - wRef()) / w;
+      const zoneA = upAt - zoneBefore();
+      if (!extraAfter && arriveThis + sec > zoneA && arriveThis + sec < upAt + quiet() && zoneA - 0.02 - arriveThis >= BURST_MIN + 0.1) {
+        sec = zoneA - 0.02 - arriveThis - 0.8 / st.speed;
+      }
       st.tightPrev = sec < baseSec * 0.75;                               // no combo right after a tight gap
       const gap = st.speed * sec + 0.8;                                  // +0.8 ft: room to land and reset
       st.nextSpawn += ft(gap + extraAfter);
@@ -3982,7 +4015,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v98-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v100-2026-10-11';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -5922,10 +5955,21 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // v55: PLAY_AREA_KEY = false turns the O key off too, so the outline can't appear at all during testing.
   const SHOW_PLAY_AREA = false, PLAY_AREA_KEY = false;
   let playAreaOn = SHOW_PLAY_AREA;
+  // v99 SCREEN JUMP FIX: a held button is pushed down 4 px (.pad.down). With BOTH held (duck + jump), the play area
+  // looked 4 px shorter, so the twice-a-second camera check re-fit the camera and the whole picture shifted, then
+  // shifted back on release. Measure each button where it sits un-pressed (no transition, so nothing flickers).
+  function padTop(el) {
+    if (!el.classList.contains('down')) return el.getBoundingClientRect().top;
+    el.style.transition = 'none'; el.style.transform = 'none';
+    const t = el.getBoundingClientRect().top;
+    el.style.transform = ''; el.getBoundingClientRect();   // back to pressed, applied instantly
+    el.style.transition = '';
+    return t;
+  }
   function playAreaRect() {
     const trk = $('tracker').classList.contains('hidden') ? $('hud') : $('tracker');
     const top = toStage(0, trk.getBoundingClientRect().bottom)[1];
-    const bottom = toStage(0, Math.min($('duckPad').getBoundingClientRect().top, $('jumpPad').getBoundingClientRect().top))[1];
+    const bottom = toStage(0, Math.min(padTop($('duckPad')), padTop($('jumpPad'))))[1];
     return { top, bottom, width: viewW(), height: Math.max(0, bottom - top) };
   }
   function drawPlayArea() {
@@ -6035,7 +6079,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const els = [$('hud'), $('tracker'), $('pads')], hid = els.filter(el => el.classList.contains('hidden'));
     hid.forEach(el => { el.style.visibility = 'hidden'; el.classList.remove('hidden'); });
     const top = toStage(0, $('tracker').getBoundingClientRect().bottom)[1] + 4;
-    const bottom = toStage(0, Math.min($('duckPad').getBoundingClientRect().top, $('jumpPad').getBoundingClientRect().top))[1] - 2;
+    const bottom = toStage(0, Math.min(padTop($('duckPad')), padTop($('jumpPad'))))[1] - 2;
     hid.forEach(el => { el.classList.add('hidden'); el.style.visibility = ''; });
     const box = { top, bottom };
     if (showing) fitBox = box;
@@ -6114,7 +6158,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         st.stepTimer += simDt;
         // Speed-ups only happen in a quiet stretch: nothing within ~1 s of the duck.
         if (st.stepTimer >= stepEvery()) {
-          if (quietAroundPlayer(st.overtime ? 0.6 : 1.0, 0.3)) {
+          if (quietAroundPlayer(st.overtime ? 0.5 : 0.7, 0.3)) {   // v99: 1.0/0.6 -> 0.7/0.5 (must stay below quiet())
             st.stepTimer = 0; st.tier++;
             st.targetSpeed *= stepMult(); st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
             awardsOnSpeed();   // v51
