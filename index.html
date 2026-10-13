@@ -4354,6 +4354,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const n = twPool().length, f = twOf(twCfg.force);
     b.textContent = !twCfg.on ? '🎲 Twists: Off' : f ? `🎲 Twist: always ${f.name}` : `🎲 Twists: On (${n} of ${TWISTS.length})`;
   }
+  const twTuneInputs = {};   // v130
   function openTwists() {
     mode = 'twists';
     const box = $('twList'); box.textContent = '';
@@ -4382,12 +4383,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           const row = el('label'), inp = document.createElement('input');
           const cur = twCfg.tune[u.k] != null && Number.isFinite(+twCfg.tune[u.k]) ? Math.min(u.max, Math.max(u.min, +twCfg.tune[u.k])) : u.def;
           inp.type = u.ui === 'slider' ? 'range' : 'number'; inp.min = u.min; inp.max = u.max; inp.step = u.step; inp.value = cur;
+          twTuneInputs[u.k] = inp;   // v130: Copy values reads what's on screen
           row.append(el('span', u.lbl), inp);
           if (u.ui === 'slider') {
             const out = el('output', u.fmt(cur)); row.append(out);
-            inp.addEventListener('input', () => { const v = +inp.value; out.textContent = u.fmt(v); twCfg.tune[u.k] = v; twSave(); });
+            const save = () => { const v = +inp.value; out.textContent = u.fmt(v); twCfg.tune[u.k] = v; twSave(); };
+            inp.addEventListener('input', save); inp.addEventListener('change', save);   // v130: both events
           } else {
             inp.inputMode = 'decimal';
+            inp.addEventListener('input', () => { const v = parseFloat(inp.value); if (Number.isFinite(v)) { twCfg.tune[u.k] = Math.min(u.max, Math.max(u.min, v)); twSave(); } });   // v130: save while typing (iPhone may not fire change before Copy)
             inp.addEventListener('change', () => {
               let v = parseFloat(inp.value);
               if (!Number.isFinite(v)) v = u.def;
@@ -4410,6 +4414,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       $('twNone').addEventListener('click', () => { twCfg.off = TWISTS.map(t => t.id); twSave(); openTwists(); });
       $('twBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
       $('twCopy').addEventListener('click', () => {   // v128: copy the tuning values to send to Claude
+        for (const u of TUNE) {   // v130: take the values straight from the on-screen boxes and sliders, and save them
+          const inp = twTuneInputs[u.k], v = inp ? parseFloat(inp.value) : NaN;
+          if (Number.isFinite(v)) twCfg.tune[u.k] = Math.min(u.max, Math.max(u.min, v));
+        }
+        twSave();
         const vals = {}; for (const u of TUNE) { const v = +twCfg.tune[u.k]; vals[u.k] = twCfg.tune[u.k] != null && Number.isFinite(v) ? Math.min(u.max, Math.max(u.min, v)) : u.def; }
         const txt = 'JDF tuning ' + BUILD + ': ' + JSON.stringify(vals);
         const out = $('twCopyOut'); out.value = txt; out.classList.remove('hidden');
@@ -4792,7 +4801,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v129-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v130-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
