@@ -106,8 +106,8 @@
   .upbar.flash { animation: upflash .6s ease-out; }
   @keyframes upflash { from { box-shadow: 0 0 0 4px rgba(57,208,255,.7); } to { box-shadow: 0 0 0 0 rgba(57,208,255,0); } }
   .speed { font-family: "Bungee", "Impact", sans-serif; font-size: 17px; margin-top: 8px; font-variant-numeric: tabular-nums; }
-  /* v123 SPEEDOMETER: big bright-red slide speed, just under the duck tracker (floats over the slide; doesn't shrink the play area) */
-  .speedo { flex: 1 1 100%; margin-top: 6px; text-align: center; font: 400 44px/1 "Bungee", "Impact", sans-serif; color: #ff1a1a;
+  /* v123 SPEEDOMETER (v127: 22px, was 44px): big bright-red slide speed, just under the duck tracker (floats over the slide; doesn't shrink the play area) */
+  .speedo { flex: 1 1 100%; margin-top: 6px; text-align: center; font: 400 22px/1 "Bungee", "Impact", sans-serif; color: #ff1a1a;
     text-shadow: 0 0 10px rgba(255,26,26,.75), 0 3px 0 rgba(0,0,0,.55); font-variant-numeric: tabular-nums; pointer-events: none; }
   .speedo small { font-size: .45em; }
 
@@ -580,6 +580,14 @@
   .tw-item b { display: block; font-size: 15px; }
   .tw-item small { display: block; color: var(--ink-dim, #bbb); font-size: 12.5px; line-height: 1.3; }
   .tw-force { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--ink-dim, #bbb); }
+  .tw-tune { margin: -2px 0 4px 39px; padding: 6px 9px; border-radius: 10px; background: rgba(255,226,122,.08); display: flex; flex-direction: column; gap: 6px; font-size: 13px; }   /* v128 */
+  .tw-tune label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #fff4e0; }
+  .tw-tune label > span:first-child { flex: 1 1 140px; }
+  .tw-tune input[type=range] { flex: 1 1 140px; min-width: 120px; accent-color: #ffd23f; }
+  .tw-tune input[type=number] { width: 82px; font: 600 14px "Space Grotesk", system-ui, sans-serif; padding: 5px 6px; border-radius: 8px; border: 0; }
+  .tw-tune output { min-width: 58px; text-align: right; font-weight: 700; color: #ffd23f; }
+  .tw-tune-h { margin-top: 12px; font-size: 13px; color: var(--ink-dim, #bbb); }
+  #twCopyOut { width: 100%; box-sizing: border-box; margin-top: 6px; font: 12px/1.3 monospace; }
   .tw-force select { flex: 1; min-width: 0; font: 600 14px "Space Grotesk", system-ui, sans-serif; padding: 7px; border-radius: 10px; }
 </style>
 </head>
@@ -706,6 +714,9 @@
     <button class="btn" id="twOnBtn">Twists: On</button>
     <div class="tw-force"><label for="twForce">Testing: always</label><select id="twForce"></select></div>
     <div class="btn-row"><button class="btn ghost" id="twAll">All</button><button class="btn ghost" id="twNone">None</button></div>
+    <p class="tw-tune-h">Tuning settings under each twist apply to solo races only (Discord races use the normal values). They stay saved on this device.</p>   <!-- v128 -->
+    <button class="btn ghost" id="twCopy">Copy values</button>
+    <textarea id="twCopyOut" class="hidden" rows="4" readonly></textarea>
     <div class="tw-list" id="twList"></div>
   </div>
 </div>
@@ -992,6 +1003,12 @@
   const SKY = new THREE.Color(0x14103a);
   scene.background = SKY;
   scene.fog = new THREE.Fog(SKY, 14, 44);
+  {   // v128: fog shader reads a thickness cap packed into fogNear (see FOG_CAP); normal fog (near < 1000) is unchanged
+    const a = 'float fogFactor = smoothstep( fogNear, fogFar, fogDepth );';
+    if (THREE.ShaderChunk.fog_fragment.includes(a)) THREE.ShaderChunk.fog_fragment = THREE.ShaderChunk.fog_fragment.replace(a,
+      'float fogCode = floor( fogNear / 1000.0 );\n\t\tfloat fogFactor = smoothstep( fogNear - fogCode * 1000.0, fogFar, fogDepth ) * ( fogCode >= 1.0 ? ( fogCode - 1.0 ) / 100.0 : 1.0 );');
+    else console.warn('fog cap patch: chunk not found');
+  }
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 160);
   // v29 CAMERA: the same angle as the first PC view (16.6 ft out, 4.6 ft up, ~17 degrees down), on every
   // screen. The view widens (zoom) until the slide fits the screen width, then shifts so the slide sits
@@ -3829,7 +3846,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     { id: 'photo',  icon: '📸', name: 'Photo Finish',     desc: 'Starts at top speed. A short, wild race' },
     { id: 'hawk',   icon: '🦅', name: 'Hawk Strike',      desc: 'Hawks dive into random lanes. Watch for the red shadow' },
     { id: 'fog',    icon: '🌫️', name: 'Fog',              desc: 'Obstacles only show up when they\'re close' },
-    { id: 'combo',  icon: '🔗', name: 'Combo Course',     desc: 'Lots of hop-then-duck pairs' },
+    { id: 'combo',  icon: '🔗', name: 'Combo Course',     desc: 'Every obstacle is a hop-then-duck pair' },
     { id: 'moon',   icon: '🌙', name: 'Moon Gravity',     desc: 'Floaty, slow jumps' },
     { id: 'heavy',  icon: '🪨', name: 'Heavy Duck',       desc: 'Short, quick hops and a slow duck' },
     { id: 'flip',   icon: '🔄', name: 'Backwards Day',    desc: 'Jump and Duck are swapped' },
@@ -3851,6 +3868,30 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     return d;
   })();
   const twSave = () => { try { localStorage.setItem(TW_KEY, JSON.stringify(twCfg)); } catch (e) {} };
+  // v128 TUNING (solo races only): per-twist test values from the Twists screen, saved in twCfg.tune.
+  //  box = type any number (clamped to min..max); slider = min..max in steps.
+  const TUNE = [
+    { tw: 'rush',  k: 'rushPct',    lbl: 'Speed-up per wash-out (%)',      ui: 'box',    def: 15,    min: 0,    max: 200, step: 1 },
+    { tw: 'surge', k: 'surgeAmp',   lbl: 'Wave size (% up and down)',      ui: 'box',    def: 15,    min: 0,    max: 90,  step: 1 },
+    { tw: 'surge', k: 'surgePer',   lbl: 'Wave length (seconds)',          ui: 'box',    def: 9,     min: 1,    max: 120, step: 0.5 },
+    { tw: 'photo', k: 'photoSpeed', lbl: 'Starting speed (ft/s)',          ui: 'box',    def: 12.15, min: 1,    max: 100, step: 0.05 },
+    { tw: 'fog',   k: 'fogMax',     lbl: 'Thickness (how solid at its heaviest)', ui: 'slider', def: 1, min: 0.1, max: 1, step: 0.05, fmt: v => Math.round(v * 100) + '%' },
+    { tw: 'fog',   k: 'fogFar',     lbl: 'Hides things completely at (units from camera; camera is 14.8 from its aim point)', ui: 'slider', def: 14.3, min: 11.8, max: 40, step: 0.1, fmt: v => v.toFixed(1) },
+    { tw: 'combo', k: 'comboGap',   lbl: 'Hurdle to bar (seconds)',        ui: 'slider', def: 0.55,  min: 0.45, max: 1.2, step: 0.05, fmt: v => v.toFixed(2) + ' s' },
+    { tw: 'moon',  k: 'moonG',      lbl: 'Gravity (x normal)',             ui: 'slider', def: 0.6,   min: 0.2,  max: 1,   step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { tw: 'moon',  k: 'moonAir',    lbl: 'Hop airtime (jump height changes to fit)', ui: 'slider', def: 0.576, min: 0.35, max: 1.2, step: 0.001, fmt: v => v.toFixed(3) + ' s' },
+    { tw: 'heavy', k: 'heavyG',     lbl: 'Gravity (x normal)',             ui: 'slider', def: 1.6,   min: 1,    max: 3,   step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { tw: 'heavy', k: 'heavyH',     lbl: 'Jump height (x normal)',         ui: 'slider', def: 0.85,  min: 0.5,  max: 1.2, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { tw: 'hotegg', k: 'eggPass',   lbl: 'Pass base time (seconds)',       ui: 'slider', def: 7,     min: 2,    max: 15,  step: 0.5,  fmt: v => v.toFixed(1) + ' s' },
+  ];
+  if (!twCfg.tune || typeof twCfg.tune !== 'object') twCfg.tune = {};
+  const tuneOf = k => TUNE.find(u => u.k === k);
+  const twTuneOn = () => !MP.on;   // solo only
+  function tv(k) {   // the value this race uses: the saved test value in solo, else the normal one
+    const u = tuneOf(k), v = +twCfg.tune[k];
+    if (!twTuneOn() || twCfg.tune[k] == null || !Number.isFinite(v)) return u.def;
+    return Math.min(u.max, Math.max(u.min, v));
+  }
   const twPool = () => TWISTS.filter(t => !twCfg.off.includes(t.id));
   function twPick() {   // the twist for the next race ('' = none)
     if (!twCfg.on) return '';
@@ -3875,22 +3916,29 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const PHY = { g: GRAVITY, hop: HOP_H, big: BIG_H, duckDelay: 0, airK: 1 };
   function twPhysics() {
     Object.assign(PHY, { g: GRAVITY, hop: HOP_H, big: BIG_H, duckDelay: 0 });
-    if (TW.id === 'moon') PHY.g = GRAVITY * 0.6;
-    if (TW.id === 'heavy') { PHY.g = GRAVITY * 1.6; PHY.hop = HOP_H * 0.85; PHY.big = BIG_H * 0.85; PHY.duckDelay = 0.12; }
+    if (TW.id === 'moon') {
+      PHY.g = GRAVITY * tv('moonG');
+      if (twTuneOn()) { const a = tv('moonAir'); PHY.hop = PHY.g * a * a / 8; PHY.big = PHY.hop * BIG_H / HOP_H; }   // v128: airtime = 2*sqrt(2h/g) -> h = g*t^2/8; full jump scales the same
+    }
+    if (TW.id === 'heavy') { PHY.g = GRAVITY * tv('heavyG'); PHY.hop = HOP_H * tv('heavyH'); PHY.big = BIG_H * tv('heavyH'); PHY.duckDelay = 0.12; }
     PHY.airK = Math.sqrt((PHY.hop / HOP_H) / (PHY.g / GRAVITY));
   }
-  const spaceK = () => Math.max(1, PHY.airK);   // course spacing: only ever stretched (Moon), never squeezed
+  const spaceK = () => Math.max(1, PHY.airK);
+  const comboGap = () => TW.id === 'combo' ? tv('comboGap') : COMBO_GAP;   // v128: tunable in Combo Course (solo)   // course spacing: only ever stretched (Moon), never squeezed
 
   // The race, adjusted for this race's twist (a copy: RACE itself is never changed)
   function twRace(L) {
-    if (TW.id === 'photo') return Object.assign({}, L, { startSpeed: L.startSpeed * 1.8, lengthCoils: L.lengthCoils * 0.55, warmup: 2.5 });
-    if (TW.id === 'combo') return Object.assign({}, L, { combos: Math.max(L.combos || 0, 0.4), intro: null });
+    if (TW.id === 'photo') return Object.assign({}, L, { startSpeed: twTuneOn() ? tv('photoSpeed') : L.startSpeed * 1.8, lengthCoils: L.lengthCoils * 0.55, warmup: 2.5 });
+    if (TW.id === 'combo') return Object.assign({}, L, { combos: 1, intro: null });
     return L;
   }
+  // v128 FOG THICKNESS: three.js linear fog always ends fully solid. The fog shader is patched (at startup) to scale
+  //  the fog by a cap; the cap rides in fogNear only while the frame is drawn (near + 1000 * (1 + cap*100)).
+  var FOG_CAP = 1;
   function twReset(id) {
     TW.id = id && twOf(id) ? id : '';
     Object.assign(TW, { n: 0, speedQ: [], fogUntil: -1, flipUntil: -1, egg: null, vote: null, votedAt: -1, t: {}, ghostAt: 0, swUsed: false, fogK: 0 });
-    scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34;   // no fog left over from the last race
+    scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34; FOG_CAP = 1;   // no fog left over from the last race
     twPhysics();
     twPanel(null);
   }
@@ -3901,7 +3949,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // Speed target with the Surge wave on top (simStep eases toward this)
   function twTarget() {
     let t = st.targetSpeed;
-    if (TW.id === 'surge') t *= 1 + 0.15 * Math.sin(st.levelTime * TAU / 9);
+    if (TW.id === 'surge') t *= 1 + tv('surgeAmp') / 100 * Math.sin(st.levelTime * TAU / tv('surgePer'));   // v128 tunable
     return t;
   }
   // Scale the whole slide's speed, including the speed-ups already planned up the tree, so they stay speed-ups
@@ -3916,7 +3964,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // Rush: called from noteElimination (same step on every device: the owner's wash-out step + 1.5 s)
   function twOnElim(r) {
     r.elimProg = r.progress;   // how far it got (the slide keeps moving while you watch)
-    if (TW.id === 'rush' && !r.quitter) twQueueSpeed(r.elimStep + 360, 1.15, 'rush');
+    if (TW.id === 'rush' && !r.quitter) twQueueSpeed(r.elimStep + 360, 1 + tv('rushPct') / 100, 'rush');   // v128 tunable
     if (TW.id === 'hotegg' && TW.egg === twId(r)) TW.egg = null;   // the director passes it on next tick
   }
 
@@ -4031,7 +4079,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const t = st.levelTime, step = stepNow();
     while (TW.speedQ.length && step >= TW.speedQ[0].at) {
       const q = TW.speedQ.shift(); twScaleSpeed(q.f);
-      toast(q.why === 'rush' ? '⏩ Rush! +15% speed' : '⏩ Speed burst!', '#a8f58f');
+      toast(q.why === 'rush' ? `⏩ Rush! +${Math.round((q.f - 1) * 100)}% speed` : '⏩ Speed burst!', '#a8f58f');
     }
     if (st.ending || !twDirector()) return;
     const T = TW.t, alive = racers.filter(r => !eliminated(r));
@@ -4048,8 +4096,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
     if (TW.id === 'hotegg') {
       const holder = TW.egg != null ? twRacer(TW.egg) : null;
-      if (!holder || eliminated(holder)) { const r = pickAlive(); if (r) { twEmit({ e: 'egg', s: twId(r) }); T.egg = t + 7; } }
-      else if (alive.length > 1 && due('egg', 7)) { const r = pickAlive(holder); if (r) twEmit({ e: 'egg', s: twId(r) }); }
+      if (!holder || eliminated(holder)) { const r = pickAlive(); if (r) { twEmit({ e: 'egg', s: twId(r) }); T.egg = t + tv('eggPass'); } }
+      else if (alive.length > 1 && due('egg', tv('eggPass'))) { const r = pickAlive(holder); if (r) twEmit({ e: 'egg', s: twId(r) }); }
     }
     if (TW.id === 'ghost') {   // washed-out BOTS haunt too (human ghosts use the panel)
       for (const g of racers) {
@@ -4166,15 +4214,36 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // ---------- per-frame looks: fog, swapped pads, crown, egg, shield, team rings, hazard dives ----------
   const TEAM = [{ name: 'Sun', color: 0xffd23f, css: '#ffd23f' }, { name: 'Sea', color: 0x39d0ff, css: '#7fe3ff' }];
   const twCrownTex = () => twIcon('👑'), twEggTex = () => twIcon('💣');
+  let twRimM = null, twGlowT = null;   // v128: shared shield-outline material and egg-glow texture
+  function twRimMat() {
+    if (twRimM) return twRimM;
+    twRimM = new THREE.ShaderMaterial({
+      uniforms: { color: { value: new THREE.Color(0x8fe3ff) }, opacity: { value: 1 } },
+      vertexShader: 'varying vec3 vN; varying vec3 vV; void main() { vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform vec3 color; uniform float opacity; varying vec3 vN; varying vec3 vV; void main() { float rim = 1.0 - abs(dot(normalize(vN), normalize(vV))); float edge = smoothstep(0.55, 0.92, rim); float a = clamp(edge + pow(rim, 1.3) * 0.3, 0.0, 1.0) * opacity; gl_FragColor = vec4(mix(color, vec3(1.0), edge * 0.45), a); }',
+      transparent: true, depthWrite: false });
+    return twRimM;
+  }
+  function twGlowTex() {
+    if (twGlowT) return twGlowT;
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return (twGlowT = new THREE.CanvasTexture(c));
+  }
   function twDeco(r) {
     if (r.twDeco) return r.twDeco;
     const top = new THREE.Sprite(new THREE.SpriteMaterial({ map: twCrownTex(), transparent: true, depthWrite: false }));
     top.scale.set(0.62, 0.62, 1); top.position.set(0, 1.42, 0); top.visible = false; r.model.lean.add(top);
     const bub = new THREE.Mesh(new THREE.SphereGeometry(0.72, 20, 14), new THREE.MeshBasicMaterial({ color: 0x8fe3ff, transparent: true, opacity: 0.22, depthWrite: false }));
     bub.position.y = 0.62; bub.visible = false; r.model.lean.add(bub);
+    const rim = new THREE.Mesh(new THREE.SphereGeometry(0.76, 32, 20), twRimMat()); rim.renderOrder = 1; bub.add(rim);   // v128: bright glowing outline (follows the bubble)
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: twGlowTex(), color: 0xff8a00, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(1.4, 1.4, 1); glow.position.copy(top.position); glow.visible = false; glow.renderOrder = 1; r.model.lean.add(glow); top.renderOrder = 2;   // v128: hot egg glow
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.7, 28), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; ring.visible = false; r.model.lean.add(ring);
-    return (r.twDeco = { top, bub, ring, kind: '' });
+    return (r.twDeco = { top, bub, ring, rim, glow, kind: '' });
   }
   function twFrame(dt) {
     // fog eases in and out
@@ -4182,8 +4251,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     TW.fogK += (fk - TW.fogK) * Math.min(1, dt * 3);
     if (TW.fogK > 0.002 || scene.fog.far !== CAM_D + 34) {
       scene.fog.near = CAM_D - 2 + (CAM_D - 3.5 - (CAM_D - 2)) * TW.fogK;
-      scene.fog.far = CAM_D + 34 + (CAM_D - 0.5 - (CAM_D + 34)) * TW.fogK;
-      if (TW.fogK <= 0.002) { scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34; }
+      const tFog = TW.id === 'fog', fFar = tFog ? tv('fogFar') : CAM_D - 0.5;   // v128 tunable (solo)
+      scene.fog.far = CAM_D + 34 + (fFar - (CAM_D + 34)) * TW.fogK;
+      FOG_CAP = 1 + ((tFog ? tv('fogMax') : 1) - 1) * TW.fogK;
+      if (TW.fogK <= 0.002) { scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34; FOG_CAP = 1; }
     }
     // swapped pads (Backwards Day)
     const flip = twFlipOn();
@@ -4210,8 +4281,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       d.top.visible = !!kind;
       if (egg) d.top.scale.setScalar(0.6 + 0.08 * Math.sin(time * 14));
       else d.top.scale.setScalar(0.62);
+      d.glow.visible = egg;   // v128
+      if (egg) { const gs = 1.35 + 0.2 * Math.sin(time * 14); d.glow.scale.set(gs, gs, 1); d.glow.material.opacity = 0.85 + 0.15 * Math.sin(time * 7); }
       d.bub.visible = on && !!r.twShield;
-      if (d.bub.visible) d.bub.material.opacity = 0.18 + 0.08 * Math.sin(time * 5);
+      if (d.bub.visible) { d.bub.material.opacity = 0.18 + 0.08 * Math.sin(time * 5); twRimM.uniforms.opacity.value = 0.85 + 0.15 * Math.sin(time * 5); }   // v128 outline pulse
       d.ring.visible = on && r.team != null;
       if (d.ring.visible) d.ring.material.color.setHex(TEAM[r.team].color);
     }
@@ -4295,6 +4368,29 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       });
       const tx = el('span'); tx.append(el('b', T.icon + ' ' + T.name), el('small', T.desc));
       lab.append(cb, tx); box.append(lab);
+      const tunes = TUNE.filter(u => u.tw === T.id);   // v128 tuning rows (solo races only)
+      if (tunes.length) {
+        const tw = el('div', null, 'tw-tune');
+        for (const u of tunes) {
+          const row = el('label'), inp = document.createElement('input');
+          const cur = twCfg.tune[u.k] != null && Number.isFinite(+twCfg.tune[u.k]) ? Math.min(u.max, Math.max(u.min, +twCfg.tune[u.k])) : u.def;
+          inp.type = u.ui === 'slider' ? 'range' : 'number'; inp.min = u.min; inp.max = u.max; inp.step = u.step; inp.value = cur;
+          row.append(el('span', u.lbl), inp);
+          if (u.ui === 'slider') {
+            const out = el('output', u.fmt(cur)); row.append(out);
+            inp.addEventListener('input', () => { const v = +inp.value; out.textContent = u.fmt(v); twCfg.tune[u.k] = v; twSave(); });
+          } else {
+            inp.inputMode = 'decimal';
+            inp.addEventListener('change', () => {
+              let v = parseFloat(inp.value);
+              if (!Number.isFinite(v)) v = u.def;
+              v = Math.min(u.max, Math.max(u.min, v)); inp.value = v; twCfg.tune[u.k] = v; twSave();
+            });
+          }
+          tw.append(row);
+        }
+        box.append(tw);
+      }
     }
     const sel = $('twForce');
     if (!sel.dataset.filled) {
@@ -4306,7 +4402,15 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       $('twAll').addEventListener('click', () => { twCfg.off = []; twSave(); openTwists(); });
       $('twNone').addEventListener('click', () => { twCfg.off = TWISTS.map(t => t.id); twSave(); openTwists(); });
       $('twBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
+      $('twCopy').addEventListener('click', () => {   // v128: copy the tuning values to send to Claude
+        const vals = {}; for (const u of TUNE) { const v = +twCfg.tune[u.k]; vals[u.k] = twCfg.tune[u.k] != null && Number.isFinite(v) ? Math.min(u.max, Math.max(u.min, v)) : u.def; }
+        const txt = 'JDF tuning ' + BUILD + ': ' + JSON.stringify(vals);
+        const out = $('twCopyOut'); out.value = txt; out.classList.remove('hidden');
+        const done = ok => toast(ok ? 'Values copied' : 'Select the text and copy it', '#a8f58f');
+        try { navigator.clipboard.writeText(txt).then(() => done(true), () => { out.select(); done(false); }); } catch (e) { out.select(); done(false); }
+      });
     }
+    $('twCopyOut').classList.add('hidden');
     paint();
     $('twists').querySelector('.card').scrollTop = 0;
     showOverlay('twists');
@@ -4320,7 +4424,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     Object.assign(st, {
       godUsed: godMode, level: L, theta: 0, speed: L.startSpeed, speedV: 0, targetSpeed: L.startSpeed, topSpeed: L.startSpeed, stepTimer: 0, tier: 0,
       finishTheta: L.lengthCoils * TAU, finishCount: 0, lastPlace: 1, lastPassToast: 0,
-      hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, introDone: !L.intro, coast: 1, burstLeft: 0, tightPrev: false,
+      hitstop: 0, shake: 0, obs: [], obsSeq: 0, spawned: 0, bumps: 0, introDone: !L.intro, coast: 1, burstLeft: 0, tightPrev: false,
       nextSpawn: (L.startSpeed * L.warmup) / RP,   // first obstacle arrives after the warm-up
       marks: [], plan: { t: L.warmup, v: L.startSpeed, up: L.stepEvery, ot: false, solo: false },   // v106 course planner
       countdown: 3.2, countShown: 4, levelTime: 0,
@@ -4352,6 +4456,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // smaller share: step size x (RAMP_SOFT / speed)^2 (applied in planAdvance). Still speeds up forever, just slower.
   // (v103 test run: 15 -> 64 ft/s in ~50 s of solo; now ~77 s. An invincible v103 run reached 920 ft/s.)
   const RAMP_SOFT = 30;
+  // v125 EARLY BUMPS: each of the race's first EARLY_BUMPS obstacles adds EARLY_BUMP_FT ft/s once the duck is past it
+  // (on top of the normal speed-ups). Planned with the course, so every device in multiplayer gets the same bumps.
+  const EARLY_BUMPS = 30, EARLY_BUMP_FT = 0.25;   // v126: was 15 x 1 ft/s
   // v99: clear time BEFORE a speed-up. The speed-up only needs nothing 0.3 s behind the duck, so 0.45 s (overtime 0.4) is
   // enough; the old 1.2 s + 0.55 s combo margin made ~3 s holes. A combo that would overlap the zone becomes a single.
   const zoneBefore = () => st.overtime ? 0.4 : 0.45;
@@ -4410,6 +4517,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     g.t += sec; rad += sec * g.v / RP;
     return rad;
   }
+  // v125: +EARLY_BUMP_FT ft/s just past each of the first EARLY_BUMPS obstacles (0.5 ft past it, so the jump/duck over it isn't disturbed)
+  function earlyBump(theta) {
+    if (st.bumps >= EARLY_BUMPS) return;
+    st.bumps++; st.plan.v += EARLY_BUMP_FT;
+    st.marks.push({ theta: theta + 0.5 / RP, speed: st.plan.v, bump: true });
+  }
   function spawn() {
     const L = st.level, g = st.plan;
     const stopAt = st.finishTheta - 0.45;
@@ -4435,18 +4548,18 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (!g.ot && st.nextSpawn >= stopAt) continue;
       } else if (!st.introDone) {
         kind = wRnd() < 0.5 ? 'low' : 'high';
-      } else if (L.combos && !st.tightPrev && !(g.t + COMBO_GAP * spaceK() > upAt - zb && g.t < upAt + q) && wRnd() < L.combos) {
+      } else if (L.combos && !st.tightPrev && !(g.t + comboGap() * spaceK() > upAt - zb && g.t < upAt + q) && wRnd() < L.combos) {
         kind = 'combo';
       } else {
         kind = pickType(L.mix);
       }
       if (kind === 'combo') {
-        addObstacle(st.nextSpawn, 'low', hint);
-        const cg = planAdvance(COMBO_GAP * spaceK());   // no speed-up inside a combo (checked above); v113: Moon jumps take longer
-        addObstacle(st.nextSpawn + cg, 'high', false, true);
+        addObstacle(st.nextSpawn, 'low', hint); earlyBump(st.nextSpawn);
+        const cg = planAdvance(comboGap() * spaceK());   // no speed-up inside a combo (checked above); v113: Moon jumps take longer
+        addObstacle(st.nextSpawn + cg, 'high', false, true); earlyBump(st.nextSpawn + cg);
         st.nextSpawn += cg;
       } else {
-        addObstacle(st.nextSpawn, kind, hint);
+        addObstacle(st.nextSpawn, kind, hint); earlyBump(st.nextSpawn);
       }
       st.spawned++;
       const along = Math.min(1, st.nextSpawn / st.finishTheta);          // 0 at start, 1 at finish
@@ -4672,7 +4785,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v124-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v128-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -7018,7 +7131,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         const at = !MP.on && eliminated(player) ? st.theta : wRef();
         while (st.marks.length && at >= st.marks[0].theta) {
           const mk = st.marks.shift();
-          st.stepTimer = 0; st.tier++;
+          if (!mk.bump) { st.stepTimer = 0; st.tier++; }   // v125: early bumps aren't speed-up tiers
           st.targetSpeed = mk.speed; st.topSpeed = Math.max(st.topSpeed, st.targetSpeed);
           awardsOnSpeed();   // v51
           // (no on-screen cue: the speed-up is felt, and seen in the chevrons, not announced)
@@ -7147,7 +7260,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     camera.lookAt(CAM_TARGET);
     floatDuckies(time);
 
-    if (mode !== 'customize') renderer.render(scene, camera);   // v90: the Customize screen covers the game and draws its own duck
+    if (mode !== 'customize') {   // v128: fog thickness cap rides in fogNear for this draw only
+      const n0 = scene.fog.near, cap = Math.max(0, Math.min(1, FOG_CAP));
+      if (cap < 0.995 && n0 >= 0 && n0 < 999) scene.fog.near = n0 + 1000 * (1 + Math.round(cap * 100));
+      try { renderer.render(scene, camera); } finally { scene.fog.near = n0; }
+    }   // v90: the Customize screen covers the game and draws its own duck
     probe.end();   // v59
     requestAnimationFrame(frame);
   }
