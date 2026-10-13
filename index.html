@@ -65,7 +65,8 @@
   .prog div { height: 100%; width: 0%; background: var(--butter); border-radius: 4px; }
   .small { font-size: 13px; color: var(--ink-dim); margin-top: 6px; font-variant-numeric: tabular-nums; }
   .right { text-align: right; }
-  .coils { display: flex; gap: 6px; justify-content: flex-end; }
+  .coils { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }   /* v116: row 1 = starting misses, row 2 = extra misses earned by moving up */
+  .coil-row { display: flex; gap: 6px; justify-content: flex-end; }
   /* v31 gold counter + "+10 gold" pop-up */
   .gold { display: flex; align-items: center; gap: 5px; margin-top: 4px; font: 400 14px/1 "Bungee", "Impact", sans-serif; color: #ffd23f; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
   .gold i { width: 12px; height: 15px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: radial-gradient(circle at 35% 30%, #fff1a8, #ffc83d 45%, #b97a12); box-shadow: 0 0 6px rgba(255,200,61,.7); }
@@ -104,6 +105,7 @@
   .coil { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--butter); box-sizing: border-box; }
   .coil.on { background: var(--butter); }
   .coil.off { opacity: .3; }
+  .coil.bonus { border-color: #a8f58f; background: #a8f58f; }   /* v116: extra miss (you're ahead of your starting spot) */
   .god { color: #a8f58f; font-size: 11px; margin: -4px 0 6px; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
   .place { font-family: "Bungee", "Impact", sans-serif; font-size: 26px; line-height: 1; margin-bottom: 8px; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
   .place:empty { display: none; }
@@ -679,7 +681,6 @@
     <div id="chapters"></div>
     <button class="btn ghost" id="selectBack">Back</button>
     <button class="linkish" id="unlockAll">Unlock all levels (for testing)</button>
-    <button class="linkish" id="testEggs">+1,000 eggs (for testing)</button>   <!-- v110: GitHub copy only (removed in Discord) -->
   </div>
 </div>
 
@@ -4742,7 +4743,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v114-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v116-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
@@ -5567,9 +5568,16 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const lab = $('lvlLabel'); lab.textContent = levelName(L); lab.classList.toggle('boss', L.boss);
     $('scoreLine').textContent = `${player.cleared} dodged`;
     const coils = $('coils');
-    const left = player.missesLeft, n = Math.max(left, player.maxStumbles);
-    if (coils.children.length !== n) { coils.innerHTML = ''; for (let i = 0; i < n; i++) coils.appendChild(document.createElement('div')); }
-    [...coils.children].forEach((d, i) => { d.className = 'coil ' + (i < left ? 'on' : 'off'); });
+    // v116: two rows so the block never gets wider than the starting misses (it used to wrap under the level label)
+    const left = player.missesLeft, base = player.maxStumbles, extra = Math.max(0, left - base), key = base + ':' + extra;
+    if (coils.dataset.k !== key) {
+      coils.dataset.k = key; coils.innerHTML = '';
+      [base, extra].forEach(k => { if (!k) return; const row = document.createElement('div'); row.className = 'coil-row';
+        for (let i = 0; i < k; i++) row.appendChild(document.createElement('div')); coils.appendChild(row); });
+    }
+    const rows = coils.children;
+    if (rows[0]) [...rows[0].children].forEach((d, i) => { d.className = 'coil ' + (i < Math.min(left, base) ? 'on' : 'off'); });
+    if (rows[1]) [...rows[1].children].forEach(d => { d.className = 'coil bonus'; });
   }
   // Duck tracker: fixed row order (you first, then rivals) so each duck stays on the same line.
   let trackerAt = -1;
@@ -6675,8 +6683,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     return { price, owns, missing, waiting, name, buy, maybeClaim, enforce, start, lookKeys, get owned() { return ownedList(); } };
   })();
   window.__jdfShop = SHOP;   // v110: for testing
-  if (window.JDF_DISCORD && window.JDF_DISCORD.inDiscord) $('testEggs').remove();   // v110: test eggs only in the GitHub copy
-  else $('testEggs').addEventListener('click', () => { gold += 1000; saveGold(); showGold(); toast('+1,000 eggs (testing)', '#ffd23f'); });
+  // v115: +1,000 test eggs link removed
 
   // ===================== v90 CUSTOMIZE SCREEN (from the title) =====================
   // Same preview as duck-customizer.html: drag to turn, test poses, then Save puts the look on your racer.
