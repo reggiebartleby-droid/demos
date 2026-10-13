@@ -3875,7 +3875,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     { tw: 'surge', k: 'surgeAmp',   lbl: 'Wave size (% up and down)',      ui: 'box',    def: 15,    min: 0,    max: 90,  step: 1 },
     { tw: 'surge', k: 'surgePer',   lbl: 'Wave length (seconds)',          ui: 'box',    def: 9,     min: 1,    max: 120, step: 0.5 },
     { tw: 'photo', k: 'photoSpeed', lbl: 'Starting speed (ft/s)',          ui: 'box',    def: 12.15, min: 1,    max: 100, step: 0.05 },
-    { tw: 'fog',   k: 'fogMax',     lbl: 'Thickness (how solid at its heaviest)', ui: 'slider', def: 1, min: 0.1, max: 1, step: 0.05, fmt: v => Math.round(v * 100) + '%' },
+    { tw: 'fog',   k: 'fogStart',   lbl: 'Starting thickness (rises to 100% by overtime)', ui: 'slider', def: 0.3, min: 0.05, max: 1, step: 0.05, fmt: v => Math.round(v * 100) + '%' },   // v129 (was fogMax)
     { tw: 'fog',   k: 'fogFar',     lbl: 'Hides things completely at (units from camera; camera is 14.8 from its aim point)', ui: 'slider', def: 14.3, min: 11.8, max: 40, step: 0.1, fmt: v => v.toFixed(1) },
     { tw: 'combo', k: 'comboGap',   lbl: 'Hurdle to bar (seconds)',        ui: 'slider', def: 0.55,  min: 0.45, max: 1.2, step: 0.05, fmt: v => v.toFixed(2) + ' s' },
     { tw: 'moon',  k: 'moonG',      lbl: 'Gravity (x normal)',             ui: 'slider', def: 0.6,   min: 0.2,  max: 1,   step: 0.05, fmt: v => v.toFixed(2) + 'x' },
@@ -4070,6 +4070,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     } else if (ev.e === 'shield') {
       const r = twRacer(ev.s);
       if (r && !eliminated(r)) { r.twShield = true; if (r === player) toast('🛡️ Last place: you get a shield', '#8fe3ff'); }
+    } else if (ev.e === 'unshield') {   // v129: out of last place: shield gone
+      const r = twRacer(ev.s); if (r) r.twShield = false;
     }
   }
 
@@ -4092,6 +4094,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (alive.length > 1 && due('shield', 9)) {
         const last = alive.reduce((a, b) => b.progress < a.progress ? b : a);
         if (!last.twShield) twEmit({ e: 'shield', s: twId(last) });
+      }
+      if (alive.length > 1) {   // v129: a shield only lasts while that duck is still in last place
+        const last = alive.reduce((a, b) => b.progress < a.progress ? b : a);
+        for (const r of alive) if (r.twShield && r !== last) twEmit({ e: 'unshield', s: twId(r) });
       }
     }
     if (TW.id === 'hotegg') {
@@ -4253,7 +4259,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       scene.fog.near = CAM_D - 2 + (CAM_D - 3.5 - (CAM_D - 2)) * TW.fogK;
       const tFog = TW.id === 'fog', fFar = tFog ? tv('fogFar') : CAM_D - 0.5;   // v128 tunable (solo)
       scene.fog.far = CAM_D + 34 + (fFar - (CAM_D + 34)) * TW.fogK;
-      FOG_CAP = 1 + ((tFog ? tv('fogMax') : 1) - 1) * TW.fogK;
+      const fs = tv('fogStart'), fProg = st.overtime ? 1 : Math.max(0, Math.min(1, st.theta / st.finishTheta));   // v129: Fog starts thin and is 100% by overtime
+      FOG_CAP = 1 + ((tFog ? fs + (1 - fs) * fProg : 1) - 1) * TW.fogK;
       if (TW.fogK <= 0.002) { scene.fog.near = CAM_D - 2; scene.fog.far = CAM_D + 34; FOG_CAP = 1; }
     }
     // swapped pads (Backwards Day)
@@ -4785,7 +4792,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v128-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v129-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
