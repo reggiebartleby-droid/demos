@@ -59,14 +59,10 @@
   .pause { pointer-events: auto; width: 42px; height: 42px; border-radius: 12px; border: 2px solid rgba(255,244,224,.4);
     background: rgba(20,16,58,.55); display: flex; gap: 5px; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
   .pause span { width: 5px; height: 16px; background: var(--ink); border-radius: 2px; }
-  .lvl-label { font-family: "Bungee", "Impact", sans-serif; font-size: 22px; line-height: 1; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
-  .lvl-label.boss { color: var(--ember); }
   .prog { width: min(150px, 34cqw); height: 8px; border-radius: 4px; background: rgba(255,244,224,.16); margin-top: 8px; overflow: hidden; }
   .prog div { height: 100%; width: 0%; background: var(--butter); border-radius: 4px; }
   .small { font-size: 13px; color: var(--ink-dim); margin-top: 6px; font-variant-numeric: tabular-nums; }
   .right { text-align: right; }
-  .coils { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }   /* v116: row 1 = starting misses, row 2 = extra misses earned by moving up */
-  .coil-row { display: flex; gap: 6px; justify-content: flex-end; }
   /* v31 gold counter + "+10 gold" pop-up */
   .gold { display: flex; align-items: center; gap: 5px; margin-top: 4px; font: 400 14px/1 "Bungee", "Impact", sans-serif; color: #ffd23f; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
   .gold i { width: 12px; height: 15px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: radial-gradient(circle at 35% 30%, #fff1a8, #ffc83d 45%, #b97a12); box-shadow: 0 0 6px rgba(255,200,61,.7); }
@@ -102,10 +98,6 @@
   @keyframes bannerIn { 0% { opacity: 0; transform: scaleX(.2); } 12% { opacity: 1; transform: scaleX(1.04); } 20% { transform: none; }
     80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
   @media (prefers-reduced-motion: reduce) { .award-banner { animation: bannerIn 1.5s linear forwards; } }
-  .coil { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--butter); box-sizing: border-box; }
-  .coil.on { background: var(--butter); }
-  .coil.off { opacity: .3; }
-  .coil.bonus { border-color: #a8f58f; background: #a8f58f; }   /* v116: extra miss (you're ahead of your starting spot) */
   .god { color: #a8f58f; font-size: 11px; margin: -4px 0 6px; text-shadow: 0 2px 0 rgba(0,0,0,.4); }
   .place { font-family: "Bungee", "Impact", sans-serif; font-size: 26px; line-height: 1; margin-bottom: 8px; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
   .place:empty { display: none; }
@@ -114,6 +106,10 @@
   .upbar.flash { animation: upflash .6s ease-out; }
   @keyframes upflash { from { box-shadow: 0 0 0 4px rgba(57,208,255,.7); } to { box-shadow: 0 0 0 0 rgba(57,208,255,0); } }
   .speed { font-family: "Bungee", "Impact", sans-serif; font-size: 17px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  /* v123 SPEEDOMETER: big bright-red slide speed, just under the duck tracker (floats over the slide; doesn't shrink the play area) */
+  .speedo { flex: 1 1 100%; margin-top: 6px; text-align: center; font: 400 44px/1 "Bungee", "Impact", sans-serif; color: #ff1a1a;
+    text-shadow: 0 0 10px rgba(255,26,26,.75), 0 3px 0 rgba(0,0,0,.55); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .speedo small { font-size: .45em; }
 
   /* ----- duck tracker (top of screen, inside the HUD, over the coils still to come; read-only) ----- */
   .tracker { flex: 1 1 100%; margin: 0 auto; z-index: 2;
@@ -255,7 +251,7 @@
   .seat.faded:not(.champ) .d3 img { transition-delay: .7s; }
   .seat > svg { transition: filter .5s ease; }
   .seat.faded > svg { filter: opacity(.5); transition-delay: .7s; }
-  /* Phone held sideways: little height, so the tracker sits between the level info and the place instead of under them. */
+  /* Phone held sideways: little height, so the tracker sits between the race info and the place instead of under them. */
   @container stage (orientation: landscape) and (max-height: 520px) {
     .hud { flex-wrap: nowrap; }
     .tracker { order: 0; flex: 0 1 380px; margin: 0; }
@@ -327,18 +323,6 @@
   .tester-err { font-size: 13px; color: var(--duck); margin: 6px 0 0; }
   button:focus-visible { outline: 3px solid var(--jump); outline-offset: 3px; }
 
-  .chapter { margin-top: 18px; }
-  .chapter h2 { font-family: "Bungee", "Impact", sans-serif; font-weight: 400; font-size: 18px; margin: 0; color: var(--butter); }
-  .chapter p { margin: 3px 0 10px; font-size: 14px; color: var(--ink-dim); }
-  .chapter.locked h2, .chapter.locked p { opacity: .45; }
-  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  .lvl { font-family: "Bungee", "Impact", sans-serif; font-size: 17px; aspect-ratio: 1; border-radius: 12px; padding: 0;
-    border: 2px solid rgba(255,226,168,.45); background: transparent; color: var(--ink); cursor: pointer; }
-  .lvl.done { background: var(--butter); border-color: var(--butter); color: #2a1660; }
-  .lvl.next { border-color: var(--jump); box-shadow: 0 0 0 3px rgba(255,194,26,.3); }
-  .lvl.boss { border-color: var(--ember); font-size: 12px; }
-  .lvl.boss.done { background: var(--ember); color: #fff4e0; }
-  .lvl:disabled { opacity: .28; cursor: default; }
   /* v44 SCOREBOARD */
   .board { margin-top: 18px; }
   .board-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
@@ -368,7 +352,7 @@
   .board.quack .board-tabs, .board.quack .board-body, .board.quack .board-note { display: none; }
   .board-note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; min-height: 1em; }
   .board-note .retry { font: inherit; font-weight: 600; color: var(--butter); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
-  /* v47 TITLE: Choose a level + Leaderboard share one row, smaller than Play */
+  /* v47 TITLE: two buttons share one row, smaller than Play */
   .btn-row { display: flex; gap: 8px; }
   /* v90 CUSTOMIZE screen: preview on top, options below (phone first); opaque so the game doesn't draw behind it */
   #customize { background: var(--sky); align-items: stretch; }
@@ -414,7 +398,7 @@
   #customize .cz-buybtn:disabled { color: var(--ink-dim); background: rgba(255,226,168,.08); border: 1px dashed rgba(255,226,168,.35); cursor: default; }
   #customize .cz-buynote { color: var(--ink-dim); font-size: 13px; text-align: center; margin: 0; }
   #title #customBtn { font-size: 15px; padding: 10px 8px; margin-top: 8px; }
-  #title .btn-row .btn { flex: 1 1 0; min-width: 0; font-size: 15px; padding: 10px 8px; }
+  #title .btn-row .btn, #result .btn-row .btn { flex: 1 1 0; min-width: 0; font-size: 15px; padding: 10px 8px; }   /* v118: + results */
   /* v47 RESULTS FIT: tighter spacing when the card is too tall for the space above the podium */
   #result .card.tight { padding: 16px 18px; }
   #result .card.tight .sub { font-size: 14px; margin-bottom: 4px; }
@@ -608,7 +592,6 @@
   <div class="hud-left">
     <button class="pause" id="pauseBtn" aria-label="Pause"><span></span><span></span></button>
     <div>
-      <div class="lvl-label" id="lvlLabel">Level 1-1</div>
       <div class="tw-chip hidden" id="twChip"></div>   <!-- v113: this race's twist -->
       <div class="prog" aria-hidden="true"><div id="progFill"></div></div>
       <div class="small" id="scoreLine">0 dodged</div>
@@ -618,7 +601,6 @@
   <div class="right">
     <div class="place" id="place"></div>
     <div class="god" id="god" style="display:none">Invincible (Y)</div>
-    <div class="coils" id="coils" aria-label="Stumbles left"></div>
   </div>
   <div class="tracker hidden" id="tracker" aria-label="Duck tracker">
     <table>
@@ -626,6 +608,7 @@
       <tbody id="trackerBody"></tbody>
     </table>
   </div>
+  <div class="speedo" id="speedo" aria-label="Speed"><span id="speedoNum">0.0</span> <small>ft/s</small></div>   <!-- v123 -->
 </div>
 
 <div class="pads hidden" id="pads">
@@ -650,7 +633,7 @@
   <div class="card">
     <div class="mascot big" id="mascotTitle" aria-hidden="true"></div>
     <h1 class="title-one">Jump Duck Faster</h1>
-    <p class="sub">Race three rival ducks up the water slide to the finish arch. Every level speeds up as you go.</p>
+    <p class="sub">Race three rival ducks up the water slide to the finish arch. The slide speeds up as you go.</p>
     <ul>
       <li class="j">Yellow hurdles: hop. Quick tap on <b>Jump</b> (bottom right), or tap <kbd>↑</kbd> / <kbd>Space</kbd>.</li>
       <li class="d">Red bars: duck. Hold <b>Duck</b> (bottom left) or <kbd>↓</kbd>; you stay down while you hold. You can press one while holding the other.</li>
@@ -663,24 +646,11 @@
     </div>
     <button class="btn" id="playBtn">Play</button>
     <button class="btn ghost" id="twistBtn">🎲 Twists</button>   <!-- v113 -->
-    <div class="btn-row">   <!-- v47: Leaderboard beside a smaller Choose a level -->
-      <button class="btn ghost" id="levelsBtn">Choose a level</button>
-      <button class="btn ghost" id="boardBtn">Leaderboard</button>
-    </div>
+    <button class="btn ghost" id="boardBtn">Leaderboard</button>   <!-- v122: levels removed -->
     <div class="btn-row">   <!-- v96: Trophies beside Customize -->
       <button class="btn ghost" id="customBtn">Customize your duck</button>   <!-- v90 -->
       <button class="btn ghost" id="trophyBtn">Trophies</button>
     </div>
-  </div>
-</div>
-
-<div class="overlay hidden" id="select">
-  <div class="card wide">
-    <h1>Levels</h1>
-    <p class="sub">Every tenth level is a boss. Beat it to unlock the next chapter.</p>
-    <div id="chapters"></div>
-    <button class="btn ghost" id="selectBack">Back</button>
-    <button class="linkish" id="unlockAll">Unlock all levels (for testing)</button>
   </div>
 </div>
 
@@ -731,12 +701,12 @@
 <div class="overlay hidden" id="twists">
   <div class="card">
     <h1>Twists</h1>
+    <button class="btn ghost" id="twBack">Back</button>   <!-- v118: Back at the top so you don't have to scroll -->
     <p class="sub" id="twNote"></p>
     <button class="btn" id="twOnBtn">Twists: On</button>
     <div class="tw-force"><label for="twForce">Testing: always</label><select id="twForce"></select></div>
     <div class="btn-row"><button class="btn ghost" id="twAll">All</button><button class="btn ghost" id="twNone">None</button></div>
     <div class="tw-list" id="twList"></div>
-    <button class="btn ghost" id="twBack">Back</button>
   </div>
 </div>
 
@@ -745,14 +715,14 @@
     <div class="card-head"><h1>Paused</h1><div class="mascot small" id="mascotPause" aria-hidden="true"></div></div>
     <p class="sub" id="pausedSub"></p>
     <button class="btn" id="resumeBtn">Resume</button>
-    <button class="btn ghost" id="restartBtn">Restart level</button>
-    <button class="btn ghost" id="quitBtn">Choose a level</button>
+    <button class="btn ghost" id="restartBtn">Restart race</button>
+    <button class="btn ghost" id="quitBtn">Quit</button>
   </div>
 </div>
 
 <div class="overlay hidden loot" id="loot">
   <div class="loot-card">
-    <div class="loot-title" id="lootTitle">Level passed!</div>
+    <div class="loot-title" id="lootTitle">You crossed the finish!</div>
     <p class="sub" id="lootSub"></p>
     <div class="chest-stage">
       <div class="rays"></div>
@@ -781,7 +751,7 @@
 
 <div class="overlay hidden" id="result">
   <div class="card">
-    <div class="card-head"><h1 id="resTitle">Level cleared</h1><div class="mascot small" id="mascotResult" aria-hidden="true"></div></div>
+    <div class="card-head"><h1 id="resTitle">Results</h1><div class="mascot small" id="mascotResult" aria-hidden="true"></div></div>
     <!-- v97: Race Results and Top 10 share this spot; they switch every 5 s until the player taps a button -->
     <div class="res-switch" id="resSwitch" role="tablist">
       <button role="tab" id="resTabRace" aria-selected="true" aria-controls="resPanelRace">Race Results</button>
@@ -811,8 +781,17 @@
         </section>
       </div>
     </div>
-    <button class="btn hidden" id="resPrimary" disabled>Next level</button>   <!-- v45: removed for now; Choose a level is the way on -->
-    <button class="btn ghost" id="resSecondary">Choose a level</button>
+    <!-- v120: Race again opens the start page's buttons (tap again to close). Discord: host only. -->
+    <button class="btn" id="resAgain">Race again</button>
+    <div class="hidden" id="resOpts">
+    <button class="btn" id="resPlay">Play</button>
+    <button class="btn ghost" id="resTwist">🎲 Twists</button>
+    <button class="btn ghost" id="resBoard">Leaderboard</button>
+    <div class="btn-row">
+      <button class="btn ghost" id="resCustom">Customize your duck</button>
+      <button class="btn ghost" id="resTrophy">Trophies</button>
+    </div>
+    </div>
     <div class="fun" id="funBox">
       <p class="small">How fun was that run? 1 = dull, 5 = great</p>
       <div class="fun-row" id="funRow"></div>
@@ -874,83 +853,40 @@
     };
   })();
   // =====================================================================
-  //  LEVEL DATA
-  //  Chapters say WHAT is in play. buildLevel() says HOW HARD each level is.
-  //  The engine below never mentions a specific level; it runs whatever
-  //  level object it's handed.
+  //  RACE SETUP (v122: levels, chapters and bosses removed; every race uses this one setup,
+  //  solo and Discord alike. Twists are what change a race.)
+  //  The engine below runs whatever race object it's handed.
   // =====================================================================
-  // Feature switches: a disabled feature's chapter moves to "coming later" and its
-  // obstacles are removed from every other chapter's mix.
+  // Feature switches
   const FEATURES = {
     tall: false,      // amber big-jump hurdles: off for now, back as a later addition
     spectate: false,  // watch rivals after you wash out in overtime: off until multiplayer
     otRegroup: false, // at the finish arch: move everyone to the front with fresh misses (off: positions and misses carry over)
   };
-  const ALL_CHAPTERS = [
-    { name: 'Hop and duck', newThing: 'Cyan hurdles and pink bars',
-      mix: { low: 0.5, high: 0.5 }, combos: 0, intro: null,
-      boss: { note: 'A long climb that keeps getting faster' } },
-    { name: 'Big jumps', requires: 'tall', newThing: 'Amber hurdles: hold jump to go higher',
-      mix: { low: 0.35, high: 0.35, tall: 0.3 }, combos: 0,
-      intro: { kind: 'tall', hint: 'Amber hurdle: hold jump!' },
-      boss: { note: 'Hops and big jumps, back to back', mix: { low: 0.4, high: 0.15, tall: 0.45 } } },
-    { name: 'Combos', newThing: 'Hurdle, then a bar right after: hop small, then duck',
-      mix: { low: 0.35, high: 0.35, tall: 0.3 }, combos: 0.22,
-      intro: { kind: 'combo', hint: 'Combo: tap, then duck!' },
-      boss: { note: 'The combo gauntlet', combos: 0.38 } },
-    { name: 'Race for place', newThing: 'Your finishing place now counts',
-      mix: { low: 0.35, high: 0.35, tall: 0.3 }, combos: 0.15, intro: null, placeCounts: true,
-      boss: { note: 'Beat all three ducks: first place only', combos: 0.25 } },
-    { name: 'Split lanes', newThing: 'Obstacles that block only some lanes', locked: true },
-  ];
-  const featureOn = c => !c.requires || FEATURES[c.requires];
-  const CHAPTERS = [
-    ...ALL_CHAPTERS.filter(c => featureOn(c) && !c.locked),
-    ...ALL_CHAPTERS.filter(c => !featureOn(c) || c.locked).map(c => ({ ...c, locked: true })),
-  ];
-  const cleanMix = mix => Object.fromEntries(Object.entries(mix).filter(([k]) => k !== 'tall' || FEATURES.tall));
-
   // Difficulty has two separate dials:
-  //   SPEED   - how fast obstacles arrive (startSpeed, then speed-ups during the level)
+  //   SPEED   - how fast obstacles arrive (startSpeed, then speed-ups during the race)
   //   DENSITY - how far apart obstacles are (gapStart -> gapEnd, in seconds AT THE START SPEED; v97: kept as
   //             that many feet as the slide speeds up, never closer than 1 s apart)
-  // Each new chapter loosens density again (a "sawtooth" curve): learn the new thing
-  // in easy conditions, then get squeezed.
-  function buildLevel(ci, n) {
-    const ch = CHAPTERS[ci], i = n - 1, boss = n === 10;
-    // (Halving the number of speed-ups also halved the quiet zones around them, which by
-    //  itself adds ~20-30% more obstacles, so the base spacing stays the same.)
-    const gapStart = Math.max(1.5, 3.4 - i * 0.17 - ci * 0.3);
-    const L = {
-      chapter: ci + 1, n, boss, id: `${ci + 1}-${n}`,
-      warmup: 3.5,                            // seconds of clear slide after "Go!"
-      startSpeed: 6.75 + ci * 0.6 + i * 0.15,  // ft/s (v21: 4.5 -> 9.0; v24: 25% slower start, 9.0 -> 6.75); speed never drops during a level
-      stepEvery: 2 * (8 - i * 0.2),           // seconds between speed-ups (doubled: 16 s -> 12.8 s)
-      stepMult: 1 + 1.5 * (0.06 + i * 0.003), // each speed-up: +9% -> +12.6% (1.5x bigger)
-      gapStart, gapEnd: gapStart * 0.8,       // seconds between obstacles, start -> finish
-      lengthCoils: 2 * (2.2 + i * 0.18),      // finish arch, in turns (v21: doubled with the speed, so a level lasts about as long)
-      stumblesAllowed: 6,
-      mix: cleanMix(ch.mix), combos: ch.combos, intro: n === 1 ? ch.intro : null, note: ch.newThing,
-      rivals: 3,
-      mustPlace: ch.placeCounts ? (n <= 4 ? 3 : 2) : 4,   // 4 = just finish
-      botSkill: Math.min(1, (ci + i / 9) / 3.5),          // rivals sharpen across the whole game
-    };
-    if (boss) Object.assign(L, {
-      startSpeed: L.startSpeed + 0.4, stepEvery: 11, stepMult: 1.135,
-      gapStart: gapStart * 1.05, gapEnd: gapStart * 1.05 * 0.8,
-      lengthCoils: 5, stumblesAllowed: 4, note: ch.boss.note,
-      mustPlace: ch.placeCounts ? 1 : 4, botSkill: Math.min(1.1, L.botSkill + 0.1),
-    }, ch.boss.mix ? { mix: cleanMix(ch.boss.mix) } : {}, ch.boss.combos ? { combos: ch.boss.combos } : {});
-    return L;
-  }
-  const LEVELS = [];
-  CHAPTERS.forEach((ch, ci) => { if (!ch.locked) for (let n = 1; n <= 10; n++) LEVELS.push(buildLevel(ci, n)); });
+  // Speed, bots and length are the old first race's; spacing is the v114 Discord spacing (avg start gap ~2.6 s).
+  const RACE = {
+    id: '1-1',               // only a data label: the race server and test sheet still file runs by it
+    warmup: 2.5,             // seconds of clear slide after "Go!"
+    startSpeed: 6.75,        // ft/s; speed never drops during a race
+    stepEvery: 16,           // seconds between speed-ups
+    stepMult: 1.09,          // each speed-up: +9%
+    gapStart: 2.4, gapEnd: 1.9,   // seconds between obstacles, start -> finish
+    lengthCoils: 4.4,        // finish arch, in turns
+    stumblesAllowed: 6,
+    mix: { low: 0.5, high: 0.5 }, combos: 0, intro: null,
+    rivals: 3,
+    botSkill: 0,             // rivals' base skill (rivalHeat still nudges it by how you've been doing)
+  };
 
   // The rivals. Each is just a personality: how fast it reacts and how often it slips.
   const RIVALS = [
     // err = [lowest, highest] chance to slip on any obstacle. Each bot has a "form" that drifts
     // obstacle to obstacle, so it has hot and cold stretches inside that range.
-    // fixed: the level's skill doesn't sharpen it (used for the test duck).
+    // fixed: the race's skill doesn't sharpen it (used for the test duck).
     { name: 'Pip',  color: 0xf6f1e7, tag: '#fff4e0', react: 0.30, err: [0.40, 0.40], fixed: true }, // TEST DUCK: misses often, washes out early
     { name: 'Dash', color: 0x7fe06a, tag: '#a8f58f', react: 0.22, err: [0.08, 0.34] },              // quick but streaky (v31: was 0.05-0.26)
     { name: 'Mo',   color: 0x8fb4ff, tag: '#b9d0ff', react: 0.26, err: [0.04, 0.20] },              // v34: the strong rival again (v32: 0.06-0.28 was too easy)
@@ -2930,7 +2866,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // =====================================================================
   const st = { obs: [], theta: 0 };
   let rivalHeat = 0;   // adaptive rival difficulty: -0.5 (go easy) .. +0.3 (push harder)
-  let mode = 'title', time = 0, levelIdx = 0, runId = 0;
+  let mode = 'title', time = 0, runId = 0;
   let strideT = 0;   // v111: running-animation phase (see SMOOTH SPEED-UPS by the main loop)
   // v38 TESTING: rival ducks wash out after one fewer miss. v69: the toggle (buttons + B key) is removed;
   // botMinus stays as an always-off constant so saved runs still carry botMinus: false and the checks below stay valid.
@@ -3402,9 +3338,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   class BotBrain {
     constructor(p) { this.base = p; this.reset({ botSkill: 0 }); }
     reset(L) {
-      // Skill for this level, nudged by how the player has been doing lately (rivalHeat)
+      // Base skill, nudged by how the player has been doing lately (rivalHeat)
       const s = Math.max(-1, Math.min(1.2, (L.botSkill || 0) + rivalHeat));
-      this.react = this.base.react * (1 - 0.15 * s);   // sharper with each level
+      this.react = this.base.react * (1 - 0.15 * s);   // sharper with skill
       const k = this.base.fixed ? 1 : Math.max(0.6, 1 - 0.5 * s);   // v32: floor 0.6 (was 0.4 at top skill)
       this.errLo = this.base.err[0] * k; this.errHi = this.base.err[1] * k;
       this.form = Math.random();   // 0 = on form (errLo), 1 = off form (errHi)
@@ -3429,12 +3365,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
           let pFail = err + (1 - err) / (1 + Math.exp((warning - this.react) / 0.06));
           if (o.type === 'tall') pFail += 0.04;
           if (o.combo) pFail += 0.06;
-          // v32 fatigue (added after skill scaling, so even sharp boss-level bots still slip):
+          // v32 fatigue (added after skill scaling, so even the sharpest bots still slip):
           //   streak: +0.4% per dodge in a row, max +10% (v31: +0.2%, max 6%)
           //   race:   +0.15% per obstacle cleared this race, max +6% (new: long races wear everyone down)
           //   overtime: +3% flat (new)
           pFail += Math.min(0.10, d.streak * 0.004) + Math.min(0.06, d.cleared * 0.0015) + (st.overtime ? 0.03 : 0);
-          // v36 speed strain: +2% for every 10% the slide is above this level's starting speed, max +15%
+          // v36 speed strain: +2% for every 10% the slide is above the race's starting speed, max +15%
           // (1.25x -> +5%, 1.5x -> +10%, 1.75x or faster -> +15%). A random roll still decides each obstacle.
           pFail += Math.min(0.15, Math.max(0, 0.2 * (st.speed / st.level.startSpeed - 1)));
           // Rubber band: slip a bit more when ahead of the player, a bit less when behind,
@@ -3641,12 +3577,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (m.seat === m.host) toast('Start didn\'t include you (seat changed?). Tap Start again', '#ffb020');   // v101: was silent
         return;
       }
-      m.race = { seed: d.seed, level: Math.min(d.level | 0, LEVELS.length - 1), at: d.at,
+      m.race = { seed: d.seed, at: d.at,
                  roster: d.roster.filter(p => p && p.seat >= 0 && p.seat < 4).map(p => ({ seat: p.seat, name: String(p.name || 'Duck').slice(0, 20) })) };
       m.rng = mulberry32(d.seed);
       m.on = true; m.solo = false; m.rxStep = 0; m.heard = {}; m.quitStep = null; m.outbox = [];   // v95
       TW.next = typeof d.twist === 'string' ? d.twist : '';   // v113: the host's twist ('' if the race server is older)
-      startLevelNow(m.race.level);
+      startRaceNow();
     }
     function onEv(d) {
       if (d.k === 'state') { if (d.from >= 0 && d.from < 4) { m.states[d.from] = d.st === 'race' ? 'race' : 'idle'; ui(); } return; }
@@ -3742,10 +3678,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       let tag = el('mpTag');
       if (!tag && ver) { tag = document.createElement('span'); tag.id = 'mpTag'; ver.append(tag); }
       if (tag) tag.textContent = m.linked ? ` · MP ${m.roster.length}/4` : m.full ? ' · MP full' : ' · MP…';
-      if (mode !== 'title') return;
-      const pb = el('playBtn');
+      if (mode !== 'title' && mode !== 'result') return;
+      const onRes = mode === 'result';   // v118: the results screen has its own Play button (no racers line there)
+      const pb = el(onRes ? 'resPlay' : 'playBtn');
       if (!pb) return;
-      let info = el('mpInfo');
+      let info = onRes ? document.createElement('p') : el('mpInfo');
       if (!info) {
         info = document.createElement('p'); info.id = 'mpInfo';
         info.style.cssText = 'margin:4px 0 8px;font-size:13px;line-height:1.35;color:var(--ink-dim,#bbb);text-align:center';
@@ -3760,8 +3697,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         + (p.seat !== m.seat && m.states[p.seat] === 'race' ? ' (racing)' : '')).join(', ');
       const nb = 4 - m.roster.length;
       info.textContent = `Racers: ${names}${nb ? ` + ${nb} bot${nb > 1 ? 's' : ''}` : ''}`;
-      if (m.seat === m.host) { pb.disabled = false; pb.textContent = 'Start race: ' + levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)]); }
+      if (m.seat === m.host) { pb.disabled = false; pb.textContent = 'Start race'; }
       else { pb.disabled = true; pb.textContent = 'Waiting for ' + hostName() + ' to start'; }
+      if (onRes) {   // v120: Race again is for the host only
+        const notHost = m.seat !== m.host;
+        if (notHost) resOptsShow(false);
+        el('resAgain').classList.toggle('hidden', notHost || !el('resOpts').classList.contains('hidden'));
+      }
     }
     m.ui = ui;
 
@@ -3795,7 +3737,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       const myRun = runId, how = st.overtime ? 'overtime' : 'splash';
       setTimeout(() => { if (runId === myRun && mode === 'play') maybeLoot(() => showResult(how)); }, 1500);
     };
-    m.requestStart = idx => {
+    m.requestStart = () => {
       if (m.seat !== m.host) {
         toast('Waiting for ' + hostName() + ' to start the race', '#ffe2a8');
         if (mode !== 'title') { mode = 'title'; showOverlay('title'); }
@@ -3817,7 +3759,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         if (ws) drop(ws, 0, ws.readyState === 1);
         return;
       }
-      send({ t: 'start', level: idx, twist: twPick() });   // v113: the host picks the twist
+      send({ t: 'start', level: 0, twist: twPick() });   // v113: the host picks the twist; v122: level is always 0 (the race server still expects it)
       const myAsk = m.startAsk = performance.now();
       setTimeout(() => {
         if (m.startAsk !== myAsk || mode !== 'title') return;   // the race started (or something else happened)
@@ -3902,8 +3844,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   const twOf = id => TWISTS.find(t => t.id === id);
   const TW_KEY = 'jdf-twists';
   const twCfg = (() => {
-    const d = { on: true, off: [], force: '' };
+    const d = { on: false, off: [], force: '' };   // v118: twists start Off
     try { const s = JSON.parse(localStorage.getItem(TW_KEY)); if (s && typeof s === 'object') Object.assign(d, s); } catch (e) {}
+    if (!d.v118) { d.on = false; d.v118 = 1; try { localStorage.setItem(TW_KEY, JSON.stringify(d)); } catch (e) {} }   // v118: one-time switch Off for saved settings
     if (!Array.isArray(d.off)) d.off = [];
     return d;
   })();
@@ -3938,15 +3881,8 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
   const spaceK = () => Math.max(1, PHY.airK);   // course spacing: only ever stretched (Moon), never squeezed
 
-  // v114 DISCORD RACE SPACING: a multiplayer race uses these numbers instead of the host's level, so every race starts
-  // equally busy no matter how far the host has progressed (user: "sometimes in the beginning there are not enough
-  // obstacles"). Level 1-1 was gapStart 3.4 s (avg ~3.7 s at the start) + 3.5 s warm-up. Tune here.
-  const MP_SPACING = { gapStart: 2.4, gapEnd: 1.9, warmup: 2.5 };   // seconds; average start gap ~2.6 s (x1.075)
-  function raceLevel(L) {
-    return MP.on && !MP.solo ? Object.assign({}, L, MP_SPACING) : L;   // a copy: LEVELS itself is never changed
-  }
-  // The level, adjusted for this race's twist (a copy: LEVELS itself is never changed)
-  function twLevel(L) {
+  // The race, adjusted for this race's twist (a copy: RACE itself is never changed)
+  function twRace(L) {
     if (TW.id === 'photo') return Object.assign({}, L, { startSpeed: L.startSpeed * 1.8, lengthCoils: L.lengthCoils * 0.55, warmup: 2.5 });
     if (TW.id === 'combo') return Object.assign({}, L, { combos: Math.max(L.combos || 0, 0.4), intro: null });
     return L;
@@ -4377,7 +4313,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
 
   // =====================================================================
-  //  LEVEL FLOW
+  //  RACE FLOW
   // =====================================================================
   function resetFor(L) {
     for (const o of st.obs) obsGroup.remove(o.mesh);
@@ -4466,7 +4402,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const g = st.plan; let rad = 0;
     while (sec >= g.up - g.t) {
       const d = Math.max(0, g.up - g.t); rad += d * g.v / RP; sec -= d; g.t = g.up;
-      const k = (g.ot || g.solo) && g.v > RAMP_SOFT ? (RAMP_SOFT / g.v) ** 2 : 1;   // v105 gentler ramp at top speed
+      const k = 1;   // v124: softening disabled (was v105: (g.ot || g.solo) && g.v > RAMP_SOFT ? (RAMP_SOFT / g.v) ** 2 : 1)
       g.v *= 1 + (planStepMult(g) - 1) * k;
       st.marks.push({ theta: st.nextSpawn + rad, speed: g.v });
       g.up = g.t + planStepEvery(g);
@@ -4514,7 +4450,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       }
       st.spawned++;
       const along = Math.min(1, st.nextSpawn / st.finishTheta);          // 0 at start, 1 at finish
-      // v97 SPACING BY TRACK LENGTH: the level's gap is turned into FEET at the level's start speed and stays that many
+      // v97 SPACING BY TRACK LENGTH: the race's gap is turned into FEET at the race's start speed and stays that many
       // feet as the slide speeds up, so faster = more obstacles per second. Floor: never closer than 1.0-1.5 s apart
       // (jumps take a fixed time: a hop is ~0.45 s in the air), so it stays possible at any speed.
       // v98 RANDOM RHYTHM: each gap is one of: a tight CLUSTER (2-4 obstacles ~0.7-0.85 s apart: hop-able, a full big
@@ -4578,7 +4514,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     done.forEach((r, i) => { r.place = i + 1; });
     st.finishCount = done.length;
     if (st.finishPlace != null && player.place !== st.finishPlace) {   // a late report changed your place: fix the results
-      st.finishPlace = player.place; st.finishOk = player.place <= st.level.mustPlace;
+      st.finishPlace = player.place;
     }
   }
   function checkFinishesMP() {
@@ -4601,19 +4537,12 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     }
   }
   function playerFinished() {
-    const L = st.level, myRun = runId;
-    const ok = player.place <= L.mustPlace;
-    st.finishOk = ok; st.finishPlace = player.place;
+    st.finishOk = true; st.finishPlace = player.place;   // v122: any finish counts
     st.crossedFinish = true;   // crossed the arch: treasure is earned, shown when they wash out
     nudgeHeat(player.place === 1 ? 0.08 : player.place >= 3 ? -0.1 : 0);
-    if (ok) {
-      const p = player.model.base.position.clone(); p.y += 1;
-      burst(p, [0xffe2a8, 0x39d0ff, 0xff4fa3, 0xffc21a], 8, 40);
-      toast(L.boss ? `Boss beaten! ${ordinal(player.place)}` : `${ordinal(player.place)} place!`, '#ffe2a8');
-      saveUnlocked(Math.max(unlocked, levelIdx + 1));
-    } else {
-      toast(`${ordinal(player.place)} place`, '#ff6a2b');
-    }
+    const p = player.model.base.position.clone(); p.y += 1;
+    burst(p, [0xffe2a8, 0x39d0ff, 0xff4fa3, 0xffc21a], 8, 40);
+    toast(`${ordinal(player.place)} place!`, '#ffe2a8');
     if (!MP.on) startOvertime();   // v85: multiplayer starts overtime when the slide reaches the arch (simStep)
   }
   // Once every duck still racing has passed an obstacle, apply the comeback rules.
@@ -4743,13 +4672,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  TELEMETRY: records every obstacle the player faces, with input timing,
   //  and saves each run to this player's private store so Claude can read it.
   // =====================================================================
-  const BUILD = 'v116-2026-10-12';   // tags every saved run, so runs from different versions aren't mixed
+  const BUILD = 'v124-2026-10-13';   // tags every saved run, so runs from different versions aren't mixed
   document.getElementById('ver').textContent = BUILD.split('-')[0] + (PLAYER_LANE !== LANES - 1 ? ' · L' + (PLAYER_LANE + 1) : '');   // v35: shows e.g. "v35" in the corner; v84: plus the lane if not 4
 
   // v37 SELF-UPDATE (GitHub copy): GitHub Pages lets browsers keep the page up to 10 min, and phones keep
   // tabs open for days. On load and whenever the tab comes back, fetch a fresh copy (bypassing every
   // cache), read its BUILD tag, and if it's newer, reload into it. Never mid-race: only on the title,
-  // level select or results screen; during a race it checks again 20 s later.
+  // results screen or another menu; during a race it checks again 20 s later.
   (function selfUpdate() {
     if (!location.hostname.endsWith('github.io')) return;   // the claude.ai artifact updates itself
     let busy = false;
@@ -4759,7 +4688,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
         const res = await fetch(location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' });
         const m = (await res.text()).match(/const BUILD = '([^']+)'/);
         if (m && m[1] !== BUILD) {
-          if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'result' || mode === 'trophies') {
+          if (mode === 'title' || mode === 'boards' || mode === 'result' || mode === 'trophies') {
             if (sessionStorage.getItem('jdf-reloaded') === m[1]) return;   // already tried this build: no reload loop
             sessionStorage.setItem('jdf-reloaded', m[1]);
             location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]));
@@ -4782,7 +4711,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     } catch (e) {}
   })();
   function teleStart(L) {
-    tele.run = { level: L.id, boss: L.boss, startedAt: Date.now(), heatAtStart: +rivalHeat.toFixed(2),
+    tele.run = { level: L.id, startedAt: Date.now(), heatAtStart: +rivalHeat.toFixed(2),
                  events: [], launches: [], ducks: [], ended: false,
                  passes: 0, passedBy: 0, secondsInFirst: 0, maxStreak: 0 };
     tele.runsThisSession++;
@@ -4794,7 +4723,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const r = tele.run; if (!r) return;
     const w = st.speed / RP, arrive = st.levelTime + phi / w;   // when the obstacle's center reaches the duck
     const ev = { t: +arrive.toFixed(2), type: o.type, speed: +st.speed.toFixed(2), hit };
-    // v70 DIFFICULTY DATA: seconds since the previous obstacle reached the duck, how far through the level
+    // v70 DIFFICULTY DATA: seconds since the previous obstacle reached the duck, how far through the race
     // (0 = start, 1 = finish arch, over 1 = overtime), and how long the obstacle was on screen before it arrived.
     if (r.lastArrive != null) ev.gap = +(arrive - r.lastArrive).toFixed(2);
     r.lastArrive = arrive;
@@ -4828,7 +4757,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       r.eventsDropped = (r.eventsDropped || 0) + 1;
     }
   }
-  // v91: '2-3' -> 13 (chapter 2, level 3) so the server can keep the best one
+  // v91: '2-3' -> 13 so the server can keep the best one (v122: always '1-1' -> 1 now)
   const lvCode = s => { const lv = String(s).split('-').map(Number); return lv.length === 2 && lv.every(Number.isFinite) ? (lv[0] - 1) * 10 + lv[1] : 0; };
   // v93: Discord multiplayer race: while racing, keep an up-to-date "unfinished race" report on this device
   // (JDF_DISCORD.raceOpen, every 2 s). teleEnd clears it when the race ends here. If the Activity is closed
@@ -4856,7 +4785,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const nearest = others.length ? others.reduce((a, b) => Math.abs(b.progress - player.progress) < Math.abs(a.progress - player.progress) ? b : a) : null;
     const doc = {
       schema: 4, build: BUILD, lane: PLAYER_LANE + 1, session: tele.session, runInSession: tele.runsThisSession,
-      level: r.level, chapter: st.level.chapter, boss: r.boss, result, startedAt: r.startedAt, endedAt: Date.now(),
+      level: r.level, chapter: 1, boss: false, result, startedAt: r.startedAt, endedAt: Date.now(),   // v122: chapter/boss fixed values for the test sheet
       passes: r.passes, passedBy: r.passedBy, secondsInFirst: +r.secondsInFirst.toFixed(1), maxStreak: r.maxStreak,
       finishPlace: st.finishPlace, finishOk: st.finishOk, reachedOvertime: st.overtime,
       overtimeSec: st.overtime ? +(((player.elimAt ?? st.levelTime)) - st.otStart).toFixed(1) : null,
@@ -4883,7 +4812,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v96: + the facts the bonus eggs and trophies are worked out from (humans, beat, boss, day)
     const rwPlace = result === 'abandoned' ? 0 : (doc.place || player.podium || 0);
     const rw = { place: rwPlace, humans: rwHumans(), beat: rwBeat(rwPlace), streak: doc.bestStreak || 0,
-                 boss: !!(doc.boss && doc.finishOk && result !== 'abandoned'), day: rwDay() };
+                 boss: false, day: rwDay() };   // v122: no bosses (the race server still expects the field)
     rwShown = null;
     const D = window.JDF_DISCORD;
     if (D && D.report && !doc.godMode && (result !== 'abandoned' || doc.dodges || doc.eggs)) {
@@ -5010,7 +4939,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     // v43: Save (or Enter) saves the name AND starts the game, same as tapping Play, so nobody is left
     // wondering whether it saved. The keyboard is closed first so it isn't covering the race.
     const saveAndPlay = () => { if (save()) { $('testerName').blur(); $('playBtn').click(); } };
-    testerSaveOnly = save;   // Play / Choose a level use the plain save, so they don't start a game twice
+    testerSaveOnly = save;   // Play uses the plain save, so they don't start a game twice
     $('testerSave').addEventListener('click', saveAndPlay);
     $('testerName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveAndPlay(); } });
     show();
@@ -5029,7 +4958,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   //  v44 SCOREBOARD (results card)
   //  "My bests": kept in this browser (localStorage 'jdf-board'). Works on every copy.
   //  "Friends": GET SHEET_URL?board=1, answered by doGet in the Apps Script (github.io copy only).
-  //  Overall (all levels): Dodges = most in one run, ft/s = top speed, Streak = longest,
+  //  Overall: Dodges = most in one run, ft/s = top speed, Streak = longest,
   //  Acc = all runs combined, OT = longest overtime (s), Eggs = total earned.
   //  Not counted (but still logged to the sheet as normal): runs with god mode or the bot-miss test
   //  toggle on, and EVERY run in a session where god mode was switched on at any point.
@@ -5129,7 +5058,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       : (L && rows.some(x => x[3])) ? 'Yellow = new personal best.' : `Bests from ${t.runs} counted run${t.runs === 1 ? '' : 's'} in this browser.`;
   }
   // v62 columns: Name | Dodges | Streak | Top ft/s | D (device: i = iOS, A = Android, P = PC). The three stats are tap-to-rank.
-  // v50: the friends board is the TOP 10 RUNS (all levels mixed), one row per run, so a player can
+  // v50: the friends board is the TOP 10 RUNS, one row per run, so a player can
   // hold several spots or none. v62: Accuracy replaced by Dodges = total dodges in that one run.
   const FRIEND_TOP = 10;
   const FRIEND_COLS = [ ['dodges', 'Dodges', p => p.d], ['streak', 'Streak', p => p.streak],
@@ -5312,17 +5241,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   // =====================================================================
   //  PROGRESS (saved in this browser)
   // =====================================================================
-  let unlocked = 0;
   try { rivalHeat = Math.max(-0.5, Math.min(0.3, parseFloat(localStorage.getItem('jdf-heat') || '0') || 0)); } catch (e) {}
   function nudgeHeat(d) { rivalHeat = Math.max(-0.5, Math.min(0.3, rivalHeat + d)); try { localStorage.setItem('jdf-heat', String(rivalHeat)); } catch (e) {} }
-  try { unlocked = Math.min(LEVELS.length, parseInt(localStorage.getItem('jdf-unlocked') || '0', 10) || 0); } catch (e) {}
-  function saveUnlocked(n) { unlocked = Math.min(LEVELS.length, n); try { localStorage.setItem('jdf-unlocked', String(unlocked)); } catch (e) {} }
 
   // =====================================================================
   //  UI
   // =====================================================================
   const $ = id => document.getElementById(id);
-  const overlays = ['title', 'select', 'boards', 'paused', 'result', 'customize', 'trophies', 'twists'];   // v113: + twists   // v90: + customize; v96: + trophies
+  const overlays = ['title', 'boards', 'paused', 'result', 'customize', 'trophies', 'twists'];   // v113: + twists   // v90: + customize; v96: + trophies
   // v39 MASCOT: Sarge, the game's army duck. Original drawing, made from shapes so it stays sharp at any size.
   // Poses: 'salute' (title), 'cheer' (won), 'sad' (lost), 'halt' (paused).
   function mascotSVG(pose) {
@@ -5377,7 +5303,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
 
   function showOverlay(id) {
     overlays.forEach(o => $(o).classList.toggle('hidden', o !== id));
-    const menu = id === 'title' || id === 'select' || id === 'boards' || id === 'customize' || id === 'trophies' || id === 'twists';   // v113: + twists   // v47: + leaderboard; v90: + customize; v96: + trophies
+    const menu = id === 'title' || id === 'boards' || id === 'customize' || id === 'trophies' || id === 'twists';   // v113: + twists   // v47: + leaderboard; v90: + customize; v96: + trophies
     if (menu && window.__jdfPile) window.__jdfPile.reset();   // v51: the loot pile stays through the results, gone on the menus
     $('hud').classList.toggle('hidden', menu);
     $('tracker').classList.toggle('hidden', menu);
@@ -5388,7 +5314,6 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     const firstBtn = id && $(id).querySelector('button:not(:disabled)');
     if (firstBtn) setTimeout(() => firstBtn.focus({ preventScroll: true }), 30);
   }
-  const levelName = L => L.boss ? `Boss ${L.chapter}` : `Level ${L.id}`;
   // v45: results title on ONE line: start at 30px and step down until the text fits beside the mascot.
   function fitOneLine(el, max, min) {
     let size = max; el.style.fontSize = size + 'px';
@@ -5564,20 +5489,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
 
   function hud() {
-    const L = st.level; if (!L) return;
-    const lab = $('lvlLabel'); lab.textContent = levelName(L); lab.classList.toggle('boss', L.boss);
+    if (!st.level) return;
     $('scoreLine').textContent = `${player.cleared} dodged`;
-    const coils = $('coils');
-    // v116: two rows so the block never gets wider than the starting misses (it used to wrap under the level label)
-    const left = player.missesLeft, base = player.maxStumbles, extra = Math.max(0, left - base), key = base + ':' + extra;
-    if (coils.dataset.k !== key) {
-      coils.dataset.k = key; coils.innerHTML = '';
-      [base, extra].forEach(k => { if (!k) return; const row = document.createElement('div'); row.className = 'coil-row';
-        for (let i = 0; i < k; i++) row.appendChild(document.createElement('div')); coils.appendChild(row); });
-    }
-    const rows = coils.children;
-    if (rows[0]) [...rows[0].children].forEach((d, i) => { d.className = 'coil ' + (i < Math.min(left, base) ? 'on' : 'off'); });
-    if (rows[1]) [...rows[1].children].forEach(d => { d.className = 'coil bonus'; });
+    // v117: miss circles removed (not needed)
   }
   // Duck tracker: fixed row order (you first, then rivals) so each duck stays on the same line.
   let trackerAt = -1;
@@ -5608,8 +5522,11 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       tr.classList.toggle('out', out);
     });
   }
+  let speedoTxt = '';   // v123
   function hudFrame() {
     trackerFrame();
+    const sp = (st.speed || 0).toFixed(1);   // v123 speedometer
+    if (sp !== speedoTxt) { speedoTxt = sp; $('speedoNum').textContent = sp; }
     podiumLive();
     $('progFill').style.width = Math.min(100, Math.max(0, 100 * player.progress / st.finishTheta)) + '%';
 
@@ -6201,45 +6118,19 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (step === 0 && slideMat) slideMat.color.set('#ffffff');
   }
 
-  function buildSelect() {
-    const box = $('chapters'); box.innerHTML = '';
-    let idx = 0;
-    CHAPTERS.forEach((ch, ci) => {
-      const sec = document.createElement('div');
-      sec.className = 'chapter' + (ch.locked ? ' locked' : '');
-      sec.innerHTML = `<h2>Chapter ${ci + 1}: ${ch.name}</h2><p>${ch.locked ? 'Coming later. ' : 'New: '}${ch.newThing}</p>`;
-      if (!ch.locked) {
-        const grid = document.createElement('div'); grid.className = 'grid';
-        for (let n = 1; n <= 10; n++, idx++) {
-          const L = LEVELS[idx], my = idx;
-          const b = document.createElement('button');
-          b.className = 'lvl' + (L.boss ? ' boss' : '') + (idx < unlocked ? ' done' : '') + (idx === unlocked ? ' next' : '');
-          b.textContent = L.boss ? 'Boss' : n;
-          b.setAttribute('aria-label', levelName(L) + (idx < unlocked ? ', cleared' : idx > unlocked ? ', locked' : ''));
-          b.disabled = idx > unlocked;
-          b.addEventListener('click', () => startLevel(my));
-          grid.appendChild(b);
-        }
-        sec.appendChild(grid);
-      }
-      box.appendChild(sec);
-    });
-  }
-
   // v85: in multiplayer the host asks the server to start, and every device starts on its 'start' message
-  function startLevel(idx) {
-    if (MP.linked && !MP.full) { MP.requestStart(idx); return; }
+  function startRace() {
+    if (MP.linked && !MP.full) { MP.requestStart(); return; }
     MP.restore();
     TW.next = twPick();   // v113
-    startLevelNow(idx);
+    startRaceNow();
   }
-  function startLevelNow(idx) {
+  function startRaceNow() {
     lootOpen = false; lootThen = null; $('loot').classList.add('hidden');
     if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned');
-    teleNext(idx === levelIdx ? 'retry' : idx === levelIdx + 1 ? 'next' : 'other level');
-    levelIdx = Math.min(idx, LEVELS.length - 1);
+    teleNext('race');
     twReset(TW.next); TW.next = '';   // v113: this race's twist
-    const L = twLevel(raceLevel(LEVELS[levelIdx]));   // v114: fixed spacing in Discord races
+    const L = twRace(RACE);
     runId++;
     resetFor(L);
     twAfterReset();
@@ -6251,21 +6142,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     showOverlay(null);
     hud();
     $('place').textContent = '';
-    toast(L.boss ? `Boss ${L.chapter}` : levelName(L), L.boss ? '#ff6a2b' : '#ffe2a8');
     twReel(TW.id);   // v113
   }
 
   function onGo() {
     probe.reset();   // v59: lag stats are per race
-    const L = st.level, myRun = runId;
     mode = 'play';
     MP.setState('race');   // v85
     toast('Go!', '#a8f58f');
-    let msg = null;
-    if (L.boss) msg = L.note;
-    else if (L.n === 1 && L.chapter > 1) msg = 'New: ' + L.note;
-    else if (L.mustPlace < 4) msg = `Finish ${ordinal(L.mustPlace)} or better`;
-    if (msg) setTimeout(() => { if (runId === myRun && mode === 'play') toast(msg, L.boss ? '#ff6a2b' : '#ffb020'); }, 1100);
   }
 
   // =====================================================================
@@ -6284,7 +6168,6 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     { id: 'duck_hunter',  icon: '🎯', name: 'Duck Hunter',  how: 'Finish ahead of a real player' },
     { id: 'streak_50',    icon: '🔥', name: 'Streak 50',    how: 'Dodge 50 in a row' },
     { id: 'egg_hoarder',  icon: '🥚', name: 'Egg Hoarder',  how: 'Have 1,000 eggs' },
-    { id: 'boss_slayer',  icon: '👑', name: 'Boss Slayer',  how: 'Beat a boss level' },
     { id: 'golden_duck',  icon: '🦆', name: 'Golden Duck',  how: 'Rare drop, 1 in 50 races', gilt: true },
   ];
   const trophyOf = id => TROPHIES.find(t => t.id === id);
@@ -6318,7 +6201,6 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     give('duck_hunter', r.beat > 0);
     give('streak_50', r.streak >= 50);
     give('egg_hoarder', gold >= 1000);
-    give('boss_slayer', r.boss);
     give('golden_duck', Math.random() < 1 / 50, true);
     lsSet('jdf-trophy-state', s);
     return { bonus, trophies: earned };
@@ -6435,7 +6317,6 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     setTimeout(() => { if (runId !== fadeRun || mode !== 'result') return;
       const s1 = document.querySelector('#podium .slot[data-place="1"] .seat'); if (s1) s1.classList.add('faded'); }, 2000);
     buildFun();
-    const L = st.level, next = LEVELS[levelIdx + 1];
     $('rCleared').textContent = player.cleared;
     $('rSpeed').textContent = st.topSpeed.toFixed(1);
     if (player.finished) { $('rStumbles').textContent = ordinal(player.place); $('rThird').textContent = 'place'; }
@@ -6443,32 +6324,13 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     if (how === 'overtime') {
       const surv = standings().indexOf(player) + 1, ot = st.levelTime - st.otStart;
       $('resTitle').textContent = player.survivor ? 'Last duck standing' : `Out ${ordinal(surv)}`;
-      $('resMsg').textContent = `Finished ${ordinal(st.finishPlace)} at the arch${st.finishOk ? '' : ` (needed ${ordinal(L.mustPlace)})`}. `
+      $('resMsg').textContent = `Finished ${ordinal(st.finishPlace)} at the arch. `
         + (player.survivor ? `Then outlasted everyone for ${ot.toFixed(0)} s of overtime, up to ${st.speed.toFixed(1)} ft/s.`
                            : `Lasted ${Math.max(0, (player.elimAt || st.levelTime) - st.otStart).toFixed(0)} s of overtime, out at ${(player.elimSpeed || st.speed).toFixed(1)} ft/s.`);
       $('rStumbles').textContent = ordinal(surv); $('rThird').textContent = 'survival';
-      const advance = st.finishOk && next;
-      $('resPrimary').textContent = advance ? (next.boss ? 'Face the boss' : 'Next level') : st.finishOk ? 'Race it again' : 'Try again';
-      $('resPrimary').onclick = () => advance ? startLevel(levelIdx + 1) : startLevel(levelIdx);
-    } else if (how === 'won') {
-      $('resTitle').textContent = L.boss ? 'Boss beaten' : `${levelName(L)} cleared`;
-      if (L.boss) {
-        const nc = CHAPTERS[L.chapter];
-        $('resMsg').textContent = nc ? (nc.locked ? `Next up, chapter ${L.chapter + 1}: ${nc.newThing.toLowerCase()}. Coming later.` : `Chapter ${L.chapter + 1} unlocked. New: ${nc.newThing}`) : 'You beat every chapter.';
-      } else $('resMsg').textContent = player.place === 1 ? `First place, ahead of all three rivals, at ${st.topSpeed.toFixed(1)} ft/s.`
-        : `You finished ${ordinal(player.place)} of ${racers.length}. Beat them all next time?`;
-      $('resPrimary').textContent = next ? (next.boss ? 'Face the boss' : 'Next level') : 'Race it again';
-      $('resPrimary').onclick = () => next ? startLevel(levelIdx + 1) : startLevel(levelIdx);
     } else {
-      if (how === 'place') {
-        $('resTitle').textContent = `${ordinal(player.place)} place`;
-        $('resMsg').textContent = `This race needs ${L.mustPlace === 1 ? 'first place' : ordinal(L.mustPlace) + ' or better'}.`;
-      } else {
-        $('resTitle').textContent = 'Splash!';
-        $('resMsg').textContent = `Washed into the pool ${Math.round(100 * Math.max(0, player.elimProg != null ? player.elimProg : player.progress) / st.finishTheta)}% of the way to the arch.`;   // v113: elimProg (the slide keeps going while you watch)
-      }
-      $('resPrimary').textContent = 'Try again';
-      $('resPrimary').onclick = () => startLevel(levelIdx);
+      $('resTitle').textContent = 'Splash!';
+      $('resMsg').textContent = `Washed into the pool ${Math.round(100 * Math.max(0, player.elimProg != null ? player.elimProg : player.progress) / st.finishTheta)}% of the way to the arch.`;   // v113: elimProg (the slide keeps going while you watch)
     }
     if (MP.solo) {   // v89: this device lost the race server mid-race
       $('resTitle').textContent = 'Connection lost';
@@ -6484,9 +6346,9 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       }
       twPanel(null);
     }
-    $('resSecondary').onclick = openSelect;
-    // v39 mascot reacts: cheers when you advance (or survive overtime), droops when you have to retry
-    setMascot('mascotResult', (how === 'won' || (how === 'overtime' && st.finishOk)) ? 'cheer' : 'sad');
+    resPlayUi();   // v118
+    // v39 mascot reacts: cheers when you reached the arch, droops when you washed out before it
+    setMascot('mascotResult', (how === 'overtime' && st.finishOk) ? 'cheer' : 'sad');
     rwRender();   // v96
     showOverlay('result');
     resStart();   // v97: Race Results first, then switch every 5 s
@@ -6508,14 +6370,14 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   }
   // Treasure reveal after you go out in overtime (or win it): purely cosmetic for now.
   let lootOpen = false, lootThen = null;
-  // Show the treasure once per run, if the player passed the level, whichever comes first:
+  // Show the treasure once per run, if the player crossed the finish, whichever comes first:
   // their own wash-out or the end of overtime.
   function maybeLoot(then) {
     then();   // v33: treasure-chest screen removed (showLoot kept below, unused, in case we want it back)
   }
   function showLoot(survivor, then) {
     const ot = Math.max(0, (player.elimAt ?? st.levelTime) - st.otStart);
-    $('lootTitle').textContent = survivor ? 'Last duck standing!' : st.finishOk ? 'Level passed!' : 'You crossed the finish!';
+    $('lootTitle').textContent = survivor ? 'Last duck standing!' : 'You crossed the finish!';
     $('lootSub').textContent = survivor ? 'You outlasted every rival.' : `You made it ${ot.toFixed(0)} s into overtime.`;
     // fireworks: a few bursts over the chest, each a ring of sparks flying outward
     const fwBox = $('lootFw'); fwBox.innerHTML = '';
@@ -6559,22 +6421,23 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     feather: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M30 6 C14 10 9 22 10 33 C20 30 31 21 30 6 Z" fill="#ffd23f" stroke="#b98a12" stroke-width="2.5" stroke-linejoin="round"/><path d="M10 33 L26 12" stroke="#b98a12" stroke-width="2"/></svg>',
   };
   $('lootBtn').addEventListener('click', closeLoot);
-  function openSelect() { if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned'); teleNext('level select'); mode = 'select'; buildSelect(); showOverlay('select'); }
+  // v122: Quit (pause screen) goes back to the start page
+  function quitRace() { if (tele.run && !tele.run.ended && st.levelTime > 0) teleEnd('abandoned'); teleNext('quit'); mode = 'title'; refreshPlay(); showOverlay('title'); }
   let pausedFrom = null;
   function pause() {
     if (mode !== 'play' && mode !== 'dying') return;
     if (MP.on) { toast('No pausing in a multiplayer race', '#ffe2a8'); return; }   // v85
     pausedFrom = mode; mode = 'paused';
     player.releaseUp(); player.releaseDown(); releasePads();
-    $('pausedSub').textContent = `${levelName(st.level)}: ${st.level.note}`;
+    $('pausedSub').textContent = TW.id && twOf(TW.id) ? `Twist: ${twOf(TW.id).icon} ${twOf(TW.id).name}` : '';
     setMascot('mascotPause', 'halt');   // v39
     showOverlay('paused');
   }
   function resume() { if (mode !== 'paused') return; mode = pausedFrom; showOverlay(null); clock.getDelta(); }
-  const refreshPlay = () => { $('playBtn').textContent = unlocked > 0 ? `Play ${levelName(LEVELS[Math.min(unlocked, LEVELS.length - 1)])}` : 'Play'; MP.ui(); };
+  const refreshPlay = () => { $('playBtn').textContent = 'Play'; MP.ui(); };
 
   let playTapAt = 0;   // v101
-  const playTap = () => { if (performance.now() - playTapAt < 600) return; playTapAt = performance.now(); if (testerReady()) startLevel(Math.min(unlocked, LEVELS.length - 1)); };
+  const playTap = () => { if (performance.now() - playTapAt < 600) return; playTapAt = performance.now(); if (testerReady()) startRace(); };
   $('playBtn').addEventListener('click', playTap);
   // v101 TAP-THROUGH: Start sometimes did nothing in Discord on a phone (not even the press animation), as if
   // something invisible covered it. If a tap lands inside the Play button's box but the top element there is
@@ -6590,10 +6453,36 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     toast('Start was covered by ' + name.slice(0, 40) + ' (started anyway)', '#ffe2a8');
     playTap();
   }, true);
-  $('levelsBtn').addEventListener('click', () => { if (testerReady()) openSelect(); });
   $('twistBtn').addEventListener('click', openTwists); twBtnText();   // v113
+  // v118 RESULTS BUTTONS: same as the start page. Play starts straight from here (host only in a Discord race);
+  // the others open their screen as if from the start page, so their Back goes to the start page.
+  function resPlayUi() {
+    resOptsShow(false);   // v120: closed each new results screen
+    const b = $('resPlay');
+    b.textContent = 'Play';
+    b.disabled = false;
+    MP.ui();   // in a Discord race: "Start race: ..." for the host, "Waiting for ... to start" for everyone else
+    $('resTwist').textContent = $('twistBtn').textContent;
+  }
+  // v121: Race again swaps itself and the Race Results / Top 10 area for the start-page buttons (top of the card)
+  function resOptsShow(on) {
+    ['resSwitch', 'resPanels', 'resAgain'].forEach(id => $(id).classList.toggle('hidden', on));
+    $('resOpts').classList.toggle('hidden', !on);
+    const rc = $('result').querySelector('.card'); rc.scrollTop = 0;
+    if (mode === 'result') resultLayout();
+  }
+  $('resAgain').addEventListener('click', () => { if (mode === 'result') resOptsShow(true); });
+  $('resPlay').addEventListener('click', () => { if (mode === 'result') playTap(); });
+  const fromRes = id => () => {
+    if (mode !== 'result') return;
+    mode = 'title'; refreshPlay(); $(id).click();
+    if (mode === 'title') showOverlay('title');   // the screen didn't open (e.g. tester name needed): land on the start page
+  };
+  $('resTwist').addEventListener('click', fromRes('twistBtn'));
+  $('resBoard').addEventListener('click', fromRes('boardBtn'));
+  $('resCustom').addEventListener('click', fromRes('customBtn'));
+  $('resTrophy').addEventListener('click', fromRes('trophyBtn'));
   setupTester();   // v40
-  $('selectBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   // v47 LEADERBOARD from the title screen: same scoreboard, moved into its own card
   $('boardBtn').addEventListener('click', () => {
     $('board').classList.remove('quack');   // v65: the title-screen Leaderboard always shows the stats
@@ -6896,11 +6785,10 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
   $('trophyBtn').addEventListener('click', () => { if (mode === 'title') openTrophies(); });   // v96
   $('trophyBack').addEventListener('click', () => { mode = 'title'; refreshPlay(); showOverlay('title'); });
   window.__jdfLook = CZ;   // v90: for testing
-  $('unlockAll').addEventListener('click', () => { saveUnlocked(LEVELS.length - 1); buildSelect(); });
   $('pauseBtn').addEventListener('click', pause);
   $('resumeBtn').addEventListener('click', resume);
-  $('restartBtn').addEventListener('click', () => startLevel(levelIdx));
-  $('quitBtn').addEventListener('click', openSelect);
+  $('restartBtn').addEventListener('click', () => startRace());
+  $('quitBtn').addEventListener('click', quitRace);
   refreshPlay();
 
   // =====================================================================
@@ -7192,7 +7080,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
       if (mode === 'play') hudFrame();
     } else if (mode === 'dying') {
       simStep(simDt, dt);
-    } else if (mode === 'title' || mode === 'select' || mode === 'boards' || mode === 'trophies' || mode === 'twists') {
+    } else if (mode === 'title' || mode === 'boards' || mode === 'trophies' || mode === 'twists') {
       st.theta += 0.3 * dt;
     }
 
@@ -7264,7 +7152,7 @@ vec3 dkBump(vec3 pos, vec3 n, float H) {
     requestAnimationFrame(frame);
   }
 
-  player.reset(LEVELS[0]);
+  player.reset(RACE);
   setMascot('mascotTitle', 'salute');   // v39
   showOverlay('title');
   requestAnimationFrame(frame);
