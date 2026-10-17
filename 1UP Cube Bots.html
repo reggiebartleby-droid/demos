@@ -1,0 +1,695 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>1UP Cube Bots</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed 3D arena; arcade HUD panels pinned to the corners, action bar along the bottom. Single dark look by design. */
+:root{
+  --bg:#05060a;
+  --panel:rgba(9,11,20,.86);
+  --line:#232a40;
+  --fg:#e9edf7;
+  --dim:#8b94ab;
+  --gold:#ffd23d;
+  --cyan:#29e6ff;
+  --pink:#ff3d8b;
+  --red:#ff4a2e;
+  --display:'Press Start 2P',ui-monospace,monospace;
+  --body:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden}
+#app{position:relative;height:100%;width:100%;overflow:hidden}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+#fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;transition:opacity .5s ease-out}
+.panel{position:absolute;background:var(--panel);border:2px solid var(--line);box-shadow:4px 4px 0 #000;padding:12px 14px}
+h1,h2,.px{font-family:var(--display);font-weight:400;letter-spacing:.04em}
+.hud-top{top:calc(14px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));max-width:340px;display:grid;gap:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.oneup{font-family:var(--display);font-size:11px;color:var(--bg);background:var(--gold);padding:5px 6px;animation:blink 1.1s steps(2) infinite}
+h1{font-size:15px;margin:0;color:var(--fg);text-shadow:2px 2px 0 var(--pink)}
+.score{font-family:var(--display);font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums}
+.score span{color:var(--dim)}
+.sub{margin:0;font-size:12px;line-height:1.5;color:var(--dim)}
+.hint{font-size:11px;color:var(--cyan)}
+#panel{top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));width:250px;display:grid;gap:12px;max-height:calc(100% - 120px);overflow:auto}
+.grp{display:grid;gap:6px}
+.lbl{font-family:var(--display);font-size:8px;color:var(--dim);letter-spacing:.12em}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button,.tog,.act{font-family:var(--display);font-size:8px;line-height:1.4;color:var(--fg);background:#10142400;border:2px solid var(--line);padding:7px 6px;cursor:pointer;border-radius:0}
+.seg button{flex:1 1 auto;background:#0e1222}
+.seg button[aria-pressed="true"]{background:var(--cyan);color:#041018;border-color:var(--cyan)}
+.togs{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.tog{background:#0e1222;text-align:left;display:flex;align-items:center;gap:6px}
+.tog::before{content:"";width:8px;height:8px;border:2px solid var(--dim);flex:none}
+.tog[aria-pressed="true"]::before{background:var(--gold);border-color:var(--gold)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#readout{left:max(16px,env(safe-area-inset-left,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));width:250px;display:grid;gap:8px}
+#readout h2{font-size:8px;margin:0;color:var(--gold);letter-spacing:.12em}
+.bar{display:grid;grid-template-columns:96px 1fr 62px;align-items:center;gap:8px;font-size:11px}
+.bar .n{color:var(--dim);font-size:10px}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim);font-size:10px}
+.track{height:10px;background:#0b0e19;border:1px solid var(--line);position:relative}
+.fill{position:absolute;inset:0 auto 0 0;background:repeating-linear-gradient(90deg,var(--cyan) 0 6px,transparent 6px 8px);transition:width .15s steps(4)}
+.fill.low{background:repeating-linear-gradient(90deg,var(--pink) 0 6px,transparent 6px 8px)}
+.note{font-size:10px;color:var(--dim);line-height:1.5;margin:0}
+#actions{position:absolute;left:0;right:0;bottom:0;padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:8px;justify-content:center;background:linear-gradient(to top,rgba(5,6,10,.95),rgba(5,6,10,0))}
+.act{font-size:9px;padding:11px 12px;background:#0e1222;box-shadow:3px 3px 0 #000}
+.act:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+.act kbd{font-family:inherit;color:var(--dim);margin-left:6px}
+.act.hit{border-color:var(--cyan);color:var(--cyan)}
+.act.wpn{border-color:var(--gold);color:var(--gold)}
+.act.whl{border-color:var(--pink);color:var(--pink)}
+.act.ko{border-color:var(--red);color:#fff;background:#3a0d0a}
+.act.auto[aria-pressed="true"]{background:var(--gold);color:#120d00;border-color:var(--gold)}
+#styleBtn{display:none}
+.pop{position:absolute;transform:translate(-50%,-50%);font-family:var(--display);white-space:nowrap;text-align:center;animation:rise 1.1s ease-out forwards;text-shadow:2px 2px 0 #000}
+.pop b{display:block;font-weight:400;font-size:14px;color:var(--gold)}
+.pop i{display:block;font-style:normal;font-size:9px;color:var(--cyan);margin-top:6px}
+.pop.big b{font-size:38px;color:#fff;text-shadow:4px 4px 0 var(--pink)}
+.pop.big i{font-size:12px;color:var(--gold)}
+@keyframes rise{0%{opacity:0;margin-top:8px}12%{opacity:1}70%{opacity:1}100%{opacity:0;margin-top:-46px}}
+@keyframes blink{50%{opacity:.35}}
+#err{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;font-size:13px;color:var(--dim)}
+@media (max-width:760px){
+  .hud-top{max-width:calc(100% - 32px)}
+  .sub,.hint{display:none}
+  #panel{display:none;top:auto;bottom:calc(150px + env(safe-area-inset-bottom,0px));right:max(16px,env(safe-area-inset-right,0px));left:max(16px,env(safe-area-inset-left,0px));width:auto;max-height:52%}
+  #panel.open{display:grid}
+  #readout{top:calc(100px + env(safe-area-inset-top,0px));bottom:auto;width:200px;padding:8px 10px;gap:5px}
+  .bar{grid-template-columns:70px 1fr 44px;font-size:9px;gap:5px}
+  #readout .note{display:none}
+  #styleBtn{display:inline-block}
+  .act{font-size:8px;padding:9px 8px}
+  .act kbd{display:none}
+}
+@media (prefers-reduced-motion:reduce){.oneup{animation:none}.pop{animation-duration:.01s}}
+</style>
+
+<div id="app">
+  <canvas id="c" aria-label="3D view of a cube-built robot. Click it to knock cubes off."></canvas>
+  <div id="fx"></div>
+  <div id="flash"></div>
+
+  <header class="panel hud-top">
+    <div class="brand"><span class="oneup">1UP</span><h1>CUBE BOTS</h1></div>
+    <div class="score"><span>SCORE </span><b id="score">000000</b></div>
+    <p class="sub">Art theme mockup for Robot Revolution. Every bot and part is built from cubes, and damage knocks them loose. Throwaway preview, not the game build.</p>
+    <div class="hint">Click the bot to hit it · drag to orbit · scroll to zoom</div>
+  </header>
+
+  <aside id="panel" class="panel" aria-label="Look options">
+    <div class="grp"><span class="lbl">BOT</span>
+      <div class="seg" data-key="bot">
+        <button data-v="red">RED DISC</button><button data-v="blue">BLUE LIFT</button><button data-v="purple">HAMMER TIME</button>
+      </div></div>
+    <div class="grp"><span class="lbl">CUBE STYLE</span>
+      <div class="seg" data-key="style">
+        <button data-v="glow">PIXEL GLOW</button><button data-v="block">TOY BLOCK</button><button data-v="shimmer">ENERGY CUBE</button>
+      </div></div>
+    <div class="grp"><span class="lbl">CUBE SIZE</span>
+      <div class="seg" data-key="size">
+        <button data-v="0.08">8-BIT</button><button data-v="0.05">16-BIT</button><button data-v="0.035">HI-RES</button>
+      </div></div>
+    <div class="grp"><span class="lbl">OPTIONS</span>
+      <div class="togs">
+        <button class="tog" data-t="core">GLOW CORE</button>
+        <button class="tog" data-t="stays">DEBRIS STAYS</button>
+        <button class="tog" data-t="weapon">WEAPON ON</button>
+        <button class="tog" data-t="spin">TURNTABLE</button>
+        <button class="tog" data-t="slow">SLOW-MO</button>
+        <button class="tog" data-t="grid">NEON GRID</button>
+      </div></div>
+    <p class="note">Glow core: cubes buried inside a part light up when hits dig down to them. Debris stays: knocked-off cubes keep glowing on the floor instead of fading out.</p>
+  </aside>
+
+  <section id="readout" class="panel" aria-label="Part health">
+    <h2>HP = CUBES LEFT</h2>
+    <div id="bars"></div>
+    <p class="note">Bot is KO'd when under 30% of its cubes remain.</p>
+  </section>
+
+  <nav id="actions" aria-label="Damage actions">
+    <button class="act hit" id="aHit">HIT<kbd>H</kbd></button>
+    <button class="act wpn" id="aWpn">WEAPON OFF<kbd>W</kbd></button>
+    <button class="act whl" id="aWhl">WHEEL OFF<kbd>E</kbd></button>
+    <button class="act ko" id="aKo">K.O.<kbd>K</kbd></button>
+    <button class="act auto" id="aAuto" aria-pressed="false">AUTO FIGHT<kbd>A</kbd></button>
+    <button class="act" id="aReset">RESET<kbd>R</kbd></button>
+    <button class="act" id="styleBtn">STYLE</button>
+  </nav>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const S = { bot:'red', style:'glow', size:'0.05', core:true, stays:true, weapon:true, spin:!reduced, slow:false, grid:true, auto:false };
+
+const STYLES = {
+  glow:    { glow:0.55, bloom:[0.75,0.45,0.85], gap:0.88, rough:0.55, metal:0.05, light:1.3 },
+  block:   { glow:0.03, bloom:[0.16,0.4,0.95],  gap:0.965,rough:0.78, metal:0.0,  light:0.5 },
+  shimmer: { glow:0.6,  bloom:[0.85,0.5,0.8],   gap:0.92, rough:0.3,  metal:0.6,  light:1.1 },
+};
+const PAL = {
+  red:   { paint:'#ff4a2e', paint2:'#d6301c', weapon:'#ffc93a', steel:'#ffe7a0', motor:'#22d6c8', tire:'#3b2a4a', dark:'#4d3448', core:'#ffb300' },
+  blue:  { paint:'#2f86ff', paint2:'#1f58d8', weapon:'#2ff0ff', steel:'#c4f9ff', motor:'#ff3d9a', tire:'#2c2a4c', dark:'#344262', core:'#ff2fa8' },
+  purple:{ paint:'#a54bff', paint2:'#7b2fe0', weapon:'#ff3d8b', steel:'#ffae58', motor:'#ffd23d', tire:'#3a2442', dark:'#4b3b60', core:'#1ff0c0' },
+};
+
+// ---------- voxel bot definitions (meters; x forward, y up, z right) ----------
+const E = 1e-6;
+const inBox = (x,y,z,x0,x1,y0,y1,z0,z1) => x>=x0-E && x<=x1+E && y>=y0-E && y<=y1+E && z>=z0-E && z<=z1+E;
+const inCylZ = (x,y,z,cx,cy,r,z0,z1) => (x-cx)**2+(y-cy)**2 <= r*r+E && z>=z0-E && z<=z1+E;
+const snapOff = (v,d) => Math.max(2, Math.round(d/v))*v;
+function addWheels(prims, v, xs, cy, r, zIn){
+  const w = Math.max(v*1.001, 0.07); let n = 1;
+  for (const wx of xs) for (const s of [1,-1]) {
+    prims.push({ part:'wheel'+(n++), side:s,
+      role:(x,y)=> ((x-wx)**2+(y-cy)**2 < (r*0.4)**2) ? 'steel' : 'tire',
+      t:(x,y,z)=> inCylZ(x,y,z*s,wx,cy,r,zIn,zIn+w) });
+  }
+}
+const BOTS = {
+  red(v){
+    const T=Math.max(v*1.001,0.07), A=Math.max(v*1.001,0.05), g=snapOff(v,0.08);
+    const prims = [
+      { part:'weapon', role:(x,y)=> ((x-0.5)**2+(y-0.3)**2 < 0.065**2) ? 'steel' : 'weapon',
+        t:(x,y,z)=> Math.abs(z)<=T/2+E && (((x-0.5)**2+(y-0.3)**2<=0.2**2) || inBox(x,y,z,0.66,0.78,0.25,0.35,-1,1) || inBox(x,y,z,0.22,0.34,0.25,0.35,-1,1)) },
+      { part:'wmotor', role:'motor', t:(x,y,z)=> inCylZ(x,y,z,0.1,0.33,0.075,-0.13,0.13) },
+      { part:'chassis', role:'dark', t:(x,y,z)=> Math.abs(Math.abs(z)-g)<=v/2+E && inBox(x,y,z,0.16,0.58,0.1,0.36,-1,1) },
+      { part:'armor', role:'paint', t:(x,y,z)=> inBox(x,y,z,-0.46,0.2,0.24,0.24+A,-0.29,0.29) },
+      { part:'chassis', role:'paint2', t:(x,y,z)=> inBox(x,y,z,-0.46,0.2,0.06,0.24,-0.29,0.29) },
+    ];
+    addWheels(prims, v, [-0.3,0.06], 0.13, 0.13, 0.31);
+    return { name:'RED DISC', weaponName:'DISC', prims, bounds:[-0.6,0.85,0.7,0.5],
+      pivots:{ weapon:[0.5,0.3,0] }, flyAxisSpin:true,
+      anim(p,dt){ p.weapon.angle += 22*dt; } };
+  },
+  blue(v){
+    const A=Math.max(v*1.001,0.045), P=Math.max(v*1.001,0.05), W=Math.max(v*1.001,0.08);
+    const prims = [
+      { part:'weapon', role:'weapon', t:(x,y,z)=>{ if (x<0.3-E || x>0.8+E) return false; const yc=0.24-(x-0.3)/0.5*0.19, az=Math.abs(z); return Math.abs(y-yc)<=P/2+E && az>=0.1-E && az<=0.1+W+E; } },
+      { part:'weapon', role:'steel', t:(x,y,z)=> inBox(x,y,z,0.14,0.3,0.18,0.3,-0.26,0.26) },
+      { part:'wmotor', role:'motor', t:(x,y,z)=> inCylZ(x,y,z,-0.14,0.32,0.07,-0.16,0.16) },
+      { part:'armor', role:'paint', t:(x,y,z)=> inBox(x,y,z,-0.44,0.2,0.22,0.22+A,-0.29,0.29) },
+      { part:'chassis', role:'paint2', t:(x,y,z)=> inBox(x,y,z,-0.44,0.2,0.05,0.22,-0.29,0.29) },
+    ];
+    addWheels(prims, v, [-0.28,0.04], 0.12, 0.12, 0.31);
+    return { name:'BLUE LIFT', weaponName:'LIFTER', prims, bounds:[-0.6,0.9,0.7,0.5],
+      pivots:{ weapon:[0.18,0.24,0] },
+      anim(p,dt,t){ p.weapon.angle = 0.75*Math.pow(Math.max(0,Math.sin(t*1.9)),2); } };
+  },
+  purple(v){
+    const A=Math.max(v*1.001,0.045), AW=Math.max(v*1.001,0.07), AT=Math.max(v*1.001,0.05), g=snapOff(v,0.07);
+    const prims = [
+      { part:'weapon', role:'weapon', t:(x,y,z)=> inBox(x,y,z,0.44,0.62,0.1,0.42,-0.09,0.09) },
+      { part:'weapon', role:'steel', t:(x,y,z)=> x>=-0.34-E && x<=0.46+E && Math.abs(y-0.36)<=AT/2+E && Math.abs(z)<=AW/2+E },
+      { part:'chassis', role:'dark', t:(x,y,z)=> Math.abs(Math.abs(z)-g)<=v/2+E && inBox(x,y,z,-0.38,-0.18,0.2,0.44,-1,1) },
+      { part:'wmotor', role:'motor', t:(x,y,z)=> inCylZ(x,y,z,0.0,0.29,0.06,-0.15,0.15) },
+      { part:'armor', role:'steel', t:(x,y,z)=> x>0.28 && x<=0.52+E && y<=0.02+0.2*(0.52-x)/0.24+E && Math.abs(z)<=0.28+E },
+      { part:'armor', role:'paint', t:(x,y,z)=> inBox(x,y,z,-0.42,0.28,0.23,0.23+A,-0.28,0.28) },
+      { part:'chassis', role:'paint2', t:(x,y,z)=> inBox(x,y,z,-0.42,0.28,0.05,0.23,-0.28,0.28) },
+    ];
+    addWheels(prims, v, [-0.27,0.1], 0.12, 0.12, 0.3);
+    return { name:'HAMMER TIME', weaponName:'HAMMER', prims, bounds:[-0.6,0.8,0.7,0.5],
+      pivots:{ weapon:[-0.28,0.36,0] },
+      anim(p,dt,t){
+        const c=2.4, ph=(t%c)/c; let a;
+        if (ph<0.5){ const k=ph/0.5; a=2.1*(k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2); }
+        else if (ph<0.62) a=2.1;
+        else if (ph<0.68){ const k=(ph-0.62)/0.06; a=2.1*(1-k*k); }
+        else a=0;
+        const slam = p.weapon.angle>0.05 && a===0;
+        p.weapon.angle=a; return slam ? 'slam' : null;
+      } };
+  },
+};
+const N6 = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+
+// ---------- renderer / scene ----------
+const canvas = document.getElementById('c');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' }); }
+catch (e) { document.getElementById('app').insertAdjacentHTML('beforeend','<div id="err">This mockup needs WebGL, and this browser did not provide it.</div>'); throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#05060a');
+scene.fog = new THREE.Fog('#05060a', 7, 16);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
+camera.position.set(2.1, 1.35, 2.3);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0.1, 0.22, 0);
+controls.enableDamping = true; controls.minDistance = 1.1; controls.maxDistance = 8; controls.maxPolarAngle = 1.5;
+
+scene.add(new THREE.HemisphereLight('#8a96ff', '#0a0610', 0.55));
+const sun = new THREE.DirectionalLight('#ffffff', 1.5);
+sun.position.set(2.5, 5, 2); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera, { left:-3, right:3, top:3, bottom:-3, near:1, far:14 });
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+const botLight = new THREE.PointLight('#fff1a8', 2, 4, 1.6);
+scene.add(botLight);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(14,14), new THREE.MeshStandardMaterial({ color:'#07080e', roughness:0.8, metalness:0.15 }));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(12, 48, '#29e6ff', '#29e6ff');
+grid.material.transparent = true; grid.material.opacity = 0.22; grid.position.y = 0.001; scene.add(grid);
+
+// cube face texture: bright face, dark seam, bevel highlight (the "lit pixel" look)
+function cubeTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#5c5c5c'; g.fillRect(0,0,64,64);
+  g.fillStyle = '#ffffff'; g.fillRect(5,5,54,54);
+  g.fillStyle = '#c9c9c9'; g.fillRect(8,54,51,5); g.fillRect(54,8,5,51);
+  g.fillStyle = '#ffffff'; g.fillRect(5,5,54,4); g.fillRect(5,5,4,54);
+  g.fillStyle = '#ececec'; g.fillRect(18,18,28,28);
+  g.fillStyle = '#f7f7f7'; g.fillRect(22,22,20,20);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const glowU = { value: 0.85 };
+const cubeMat = new THREE.MeshStandardMaterial({ map: cubeTexture(), roughness:0.55, metalness:0.05 });
+cubeMat.onBeforeCompile = (sh) => {
+  sh.uniforms.uGlow = glowU;
+  sh.fragmentShader = 'uniform float uGlow;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>',
+    '#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * uGlow;');
+};
+const cubeGeo = new THREE.BoxGeometry(1,1,1);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256,256), 0.9, 0.55, 0.55);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function resize(){
+  const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+  renderer.setSize(w, h, false); composer.setSize(w, h);
+  camera.aspect = w/h;
+  camera.position.multiplyScalar(1); camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas);
+
+// ---------- sparks ----------
+const SPARKS = 420;
+const sparkMesh = new THREE.InstancedMesh(cubeGeo, new THREE.MeshBasicMaterial({ toneMapped:false }), SPARKS);
+sparkMesh.frustumCulled = false;
+const sp = Array.from({length:SPARKS}, () => ({ p:new THREE.Vector3(), v:new THREE.Vector3(), life:0, max:1 }));
+for (let i=0;i<SPARKS;i++){ sparkMesh.setColorAt(i, new THREE.Color(1,1,1)); }
+scene.add(sparkMesh);
+let spIdx = 0;
+function sparks(P, n, color, speed=3){
+  const c = color.clone().multiplyScalar(2.2);
+  for (let k=0;k<n;k++){
+    const s = sp[spIdx]; s.p.copy(P);
+    s.v.set(Math.random()-.5, Math.random()-.2, Math.random()-.5).normalize().multiplyScalar(speed*(0.5+Math.random()));
+    s.v.y += 1.2; s.max = s.life = 0.25 + Math.random()*0.45;
+    sparkMesh.setColorAt(spIdx, c); spIdx = (spIdx+1) % SPARKS;
+  }
+  sparkMesh.instanceColor.needsUpdate = true;
+}
+
+// ---------- state ----------
+let vox = [], nbr = null, mesh = null, def = null, parts = {}, chunks = [], vSize = 0.05;
+let score = 0, KO = false, koPending = -1, koSlow = 0, shake = 0, flashLight = 0, simT = 0, autoT = 0, resetT = -1;
+const botPos = new THREE.Vector3(), botQ = new THREE.Quaternion(); let rotY = -0.5;
+const Y = new THREE.Vector3(0,1,0), Z = new THREE.Vector3(0,0,1);
+const _m = new THREE.Matrix4(), _t = new THREE.Matrix4(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _c = new THREE.Color();
+const GROUPS = () => [
+  { label:def.weaponName, parts:['weapon'] }, { label:'WPN MOTOR', parts:['wmotor'] },
+  { label:'ARMOR', parts:['armor'] }, { label:'CHASSIS', parts:['chassis'] },
+  { label:'WHEELS', parts:['wheel1','wheel2','wheel3','wheel4'] },
+];
+
+function build(){
+  if (mesh){ scene.remove(mesh); mesh.dispose(); }
+  vSize = +S.size; def = BOTS[S.bot](vSize);
+  const v = vSize, [x0,x1,ymax,zmax] = def.bounds;
+  const map = new Map(); vox = [];
+  for (let i=Math.floor(x0/v); i<=Math.ceil(x1/v); i++)
+    for (let j=0; j<Math.ceil(ymax/v); j++)
+      for (let k=-Math.ceil(zmax/v); k<=Math.ceil(zmax/v); k++){
+        const x=i*v, y=(j+0.5)*v, z=k*v;
+        for (const p of def.prims) if (p.t(x,y,z)) {
+          const role = typeof p.role === 'function' ? p.role(x,y,z) : p.role;
+          const o = { i,j,k, part:p.part, role, local:new THREE.Vector3(x,y,z), state:0,
+            pos:new THREE.Vector3(), quat:new THREE.Quaternion(), vel:new THREE.Vector3(), av:new THREE.Vector3(),
+            scale:1, life:0, tq:null, base:new THREE.Color(), col:new THREE.Color(), core:false, phase:0 };
+          map.set(i+','+j+','+k, vox.length); vox.push(o); break;
+        }
+      }
+  nbr = new Int32Array(vox.length*6);
+  vox.forEach((o,idx) => {
+    let same = 0;
+    N6.forEach(([a,b,c],d) => { const n = map.get((o.i+a)+','+(o.j+b)+','+(o.k+c)); nbr[idx*6+d] = n===undefined ? -1 : n; if (n!==undefined && vox[n].part===o.part) same++; });
+    o.core = same===6;
+    o.phase = (o.local.x*1.2 + o.local.y*2.0 + o.local.z*0.7)*9 + Math.random()*0.6;
+  });
+  mesh = new THREE.InstancedMesh(cubeGeo, cubeMat, vox.length);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
+  scene.add(mesh);
+  parts = {};
+  for (const o of vox) if (!parts[o.part]) {
+    const pv = def.pivots[o.part] || [0,0,0];
+    parts[o.part] = { pivot:new THREE.Vector3(...pv), angle:0, q:new THREE.Quaternion(), wq:new THREE.Quaternion(), M:new THREE.Matrix4(), total:0, left:0 };
+  }
+  for (const o of vox) parts[o.part].total++;
+  for (const o of vox){ o.pos.copy(o.local).applyQuaternion(botQ.setFromAxisAngle(Y, rotY)).add(botPos); o.quat.copy(botQ); }
+  chunks = []; KO = false; koPending = -1; resetT = -1; simT = 0;
+  recolor(); buildBars();
+}
+
+function recolor(){
+  const pal = PAL[S.bot];
+  for (let i=0;i<vox.length;i++){
+    const o = vox[i];
+    o.base.set(pal[o.role] || pal.paint).multiplyScalar(0.86 + Math.random()*0.28);
+    if (o.core) o.col.set(S.core ? pal.core : pal[o.role]).multiplyScalar(S.core ? 1.25 : 0.5);
+    else o.col.copy(o.base);
+    mesh.setColorAt(i, o.col);
+  }
+  mesh.instanceColor.needsUpdate = true;
+  botLight.color.set(pal.core);
+}
+
+function exposed(i){ for (let d=0; d<6; d++){ const n = nbr[i*6+d]; if (n<0 || vox[n].state!==0) return true; } return false; }
+function botCenter(){ return _p.set(0.1,0.22,0).applyQuaternion(botQ).add(botPos).clone(); }
+const rnd = (a,b) => a + Math.random()*(b-a);
+const randVec = (s) => new THREE.Vector3(rnd(-s,s), rnd(-s,s), rnd(-s,s));
+
+function free(o, vel){
+  o.state = 2; o.vel.copy(vel); o.av.copy(randVec(12)); o.life = 0;
+  o.tq = new THREE.Quaternion().setFromAxisAngle(Y, Math.random()*Math.PI*2);
+}
+
+// ---------- damage ----------
+const WORDS = ['POW!','CRUNCH!','BONK!','ZAP!','KRAK!','WHAM!','CLANG!'];
+function hitAt(idx, power){
+  if (KO) return;
+  const P = vox[idx].pos.clone(), C = botCenter(), r = vSize*power;
+  let n = 0;
+  for (const o of vox){
+    if (o.state!==0) continue;
+    if (o.pos.distanceTo(P) <= r){
+      const out = o.pos.clone().sub(C); out.y = Math.max(out.y, 0.05); out.normalize();
+      free(o, out.multiplyScalar(rnd(1.4,3.6)).add(new THREE.Vector3(0, rnd(1.2,3.4), 0)).add(randVec(0.9)));
+      n++;
+    }
+  }
+  if (!n) return;
+  sparks(P, 22, vox[idx].base, 3.2);
+  score += n*10; shake = Math.max(shake, 0.035); flashLight = Math.max(flashLight, 1.2);
+  pop(P, WORDS[Math.floor(Math.random()*WORDS.length)], '-'+n+' CUBES');
+  checkKO();
+}
+function randomHit(){
+  const cand = [];
+  for (let i=0;i<vox.length;i++) if (vox[i].state===0 && exposed(i)) cand.push(i);
+  if (cand.length) hitAt(cand[Math.floor(Math.random()*cand.length)], rnd(1.6,2.9));
+}
+
+function breakPart(ids, vel, av, label, life=0.9){
+  if (KO) return false;
+  const list = vox.filter(o => o.state===0 && ids.includes(o.part));
+  if (!list.length) return false;
+  const center = new THREE.Vector3(); list.forEach(o => center.add(o.pos)); center.divideScalar(list.length);
+  const c = { list, center, vel, av, q:new THREE.Quaternion(), offs:list.map(o=>o.pos.clone().sub(center)), q0:list.map(o=>o.quat.clone()), t:0, life, bounces:0 };
+  list.forEach(o => o.state = 1);
+  chunks.push(c);
+  sparks(center, 60, list[0].base, 4.5);
+  score += 500; shake = Math.max(shake, 0.07); flashLight = 2.5;
+  pop(center, label, '+500');
+  checkKO();
+  return true;
+}
+function crumble(c){
+  const w = new THREE.Vector3();
+  c.list.forEach(o => {
+    if (o.state!==1) return;
+    const r = o.pos.clone().sub(c.center);
+    w.copy(c.av).cross(r);
+    free(o, c.vel.clone().add(w.multiplyScalar(0.6)).add(randVec(1.1)).add(new THREE.Vector3(0, rnd(0.4,1.6), 0)));
+  });
+  sparks(c.center, 30, c.list[0].base, 3);
+  c.dead = true;
+}
+function breakWeapon(){
+  const fwd = new THREE.Vector3(1,0,0).applyQuaternion(botQ);
+  const av = def.flyAxisSpin ? Z.clone().applyQuaternion(botQ).multiplyScalar(26) : randVec(7);
+  breakPart(['weapon'], fwd.multiplyScalar(2.2).add(new THREE.Vector3(0,3.6,0)), av, def.weaponName+' OFF!');
+}
+function breakWheel(){
+  for (const id of ['wheel3','wheel1','wheel4','wheel2']){
+    if (!parts[id] || !vox.some(o => o.state===0 && o.part===id)) continue;
+    const s = id==='wheel1'||id==='wheel3' ? 1 : -1;
+    const side = new THREE.Vector3(0,0,s).applyQuaternion(botQ);
+    const av = Z.clone().applyQuaternion(botQ).multiplyScalar(-14).add(randVec(2));
+    if (breakPart([id], side.multiplyScalar(2.6).add(new THREE.Vector3(0,2.6,0)), av, 'WHEEL OFF!', 1.5)) return;
+  }
+}
+function knockout(){
+  if (KO) return;
+  KO = true; koPending = -1;
+  const C = botCenter();
+  chunks.forEach(c => c.dead = true); chunks = [];
+  for (const o of vox){
+    if (o.state!==0 && o.state!==1) continue;
+    const out = o.pos.clone().sub(C); out.y = Math.abs(out.y)+0.15; out.normalize();
+    free(o, out.multiplyScalar(rnd(2.5,7.5)).add(new THREE.Vector3(0, rnd(1.5,4.5), 0)).add(randVec(1.2)));
+    o.av.copy(randVec(18));
+  }
+  sparks(C, 160, new THREE.Color(PAL[S.bot].core), 6);
+  score += 1000; shake = 0.16; flashLight = 3; koSlow = reduced ? 0 : 0.9;
+  const f = document.getElementById('flash'); f.style.transition = 'none'; f.style.opacity = reduced ? '0' : '0.55';
+  requestAnimationFrame(() => { f.style.transition = 'opacity .6s ease-out'; f.style.opacity = '0'; });
+  pop(C.clone().add(new THREE.Vector3(0,0.4,0)), 'K.O.!', '+1000  '+def.name+' DESTROYED', true);
+  if (S.auto) resetT = 3.2;
+}
+function checkKO(){
+  let left = 0; for (const o of vox) if (o.state===0) left++;
+  if (!KO && koPending<0 && left < vox.length*0.3) koPending = 0.35;
+}
+
+// ---------- popups / HUD ----------
+const fx = document.getElementById('fx');
+function pop(P, big, small, isBig=false){
+  const v = P.clone().project(camera);
+  const r = canvas.getBoundingClientRect();
+  const el = document.createElement('div'); el.className = 'pop' + (isBig ? ' big' : '');
+  el.style.left = ((v.x*0.5+0.5)*r.width) + 'px'; el.style.top = ((-v.y*0.5+0.5)*r.height - 30) + 'px';
+  el.innerHTML = '<b></b><i></i>'; el.querySelector('b').textContent = big; el.querySelector('i').textContent = small;
+  fx.appendChild(el); setTimeout(() => el.remove(), isBig ? 1500 : 1150);
+  if (isBig) el.style.animationDuration = '1.5s';
+}
+const barsEl = document.getElementById('bars'), scoreEl = document.getElementById('score');
+let barRefs = [];
+function buildBars(){
+  barsEl.innerHTML = ''; barRefs = [];
+  for (const g of GROUPS()){
+    const row = document.createElement('div'); row.className = 'bar';
+    row.innerHTML = '<span class="n"></span><span class="track"><span class="fill"></span></span><span class="v"></span>';
+    row.querySelector('.n').textContent = g.label;
+    barsEl.appendChild(row); barRefs.push({ g, fill:row.querySelector('.fill'), val:row.querySelector('.v') });
+  }
+  updateBars();
+}
+function updateBars(){
+  for (const p of Object.values(parts)) p.left = 0;
+  for (const o of vox) if (o.state===0) parts[o.part].left++;
+  for (const b of barRefs){
+    let t=0, l=0; b.g.parts.forEach(id => { if (parts[id]){ t+=parts[id].total; l+=parts[id].left; } });
+    const f = t ? l/t : 0;
+    b.fill.style.width = (f*100).toFixed(1)+'%'; b.fill.classList.toggle('low', f<0.35);
+    b.val.textContent = l+'/'+t;
+  }
+  scoreEl.textContent = String(score).padStart(6,'0');
+}
+
+// ---------- main loop ----------
+const G = 9.8; let last = performance.now(), barT = 0;
+function frame(now){
+  const dtR = Math.min(0.05, (now-last)/1000); last = now;
+  if (koSlow>0) koSlow -= dtR;
+  const dt = dtR * (S.slow ? 0.3 : 1) * (koSlow>0 ? 0.35 : 1);
+  simT += dt;
+  const st = STYLES[S.style], v = vSize, gap = st.gap;
+
+  if (S.spin) rotY += 0.32*dt;
+  botQ.setFromAxisAngle(Y, rotY);
+  if (S.weapon && !KO && parts.weapon){
+    const ev = def.anim(parts, dt, simT);
+    if (ev==='slam' && vox.some(o=>o.part==='weapon'&&o.state===0)){
+      const head = new THREE.Vector3(0.53,0.08,0).applyMatrix4(_m.compose(botPos,botQ,_s.set(1,1,1)));
+      sparks(head, 26, new THREE.Color(PAL[S.bot].steel), 2.6); shake = Math.max(shake,0.03);
+    }
+  }
+  _m.compose(botPos, botQ, _s.set(1,1,1));
+  for (const p of Object.values(parts)){
+    p.q.setFromAxisAngle(Z, p.angle);
+    p.wq.copy(botQ).multiply(p.q);
+    p.M.makeTranslation(-p.pivot.x,-p.pivot.y,-p.pivot.z);
+    p.M.premultiply(_t.makeRotationFromQuaternion(p.q));
+    p.M.premultiply(_t.makeTranslation(p.pivot.x,p.pivot.y,p.pivot.z));
+    p.M.premultiply(_m);
+  }
+
+  // chunks (parts knocked off whole)
+  for (const c of chunks){
+    if (c.dead) continue;
+    c.t += dt; c.vel.y -= G*dt; c.center.addScaledVector(c.vel, dt);
+    const ang = c.av.length()*dt;
+    if (ang>0){ _q.setFromAxisAngle(_p.copy(c.av).normalize(), ang); c.q.premultiply(_q); }
+    let minY = Infinity;
+    c.list.forEach((o,j) => { o.pos.copy(c.offs[j]).applyQuaternion(c.q).add(c.center); o.quat.copy(c.q).multiply(c.q0[j]); if (o.pos.y<minY) minY=o.pos.y; });
+    const h = v*gap*0.5;
+    if (minY < h){
+      const lift = h-minY; c.center.y += lift; c.list.forEach(o=>o.pos.y+=lift);
+      if (c.vel.y<0){ c.vel.y *= -0.4; c.vel.x *= 0.7; c.vel.z *= 0.7; c.av.multiplyScalar(0.6); c.bounces++; }
+    }
+    if (c.t>c.life || c.bounces>=2) crumble(c);
+  }
+  chunks = chunks.filter(c => !c.dead);
+
+  const shimmer = S.style==='shimmer';
+  for (let i=0;i<vox.length;i++){
+    const o = vox[i];
+    if (o.state===0){ o.pos.copy(o.local).applyMatrix4(parts[o.part].M); o.quat.copy(parts[o.part].wq); }
+    else if (o.state===2){
+      o.vel.y -= G*dt; o.pos.addScaledVector(o.vel, dt);
+      const ang = o.av.length()*dt;
+      if (ang>1e-5){ _q.setFromAxisAngle(_p.copy(o.av).normalize(), ang); o.quat.premultiply(_q); }
+      const h = v*gap*0.5;
+      if (o.pos.y < h){
+        o.pos.y = h;
+        if (o.vel.y<0){ o.vel.y *= -0.32; o.vel.x *= 0.72; o.vel.z *= 0.72; o.av.multiplyScalar(0.55); if (Math.abs(o.vel.y)<0.35) o.vel.y = 0; }
+      }
+      if (o.pos.y <= h+1e-4 && o.vel.lengthSq() < 0.03){
+        o.vel.multiplyScalar(0.5); o.av.multiplyScalar(0.7); o.quat.slerp(o.tq, Math.min(1, 9*dt));
+      }
+      if (Math.abs(o.pos.x)>5.8){ o.pos.x = Math.sign(o.pos.x)*5.8; o.vel.x *= -0.4; }
+      if (Math.abs(o.pos.z)>5.8){ o.pos.z = Math.sign(o.pos.z)*5.8; o.vel.z *= -0.4; }
+      o.life += dt;
+      if (!S.stays && o.life>2.4){ o.scale = Math.max(0, 1-(o.life-2.4)/0.8); if (o.scale===0) o.state = 3; }
+      else o.scale = 1;
+    }
+    const s = o.state===3 ? 0 : v*gap*o.scale;
+    mesh.setMatrixAt(i, _t.compose(o.pos, o.quat, _s.set(s,s,s)));
+    if (shimmer && o.state!==3){
+      if (o.core && S.core) _c.copy(o.col).multiplyScalar(0.8+0.4*Math.sin(simT*6+o.phase));
+      else { const b = Math.pow(0.5+0.5*Math.sin(simT*5 - o.phase), 10); _c.copy(o.base).multiplyScalar(0.2 + 2.3*b); }
+      mesh.setColorAt(i, _c);
+    }
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  if (shimmer) mesh.instanceColor.needsUpdate = true;
+
+  for (let i=0;i<SPARKS;i++){
+    const s = sp[i]; let k = 0;
+    if (s.life>0){ s.life -= dt; s.v.y -= G*dt; s.p.addScaledVector(s.v, dt); if (s.p.y<0.01){ s.p.y=0.01; s.v.y*=-0.3; } k = Math.max(0, s.life/s.max)*v*0.45; }
+    sparkMesh.setMatrixAt(i, _t.compose(s.p, _q.identity(), _s.set(k,k,k)));
+  }
+  sparkMesh.instanceMatrix.needsUpdate = true;
+
+  if (koPending>=0){ koPending -= dt; if (koPending<0) knockout(); }
+  if (S.auto && !KO){ autoT -= dt; if (autoT<=0){ autoT = rnd(0.35,0.75); const r = Math.random(); if (r<0.08) breakWeapon(); else if (r<0.16) breakWheel(); else randomHit(); } }
+  if (resetT>0){ resetT -= dtR; if (resetT<=0){ resetT = -1; build(); } }
+
+  let left = 0; for (const o of vox) if (o.state===0) left++;
+  flashLight = Math.max(0, flashLight - dtR*6);
+  botLight.position.copy(botCenter()).add(new THREE.Vector3(0,0.25,0));
+  botLight.intensity = st.light*(left/vox.length) + flashLight;
+
+  barT -= dtR; if (barT<=0){ barT = 0.12; updateBars(); }
+
+  controls.update();
+  shake = Math.max(0, shake - dtR*0.5);
+  const sh = reduced ? 0 : shake;
+  const off = new THREE.Vector3(rnd(-sh,sh), rnd(-sh,sh), rnd(-sh,sh));
+  camera.position.add(off);
+  composer.render();
+  camera.position.sub(off);
+  requestAnimationFrame(frame);
+}
+
+// ---------- UI ----------
+function applyStyle(){
+  const st = STYLES[S.style];
+  glowU.value = st.glow; cubeMat.roughness = st.rough; cubeMat.metalness = st.metal;
+  [bloom.strength, bloom.radius, bloom.threshold] = st.bloom;
+  if (S.style!=='shimmer' && mesh){ vox.forEach((o,i) => mesh.setColorAt(i, o.col)); mesh.instanceColor.needsUpdate = true; }
+  grid.visible = S.grid;
+}
+function syncUI(){
+  document.querySelectorAll('.seg').forEach(seg => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(S[seg.dataset.key]===b.dataset.v))));
+  document.querySelectorAll('.tog').forEach(b => b.setAttribute('aria-pressed', String(!!S[b.dataset.t])));
+  document.getElementById('aAuto').setAttribute('aria-pressed', String(S.auto));
+}
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S[seg.dataset.key] = b.dataset.v;
+  if (seg.dataset.key!=='style') build();
+  applyStyle(); syncUI();
+}));
+document.querySelectorAll('.tog').forEach(b => b.addEventListener('click', () => {
+  S[b.dataset.t] = !S[b.dataset.t];
+  if (b.dataset.t==='core') recolor();
+  applyStyle(); syncUI();
+}));
+const toggleAuto = () => { S.auto = !S.auto; if (S.auto && KO) resetT = 1.2; syncUI(); };
+const doReset = () => { build(); applyStyle(); };
+document.getElementById('aHit').onclick = randomHit;
+document.getElementById('aWpn').onclick = breakWeapon;
+document.getElementById('aWhl').onclick = breakWheel;
+document.getElementById('aKo').onclick = knockout;
+document.getElementById('aAuto').onclick = toggleAuto;
+document.getElementById('aReset').onclick = doReset;
+document.getElementById('styleBtn').onclick = () => document.getElementById('panel').classList.toggle('open');
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input,textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k==='h') randomHit(); else if (k==='w') breakWeapon(); else if (k==='e') breakWheel();
+  else if (k==='k') knockout(); else if (k==='a') toggleAuto(); else if (k==='r') doReset();
+});
+
+// click the bot to hit it (ignore drags)
+const ray = new THREE.Raycaster(); let down = null;
+canvas.addEventListener('pointerdown', e => { down = { x:e.clientX, y:e.clientY }; });
+canvas.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX-down.x, e.clientY-down.y) > 6) { down = null; return; }
+  down = null;
+  const r = canvas.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1), camera);
+  mesh.computeBoundingSphere();
+  const hit = ray.intersectObject(mesh).find(h => vox[h.instanceId] && vox[h.instanceId].state===0);
+  if (hit) hitAt(hit.instanceId, rnd(1.8,2.6));
+});
+
+build(); applyStyle(); syncUI(); resize();
+if (innerWidth < innerHeight) camera.position.set(2.9, 2.1, 3.3);
+window.__cb = { S, vox:()=>vox, randomHit, breakWeapon, breakWheel, knockout, build, applyStyle, syncUI };
+requestAnimationFrame(frame);
+</script>
+
+</body></html>
